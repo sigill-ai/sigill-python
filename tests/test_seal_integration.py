@@ -25,7 +25,7 @@ from sigill_sdk import (
     TimestampUnavailable,
     HashMismatch,
 )
-from tests._tsr_factory import make_tsr
+from _tsr_factory import make_tsr
 
 
 def _make_mock_transport(handler):

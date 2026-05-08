@@ -64,7 +64,9 @@ include = ["/src", "/tests", "/README.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+# Both src/ and tests/ on sys.path: src/ for `import sigill_sdk`, tests/ so test
+# helpers (like _tsr_factory) are importable as flat modules from any test file.
+pythonpath = ["src", "tests"]
 addopts = "-ra --strict-markers"
 filterwarnings = ["error"]
 

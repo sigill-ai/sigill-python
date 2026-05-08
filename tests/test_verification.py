@@ -27,7 +27,7 @@ from sigill_sdk import (
     VerificationIssueKind,
     compute_envelope_hash,
 )
-from tests._tsr_factory import make_tsr
+from _tsr_factory import make_tsr
 
 
 @pytest.fixture
