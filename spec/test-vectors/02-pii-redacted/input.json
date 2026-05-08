@@ -1,0 +1,68 @@
+{
+  "schemaName": "AiEvidenceEnvelope",
+  "schemaVersion": "1",
+  "evidenceId": "01957f40-1b3c-7d2a-9e4f-7a2c1b3d4e5f",
+  "createdAt": "2026-05-08T12:30:00Z",
+  "purpose": {
+    "category": "classification",
+    "businessContext": "kyc-document-classification",
+    "regulatoryBasis": ["EU-AI-Act:Annex-III"]
+  },
+  "actor": {
+    "type": "user",
+    "id": "user-9b2f1a",
+    "tenantId": "tenant-acme",
+    "displayHint": "compliance-officer"
+  },
+  "activity": {
+    "name": "kyc.classify",
+    "correlationId": "trace-def-456"
+  },
+  "model": {
+    "provider": "anthropic",
+    "name": "claude-opus-4-7",
+    "parameters": {
+      "max_tokens": 256,
+      "temperature": 0.0
+    }
+  },
+  "prompt": {
+    "ref": "prompt",
+    "contentType": "text/plain",
+    "encoding": "utf-8"
+  },
+  "retrievedContext": [
+    {
+      "ref": "ctx-1",
+      "contentType": "text/plain",
+      "encoding": "utf-8",
+      "rank": 0,
+      "score": 0.91,
+      "source": "kyc-policy-2026-q2"
+    }
+  ],
+  "output": {
+    "ref": "output",
+    "contentType": "application/json",
+    "encoding": "utf-8"
+  },
+  "processingMetadata": {
+    "startedAt": "2026-05-08T12:30:00Z",
+    "completedAt": "2026-05-08T12:30:00Z",
+    "durationMs": 412,
+    "tokenUsage": {
+      "input": 542,
+      "output": 23,
+      "total": 565
+    }
+  },
+  "policyMetadata": {
+    "redactionApplied": true,
+    "redactionPolicy": "pii-redaction-v3",
+    "consent": {
+      "scope": "kyc-processing",
+      "obtainedAt": "2026-05-01T09:00:00Z",
+      "reference": "consent-record-7c3d"
+    }
+  }
+}

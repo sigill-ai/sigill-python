@@ -1,0 +1,1 @@
+Classify the attached identity document. Subject: Jane Doe, born 1985-03-14, passport NO12345678.
