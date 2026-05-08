@@ -1,0 +1,1 @@
+KYC policy 2026-Q2: identity documents must be classified into one of {passport, national_id, drivers_license, residence_permit}.

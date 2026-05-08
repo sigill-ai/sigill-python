@@ -1,0 +1,71 @@
+"""Sigill SDK — AI Evidence Envelopes.
+
+A Python SDK for sealing and verifying AiEvidenceEnvelopeV1 records, backed by
+RFC 3161 timestamps from the Sigill timestamping service.
+
+Quick start:
+
+    from sigill_sdk import SigillClient, EnvelopeBuilder
+
+    client = SigillClient(api_key="...")
+
+    envelope = (
+        EnvelopeBuilder()
+        .with_purpose(category="summarization")
+        .with_actor(type="service", id="my-service")
+        .with_activity(name="ticket.summarize")
+        .with_model(provider="anthropic", name="claude-opus-4-7")
+        .with_prompt_inline("Summarise this ticket.")
+        .with_output_inline("Login fails after password reset.")
+        .build()
+    )
+
+    sealed = client.seal(envelope)
+    result = client.verify(sealed, external_payloads={})
+    assert result.is_valid
+
+The full spec lives at https://github.com/sigill-ai/sigill-python/blob/main/spec/README.md
+"""
+
+from sigill_sdk._envelope import (
+    AiEvidenceEnvelopeInput,
+    SealedAiEvidenceEnvelope,
+    EnvelopeBuilder,
+    PayloadRef,
+    ContentHash,
+)
+from sigill_sdk._client import SigillClient, ISigillAiEvidenceClient
+from sigill_sdk._verify import (
+    AiEvidenceVerificationResult,
+    VerificationIssue,
+    VerificationIssueKind,
+)
+from sigill_sdk._errors import (
+    SigillError,
+    CanonicalizationFailed,
+    HashMismatch,
+    InvalidProof,
+    TimestampUnavailable,
+)
+from sigill_sdk._canonical import canonicalize, compute_envelope_hash
+
+__version__ = "0.1.0"
+__all__ = [
+    "SigillClient",
+    "ISigillAiEvidenceClient",
+    "EnvelopeBuilder",
+    "AiEvidenceEnvelopeInput",
+    "SealedAiEvidenceEnvelope",
+    "PayloadRef",
+    "ContentHash",
+    "AiEvidenceVerificationResult",
+    "VerificationIssue",
+    "VerificationIssueKind",
+    "SigillError",
+    "CanonicalizationFailed",
+    "HashMismatch",
+    "InvalidProof",
+    "TimestampUnavailable",
+    "canonicalize",
+    "compute_envelope_hash",
+]

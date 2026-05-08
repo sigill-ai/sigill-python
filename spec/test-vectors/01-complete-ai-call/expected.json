@@ -1,0 +1,58 @@
+{
+  "schemaName": "AiEvidenceEnvelope",
+  "schemaVersion": "1",
+  "evidenceId": "01957f3e-2c4d-7c3b-a1d2-3a8b9e1f4c2d",
+  "createdAt": "2026-05-08T12:00:00Z",
+  "purpose": {
+    "category": "summarization",
+    "businessContext": "support-ticket-summary"
+  },
+  "actor": {
+    "type": "service",
+    "id": "svc-support-summarizer",
+    "tenantId": "tenant-acme"
+  },
+  "activity": {
+    "name": "ticket.summarize",
+    "correlationId": "trace-abc-123"
+  },
+  "model": {
+    "provider": "anthropic",
+    "name": "claude-opus-4-7",
+    "parameters": {
+      "max_tokens": 1024,
+      "temperature": 0.2
+    }
+  },
+  "prompt": {
+    "contentType": "text/plain",
+    "encoding": "utf-8",
+    "inline": "Summarize the following support ticket in three bullet points."
+  },
+  "output": {
+    "contentType": "text/plain",
+    "encoding": "utf-8",
+    "inline": "Customer reports login fails after password reset; affected since Tuesday; workaround unknown."
+  },
+  "processingMetadata": {
+    "startedAt": "2026-05-08T12:00:00Z",
+    "completedAt": "2026-05-08T12:00:01Z",
+    "durationMs": 1042,
+    "tokenUsage": {
+      "input": 87,
+      "output": 31,
+      "total": 118
+    },
+    "stopReason": "end_turn"
+  },
+  "policyMetadata": {
+    "redactionApplied": false
+  },
+  "integrity": {
+    "canonicalization": "RFC8785",
+    "envelopeHash": {
+      "alg": "SHA-256",
+      "hex": "4954fe63a28ef768a3c32dc0fe676f1f7e89055d52ab1c4cf8b7588abaf5e65f"
+    }
+  }
+}
