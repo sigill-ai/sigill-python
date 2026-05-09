@@ -1,7 +1,7 @@
 # sigill-sdk (Python)
 
 [![PyPI](https://img.shields.io/pypi/v/sigill-sdk.svg)](https://pypi.org/project/sigill-sdk/)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](https://github.com/sigill-ai/sigill-python/blob/main/LICENSE)
 
 Tamper-evident **AI evidence envelopes** for Python. Build an `AiEvidenceEnvelopeV1`
 record of any AI generation, seal it with an RFC 3161 timestamp via [Sigill](https://sigill.ai),
@@ -13,8 +13,8 @@ and metadata; you get back a signed envelope. Apps don't need to implement
 canonicalization, hash binding, or timestamp protocol logic themselves.
 
 For the underlying spec — what's in an envelope, what gets hashed in what order, what
-"valid" means — see [`spec/README.md`](spec/README.md). The same spec ships in this
-repo's sibling: the [.NET SDK at sigill-dotnet](https://github.com/sigill-ai/sigill-dotnet).
+"valid" means — see [`spec/README.md`](https://github.com/sigill-ai/sigill-python/blob/main/spec/README.md).
+The same spec ships in this repo's sibling: the [.NET SDK at sigill-dotnet](https://github.com/sigill-ai/sigill-dotnet).
 Identical test vectors, byte-compatible output.
 
 ## Install
@@ -145,9 +145,9 @@ share the same spec, JSON Schema, and test vectors. An envelope sealed by either
 SDK verifies with either SDK — the canonical bytes are byte-identical.
 
 The interop guarantee is enforced by tests: both test suites read the same files
-under [`spec/test-vectors/`](spec/test-vectors/) and assert that their canonical
-output matches the committed reference bytes. The `spec/` directory in this repo
-is a vendored copy; the canonical source lives under `spec/` in
+under [`spec/test-vectors/`](https://github.com/sigill-ai/sigill-python/blob/main/spec/test-vectors/)
+and assert that their canonical output matches the committed reference bytes. The `spec/` directory
+in this repo is a vendored copy; the canonical source lives under `spec/` in
 [sigill-dotnet](https://github.com/sigill-ai/sigill-dotnet) too, and the bytes are
 byte-identical between the two.
 
@@ -167,7 +167,7 @@ sealed = client.seal(envelope, tsa_slug="skid-ecc",           # eIDAS Qualified
                      qualified=True)
 ```
 
-Available slugs and their properties: see [Sigill's TSA documentation](https://docs.sigill.ai).
+Available slugs and their properties: see [Sigill's TSA documentation](https://sigill.ai/docs).
 
 ## Async / context manager
 
@@ -218,4 +218,4 @@ The 39-test suite runs offline in <1s. CI runs against Python 3.9 through 3.13.
 
 ## License
 
-Apache 2.0 — see [`LICENSE`](LICENSE).
+Apache 2.0 — see [`LICENSE`](https://github.com/sigill-ai/sigill-python/blob/main/LICENSE).
