@@ -70,6 +70,7 @@ def test_envelope_hash_is_independent_of_proofs(vectors_dir: Path) -> None:
 # --------------------------------------------------------------------------- determinism
 
 
+@pytest.mark.filterwarnings("ignore::sigill_sdk.InlineContentWarning")
 def test_builder_is_deterministic_with_pinned_id_and_time() -> None:
     """The EnvelopeBuilder produces the same canonical hash on repeated calls when
     evidence_id and created_at are pinned. Without pinning they vary by design."""

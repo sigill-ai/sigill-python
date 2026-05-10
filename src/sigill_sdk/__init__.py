@@ -15,13 +15,14 @@ Quick start:
         .with_actor(type="service", id="my-service")
         .with_activity(name="ticket.summarize")
         .with_model(provider="anthropic", name="claude-opus-4-7")
-        .with_prompt_inline("Summarise this ticket.")
-        .with_output_inline("Login fails after password reset.")
+        .with_prompt_ref("prompt")    # hash-ref keeps content out of Sigill
+        .with_output_ref("output")
         .build()
     )
 
-    sealed = client.seal(envelope)
-    result = client.verify(sealed, external_payloads={})
+    payloads = {"prompt": b"Summarise this ticket.", "output": b"Login fails after password reset."}
+    sealed = client.seal(envelope, external_payloads=payloads)
+    result = client.verify(sealed, external_payloads=payloads)
     assert result.is_valid
 
 The full spec lives at https://github.com/sigill-ai/sigill-python/blob/main/spec/README.md
@@ -46,6 +47,7 @@ from sigill_sdk._errors import (
     HashMismatch,
     InvalidProof,
     TimestampUnavailable,
+    InlineContentWarning,
 )
 from sigill_sdk._canonical import canonicalize, compute_envelope_hash
 
@@ -66,6 +68,7 @@ __all__ = [
     "HashMismatch",
     "InvalidProof",
     "TimestampUnavailable",
+    "InlineContentWarning",
     "canonicalize",
     "compute_envelope_hash",
 ]

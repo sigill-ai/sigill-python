@@ -18,6 +18,21 @@ class SigillError(Exception):
     """Base class for all Sigill SDK errors."""
 
 
+class InlineContentWarning(UserWarning):
+    """Issued when content is embedded inline in an envelope.
+
+    Inline content is transmitted to Sigill as part of the envelope. For fields that
+    may carry sensitive data (prompt, output) use the hash-reference form instead:
+    call with_prompt_ref() / with_output_ref() and supply the raw bytes via
+    external_payloads at seal() time. Sigill will never see the bytes — only their hash.
+
+    To suppress this warning when inline content is genuinely non-sensitive::
+
+        import warnings, sigill_sdk
+        warnings.filterwarnings("ignore", category=sigill_sdk.InlineContentWarning)
+    """
+
+
 class CanonicalizationFailed(SigillError):
     """The envelope cannot be canonicalized.
 

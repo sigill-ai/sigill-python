@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from sigill_sdk import EnvelopeBuilder
+from sigill_sdk import EnvelopeBuilder, InlineContentWarning
 
 
 def test_minimal_envelope_builds() -> None:
@@ -36,20 +36,31 @@ def test_missing_required_fields_raise_value_error() -> None:
 
 
 def test_inline_prompt_shape() -> None:
-    env = (
-        EnvelopeBuilder()
-        .with_purpose(category="x")
-        .with_actor(type="user", id="u")
-        .with_activity(name="a")
-        .with_model(provider="p", name="n")
-        .with_prompt_inline("hi", content_type="text/plain")
-        .build()
-    )
+    with pytest.warns(InlineContentWarning):
+        env = (
+            EnvelopeBuilder()
+            .with_purpose(category="x")
+            .with_actor(type="user", id="u")
+            .with_activity(name="a")
+            .with_model(provider="p", name="n")
+            .with_prompt_inline("hi", content_type="text/plain")
+            .build()
+        )
     assert env["prompt"] == {
         "contentType": "text/plain",
         "encoding": "utf-8",
         "inline": "hi",
     }
+
+
+def test_inline_output_warns() -> None:
+    with pytest.warns(InlineContentWarning, match="with_output_inline"):
+        EnvelopeBuilder().with_output_inline("result")
+
+
+def test_inline_warning_message_mentions_ref_alternative() -> None:
+    with pytest.warns(InlineContentWarning, match="with_prompt_ref"):
+        EnvelopeBuilder().with_prompt_inline("x")
 
 
 def test_ref_prompt_shape() -> None:
@@ -102,6 +113,7 @@ def test_evidence_id_pinning(vectors_dir: Path) -> None:
     assert env["createdAt"] == "2026-05-08T12:00:00Z"
 
 
+@pytest.mark.filterwarnings("ignore::sigill_sdk.InlineContentWarning")
 def test_builder_reproduces_test_vector_01(vectors_dir: Path) -> None:
     """The builder, fed the same logical content as vector 01, must produce the same
     envelope (modulo created_at / evidence_id which we pin from the vector). This is

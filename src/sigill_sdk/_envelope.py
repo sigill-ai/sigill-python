@@ -11,7 +11,10 @@ from __future__ import annotations
 
 import datetime as _dt
 import uuid
+import warnings
 from typing import Any, Literal, TypedDict
+
+from sigill_sdk._errors import InlineContentWarning
 
 # ---------------------------------------------------------------------------
 # Type aliases — these mirror the JSON Schema $defs.
@@ -143,6 +146,19 @@ class EnvelopeBuilder:
         return self
 
     def with_prompt_inline(self, text: str, content_type: str = "text/plain") -> "EnvelopeBuilder":
+        """Embed prompt text directly in the envelope.
+
+        The text will be transmitted to Sigill as part of the envelope. For prompts that
+        may contain sensitive data, use with_prompt_ref() instead and supply the raw bytes
+        via external_payloads at seal() time — Sigill will only see the hash.
+        """
+        warnings.warn(
+            "with_prompt_inline() embeds content in the envelope and transmits it to Sigill. "
+            "For sensitive content use with_prompt_ref() + external_payloads. "
+            "See sigill_sdk.InlineContentWarning to suppress.",
+            InlineContentWarning,
+            stacklevel=2,
+        )
         self._env["prompt"] = {
             "contentType": content_type,
             "encoding": "utf-8",
@@ -158,6 +174,19 @@ class EnvelopeBuilder:
         return self
 
     def with_output_inline(self, text: str, content_type: str = "text/plain") -> "EnvelopeBuilder":
+        """Embed output text directly in the envelope.
+
+        The text will be transmitted to Sigill as part of the envelope. For outputs that
+        may contain sensitive data, use with_output_ref() instead and supply the raw bytes
+        via external_payloads at seal() time — Sigill will only see the hash.
+        """
+        warnings.warn(
+            "with_output_inline() embeds content in the envelope and transmits it to Sigill. "
+            "For sensitive content use with_output_ref() + external_payloads. "
+            "See sigill_sdk.InlineContentWarning to suppress.",
+            InlineContentWarning,
+            stacklevel=2,
+        )
         self._env["output"] = {
             "contentType": content_type,
             "encoding": "utf-8",
