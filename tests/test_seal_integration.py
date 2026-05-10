@@ -128,6 +128,61 @@ def test_seal_forwards_tsa_slug_and_qualified(vectors_dir: Path) -> None:
     assert sealed["proofs"][0]["policyOid"] == "1.3.6.1.4.1.4146.2.2"
 
 
+# --------------------------------------------------------------------------- seal: label
+
+
+def test_seal_defaults_label_to_activity_name() -> None:
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        captured.update(body)
+        file_bytes = base64.b64decode(body["fileBase64"])
+        imprint = hashlib.sha256(file_bytes).digest()
+        return httpx.Response(200, json={
+            "serial": "x", "genTime": "2026-05-08T12:00:00Z",
+            "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": imprint.hex(),
+            "tsrBase64": base64.b64encode(make_tsr(imprint)).decode(),
+            "tsaName": "DigiCert", "qualified": False, "policyOid": None,
+        })
+
+    client = _client_with_handler(handler)
+    env = (
+        EnvelopeBuilder()
+        .with_purpose(category="x").with_actor(type="user", id="u")
+        .with_activity(name="ticket.summarize").with_model(provider="p", name="n")
+        .build()
+    )
+    client.seal(env)
+    assert captured["label"] == "ticket.summarize"
+
+
+def test_seal_label_can_be_overridden() -> None:
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        captured.update(body)
+        file_bytes = base64.b64decode(body["fileBase64"])
+        imprint = hashlib.sha256(file_bytes).digest()
+        return httpx.Response(200, json={
+            "serial": "x", "genTime": "2026-05-08T12:00:00Z",
+            "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": imprint.hex(),
+            "tsrBase64": base64.b64encode(make_tsr(imprint)).decode(),
+            "tsaName": "DigiCert", "qualified": False, "policyOid": None,
+        })
+
+    client = _client_with_handler(handler)
+    env = (
+        EnvelopeBuilder()
+        .with_purpose(category="x").with_actor(type="user", id="u")
+        .with_activity(name="ticket.summarize").with_model(provider="p", name="n")
+        .build()
+    )
+    client.seal(env, label="my custom label")
+    assert captured["label"] == "my custom label"
+
+
 # --------------------------------------------------------------------------- seal: external payloads
 
 
