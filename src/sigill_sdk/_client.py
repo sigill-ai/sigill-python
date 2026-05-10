@@ -414,18 +414,3 @@ class SigillClient:
     def close(self) -> None:
         if self._owns_http:
             self._http.close()
-
-
-def _strip_for_rehash(_result, _h):
-    """Internal helper: provided so the proof-verification step can recompute canonical
-    bytes on the fly. We re-derive from result context rather than threading the
-    original envelope through; see _verify_proof."""
-    # This shim exists because in _verify_proof we don't directly carry the envelope —
-    # we rely on the caller (verify) supplying a closure. To keep the code straight,
-    # we simply re-canonicalize from the verifier-known envelope. This function is
-    # intentionally minimal; if you find it confusing, see verify() which closes over
-    # the envelope and could be refactored to pass it in. Kept this way to keep the
-    # verify() function readable at a glance.
-    raise NotImplementedError(
-        "Internal helper — should never be invoked; see _verify_proof"
-    )
