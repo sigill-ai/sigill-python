@@ -5,7 +5,6 @@ flow is the surface 95% of consumers should ever need.
 """
 from __future__ import annotations
 
-import base64
 import copy
 from typing import Mapping, Protocol
 
@@ -116,13 +115,13 @@ class SigillClient:
             "hex": digest_hex,
         }
 
-        # 4. Stamp the canonical bytes via Sigill /tsa/stamp. If every TSA in the
-        # rotation fails, Sigill returns 502 and we raise TimestampUnavailable. The
-        # envelope hash is already correct in `env`, so a caller that catches the
-        # exception still has access to the unsealed envelope (via the original input)
-        # and can decide whether to retry, fall back, or persist unsealed and seal
-        # asynchronously later.
-        proof = self._stamp(canonical_bytes, tsa_slug=tsa_slug, qualified=qualified)
+        # 4. Stamp the envelope hash via Sigill /tsa/stamp. Only the hash is sent —
+        # Sigill never sees the envelope content. If every TSA in the rotation fails,
+        # Sigill returns 502 and we raise TimestampUnavailable. The envelope hash is
+        # already correct in `env`, so a caller that catches the exception still has
+        # access to the unsealed envelope (via the original input) and can decide
+        # whether to retry, fall back, or persist unsealed and seal asynchronously later.
+        proof = self._stamp(digest_hex, "SHA-256", tsa_slug=tsa_slug, qualified=qualified)
         env["proofs"] = [proof]
         return env
 
@@ -358,15 +357,17 @@ class SigillClient:
             }
         )
 
-    def _stamp(self, canonical_bytes: bytes, *, tsa_slug: str, qualified: bool):
-        """Call Sigill /tsa/stamp with the canonical envelope bytes.
+    def _stamp(self, digest_hex: str, alg: str, *, tsa_slug: str, qualified: bool):
+        """Call Sigill /tsa/stamp with the envelope hash.
 
-        Returns a proof dict shaped per spec §5. Raises TimestampUnavailable if Sigill
-        reports all TSAs failed.
+        Only the hash is transmitted — Sigill never sees envelope content. Returns a
+        proof dict shaped per spec §5. Raises TimestampUnavailable if Sigill reports
+        all TSAs failed.
         """
         body = {
             "tsaSlug": tsa_slug,
-            "fileBase64": base64.b64encode(canonical_bytes).decode("ascii"),
+            "hashHex": digest_hex,
+            "hashAlg": alg,
             "qualified": qualified,
         }
         resp = self._http.post("/tsa/stamp", json=body)
