@@ -46,8 +46,29 @@ class ParsedTsr:
     policy_oid: str | None
 
 
+def _extract_content_info(token_bytes: bytes) -> cms.ContentInfo:
+    """Return the ContentInfo (TimeStampToken) from either format.
+
+    Sigill's /tsa/stamp-hash returns a full TimeStampResp (RFC 3161 §2.4.2):
+      SEQUENCE { PKIStatusInfo, TimeStampToken OPTIONAL }
+    Older callers and test fixtures may supply a bare ContentInfo directly.
+    Handle both transparently.
+    """
+    try:
+        resp = tsp.TimeStampResp.load(token_bytes)
+        # Confirm the status field parses as an integer (PKIStatus) so we know
+        # this really is a TimeStampResp and not an accidentally-parseable ContentInfo.
+        resp["status"]["status"].native
+        token = resp["time_stamp_token"]
+        if token.contents:  # absent OPTIONAL fields have empty contents
+            return token
+    except Exception:
+        pass
+    return cms.ContentInfo.load(token_bytes)
+
+
 def parse_tsr(tsr_base64: str) -> ParsedTsr:
-    """Parse a base64-encoded RFC 3161 TimeStampToken.
+    """Parse a base64-encoded RFC 3161 TimeStampToken (or full TimeStampResp).
 
     Raises :class:`InvalidProof` if the bytes are not a well-formed TSR.
     """
@@ -58,7 +79,7 @@ def parse_tsr(tsr_base64: str) -> ParsedTsr:
 
     try:
         # The TSR ContentInfo wraps a SignedData whose econtent is a TSTInfo.
-        ci = cms.ContentInfo.load(token_bytes)
+        ci = _extract_content_info(token_bytes)
         if ci["content_type"].native != "signed_data":
             raise InvalidProof(
                 f"TSR ContentInfo type is {ci['content_type'].native!r}, expected 'signed_data'"
