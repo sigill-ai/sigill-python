@@ -3,7 +3,7 @@
 We use httpx's MockTransport to drive the SigillClient without any real network call.
 Goals:
 
-  - seal() canonicalizes correctly, computes the right hash, sends it base64'd to /tsa/stamp
+  - seal() canonicalizes correctly, computes the right hash, sends only hashHex to /tsa/stamp-hash
   - the returned envelope has a populated proofs[]
   - 502 ("All TSAs failed") raises TimestampUnavailable with structured failures
   - external payload bytes are hashed and inserted into the corresponding payloadRef
@@ -50,11 +50,10 @@ def test_seal_calls_tsa_stamp_and_attaches_proof(vectors_dir: Path) -> None:
     captured: dict = {}
 
     def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/tsa/stamp"
+        assert request.url.path == "/tsa/stamp-hash"
         body = json.loads(request.content)
         captured.update(body)
-        file_bytes = base64.b64decode(body["fileBase64"])
-        imprint = hashlib.sha256(file_bytes).digest()
+        imprint = bytes.fromhex(body["hashHex"])
         tsr = make_tsr(imprint)
         return httpx.Response(
             200,
@@ -62,7 +61,7 @@ def test_seal_calls_tsa_stamp_and_attaches_proof(vectors_dir: Path) -> None:
                 "serial": "1234567",
                 "genTime": "2026-05-08T12:00:00Z",
                 "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1",
-                "hashHex": imprint.hex(),
+                "hashHex": body["hashHex"],
                 "tsrBase64": base64.b64encode(tsr).decode(),
                 "tsaName": "Sigill SDK Test TSA",
                 "qualified": False,
@@ -85,13 +84,11 @@ def test_seal_calls_tsa_stamp_and_attaches_proof(vectors_dir: Path) -> None:
     assert sealed["proofs"][0]["tsaName"] == "Sigill SDK Test TSA"
 
     # The body sent to Sigill should have used the default tsaSlug ("auto") and the
-    # canonical envelope bytes
+    # envelope hash hex (64 chars = SHA-256)
     assert captured["tsaSlug"] == "auto"
     assert captured["qualified"] is False
-    file_bytes = base64.b64decode(captured["fileBase64"])
-    # The bytes the SDK sent must canonicalize to themselves — i.e. they ARE canonical
-    import jcs
-    assert jcs.canonicalize(json.loads(file_bytes)) == file_bytes
+    assert len(captured["hashHex"]) == 64  # SHA-256 hex digest
+    assert captured["hashHex"] == sealed["integrity"]["envelopeHash"]["hex"]
 
 
 def test_seal_forwards_tsa_slug_and_qualified(vectors_dir: Path) -> None:
@@ -100,13 +97,12 @@ def test_seal_forwards_tsa_slug_and_qualified(vectors_dir: Path) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         captured.update(body)
-        file_bytes = base64.b64decode(body["fileBase64"])
-        imprint = hashlib.sha256(file_bytes).digest()
+        imprint = bytes.fromhex(body["hashHex"])
         return httpx.Response(
             200,
             json={
                 "serial": "x", "genTime": "2026-05-08T12:00:00Z",
-                "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": imprint.hex(),
+                "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": body["hashHex"],
                 "tsrBase64": base64.b64encode(make_tsr(imprint)).decode(),
                 "tsaName": "DigiCert", "qualified": True,
                 "policyOid": "1.3.6.1.4.1.4146.2.2",
@@ -137,11 +133,10 @@ def test_seal_defaults_label_to_activity_name() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         captured.update(body)
-        file_bytes = base64.b64decode(body["fileBase64"])
-        imprint = hashlib.sha256(file_bytes).digest()
+        imprint = bytes.fromhex(body["hashHex"])
         return httpx.Response(200, json={
             "serial": "x", "genTime": "2026-05-08T12:00:00Z",
-            "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": imprint.hex(),
+            "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": body["hashHex"],
             "tsrBase64": base64.b64encode(make_tsr(imprint)).decode(),
             "tsaName": "DigiCert", "qualified": False, "policyOid": None,
         })
@@ -163,11 +158,10 @@ def test_seal_label_can_be_overridden() -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
         captured.update(body)
-        file_bytes = base64.b64decode(body["fileBase64"])
-        imprint = hashlib.sha256(file_bytes).digest()
+        imprint = bytes.fromhex(body["hashHex"])
         return httpx.Response(200, json={
             "serial": "x", "genTime": "2026-05-08T12:00:00Z",
-            "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": imprint.hex(),
+            "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": body["hashHex"],
             "tsrBase64": base64.b64encode(make_tsr(imprint)).decode(),
             "tsaName": "DigiCert", "qualified": False, "policyOid": None,
         })
@@ -193,13 +187,12 @@ def test_seal_hashes_supplied_external_payloads(vectors_dir: Path) -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        file_bytes = base64.b64decode(body["fileBase64"])
-        imprint = hashlib.sha256(file_bytes).digest()
+        imprint = bytes.fromhex(body["hashHex"])
         return httpx.Response(
             200,
             json={
                 "serial": "x", "genTime": "2026-05-08T12:00:00Z",
-                "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": imprint.hex(),
+                "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": body["hashHex"],
                 "tsrBase64": base64.b64encode(make_tsr(imprint)).decode(),
                 "tsaName": "DigiCert", "qualified": False, "policyOid": None,
             },
@@ -289,13 +282,12 @@ def test_seal_then_verify_roundtrip(vectors_dir: Path) -> None:
 
     def handler(request: httpx.Request) -> httpx.Response:
         body = json.loads(request.content)
-        file_bytes = base64.b64decode(body["fileBase64"])
-        imprint = hashlib.sha256(file_bytes).digest()
+        imprint = bytes.fromhex(body["hashHex"])
         return httpx.Response(
             200,
             json={
                 "serial": "x", "genTime": "2026-05-08T12:00:00Z",
-                "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": imprint.hex(),
+                "hashAlgorithmOid": "2.16.840.1.101.3.4.2.1", "hashHex": body["hashHex"],
                 "tsrBase64": base64.b64encode(make_tsr(imprint)).decode(),
                 "tsaName": "Test TSA", "qualified": False, "policyOid": None,
             },

@@ -5,7 +5,6 @@ flow is the surface 95% of consumers should ever need.
 """
 from __future__ import annotations
 
-import base64
 import copy
 from typing import Mapping, Protocol
 
@@ -119,8 +118,8 @@ class SigillClient:
             "hex": digest_hex,
         }
 
-        # 4. Stamp the canonical bytes via Sigill /tsa/stamp. Sigill hashes them
-        # server-side before forwarding to the TSA — the TSA never sees the content.
+        # 4. Stamp the envelope hash via Sigill /tsa/stamp-hash. Only the SHA-256 digest
+        # leaves the machine — the canonical bytes never do. RFC 3161 compliant.
         # If every TSA in the rotation fails, Sigill returns 502 and we raise
         # TimestampUnavailable. The envelope hash is already correct in `env`, so a
         # caller that catches the exception still has access to the unsealed envelope
@@ -129,7 +128,7 @@ class SigillClient:
         resolved_label = label if label is not None else (
             envelope.get("activity", {}).get("name")
         )
-        proof = self._stamp(canonical_bytes, tsa_slug=tsa_slug, qualified=qualified, label=resolved_label)
+        proof = self._stamp(digest_hex, tsa_slug=tsa_slug, qualified=qualified, label=resolved_label)
         env["proofs"] = [proof]
         return env
 
@@ -365,21 +364,21 @@ class SigillClient:
             }
         )
 
-    def _stamp(self, canonical_bytes: bytes, *, tsa_slug: str, qualified: bool, label: str | None):
-        """Call Sigill /tsa/stamp with the canonical envelope bytes.
+    def _stamp(self, hash_hex: str, *, tsa_slug: str, qualified: bool, label: str | None):
+        """Call Sigill /tsa/stamp-hash with the SHA-256 hex digest of the canonical envelope.
 
-        Sigill hashes the bytes server-side; the TSA only ever sees the hash.
+        Only the digest is transmitted — the envelope never leaves the machine.
         Returns a proof dict shaped per spec §5. Raises TimestampUnavailable if
         Sigill reports all TSAs failed.
         """
         body: dict = {
             "tsaSlug": tsa_slug,
-            "fileBase64": base64.b64encode(canonical_bytes).decode("ascii"),
+            "hashHex": hash_hex,
             "qualified": qualified,
         }
         if label is not None:
             body["label"] = label
-        resp = self._http.post("/tsa/stamp", json=body)
+        resp = self._http.post("/tsa/stamp-hash", json=body)
         if resp.status_code == 502:
             try:
                 payload = resp.json()
