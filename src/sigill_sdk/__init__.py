@@ -50,8 +50,12 @@ from sigill_sdk._errors import (
     InlineContentWarning,
 )
 from sigill_sdk._canonical import canonicalize, compute_envelope_hash
+from importlib.metadata import version as _meta_version, PackageNotFoundError as _PNF
 
-__version__ = "0.1.0"
+try:
+    __version__ = _meta_version("sigill-sdk")
+except _PNF:
+    __version__ = "0.0.0.dev"
 __all__ = [
     "SigillClient",
     "ISigillAiEvidenceClient",
