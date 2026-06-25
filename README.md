@@ -111,6 +111,61 @@ result = client.verify(sealed, external_payloads={"prompt": prompt_bytes})
 # result.issues[0].message -> "payload_not_supplied: external bytes for ref 'output' …"
 ```
 
+## CAdES document sealing
+
+For workflows where you need to cryptographically seal a specific file or JSON blob
+(not a full AI evidence envelope), the SDK supports **CAdES detached signatures**
+(`.p7s`). This is the right choice when you want a compact, verifiable proof that a
+particular document was sealed by a named Sigill certificate at a specific moment.
+
+```python
+from sigill_sdk import SigillClient
+
+client = SigillClient(api_key="sigill_...")
+
+# Obtain a certificate ID from the Sigill dashboard (Settings → Certificates).
+CERT_ID = "5f498b84-65e2-404c-8791-65d70e3f385b"
+
+document = b'{"decision": "approved", "amount": 42000}'
+
+# Seal: only the SHA-256 hash of the document is sent to Sigill — the document
+# itself never leaves your system.
+p7s: bytes = client.seal_cades(document, certificate_id=CERT_ID, label="decision.json")
+
+# p7s is a standard PKCS#7 / CMS detached signature (.p7s). Store it alongside
+# the document — you need both to verify later.
+
+# Verify: again, only the hash is transmitted — the document stays local.
+result = client.verify_cades(document, p7s)
+
+assert result.is_valid
+print(result.signer)   # CN=Sigill Platform Seal, O=SIGILL AS, …
+print(result.trust)    # "trusted_chain"
+print(result.gen_time) # "2026-06-25T16:49:04Z"
+```
+
+`CadesVerifyResult` fields:
+
+| Field | Type | Meaning |
+|---|---|---|
+| `is_valid` | `bool` | `hash_match and signature_valid and error is None` |
+| `hash_match` | `bool` | Document hash matches the value embedded in the `.p7s` |
+| `signature_valid` | `bool` | RSA/ECDSA signature over signed attributes is valid |
+| `signer` | `str \| None` | Subject DN of the signing certificate |
+| `trust` | `str \| None` | `"trusted_chain"`, `"self_signed"`, `"dev_ca"`, … |
+| `tsa_name` | `str \| None` | TSA that issued the embedded timestamp |
+| `gen_time` | `str \| None` | Timestamp generation time (ISO 8601) |
+| `qualified` | `bool` | Whether the embedded timestamp is eIDAS-qualified |
+| `error` | `str \| None` | Set when `is_valid` is `False` |
+| `warnings` | `list[str]` | Non-fatal issues found during verification |
+
+If you also hold an external `.tsr` file (e.g. from a separate timestamping step),
+pass it as `tsr=`:
+
+```python
+result = client.verify_cades(document, p7s, tsr=tsr_bytes)
+```
+
 ## Error handling
 
 Producer-time errors raise; verification errors are collected. This split is
