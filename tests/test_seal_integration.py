@@ -24,6 +24,7 @@ from sigill_sdk import (
     SigillClient,
     TimestampUnavailable,
     HashMismatch,
+    CadesVerifyResult,
 )
 from _tsr_factory import make_tsr
 
@@ -271,6 +272,120 @@ def test_seal_502_raises_timestamp_unavailable() -> None:
     assert exc.value.attempts == 2
     assert len(exc.value.failures) == 2
     assert exc.value.failures[0]["tsa"] == "DigiCert"
+
+
+# --------------------------------------------------------------------------- seal_cades
+
+
+def test_seal_cades_sends_hash_and_returns_p7s() -> None:
+    """seal_cades() sends only the SHA-256 hash to /seal/sign-hash and returns .p7s bytes."""
+    fake_p7s = b"\x30\x82\x01\x00" + b"\x00" * 252
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/seal/sign-hash"
+        body = json.loads(request.content)
+        captured.update(body)
+        return httpx.Response(200, content=fake_p7s,
+                              headers={"Content-Type": "application/pkcs7-signature"})
+
+    client = _client_with_handler(handler)
+    data = b"this is a JSON envelope or any document"
+    cert_id = "aaaaaaaa-bbbb-cccc-dddd-ffffffffffff"
+    p7s = client.seal_cades(data, certificate_id=cert_id)
+
+    assert p7s == fake_p7s
+    assert captured["hashHex"] == hashlib.sha256(data).hexdigest()
+    assert captured["certificateId"] == cert_id
+    assert captured["qualified"] is False
+    assert "label" not in captured
+
+
+def test_verify_cades_parses_response() -> None:
+    """verify_cades() posts JSON to /seal/verify-hash and maps the JSON response."""
+    fake_response = {
+        "format": "cades",
+        "cades": {
+            "signaturePresent": True,
+            "hashMatch": True,
+            "signatureValid": True,
+            "certificate": {
+                "subject": "CN=Sigill Platform Seal,O=SIGILL AS",
+                "trust": "trusted_chain",
+            },
+            "timestamp": {
+                "genTime": "2026-06-25T16:16:31Z",
+                "tsaName": "SSL.com",
+                "qualificationSource": "none",
+            },
+            "tsrSource": "embedded",
+            "error": None,
+            "warnings": None,
+        },
+    }
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/seal/verify-hash"
+        body = json.loads(request.content)
+        captured.update(body)
+        return httpx.Response(200, json=fake_response)
+
+    client = _client_with_handler(handler)
+    data = b"original doc"
+    p7s = b"\x30\x00"
+    result = client.verify_cades(data, p7s)
+
+    assert isinstance(result, CadesVerifyResult)
+    assert result.is_valid is True
+    assert result.hash_match is True
+    assert result.signature_valid is True
+    assert result.signer == "CN=Sigill Platform Seal,O=SIGILL AS"
+    assert result.trust == "trusted_chain"
+    assert result.tsa_name == "SSL.com"
+    assert result.gen_time == "2026-06-25T16:16:31Z"
+    assert result.qualified is False
+    assert result.error is None
+    assert result.warnings == []
+    assert captured["hashHex"] == hashlib.sha256(data).hexdigest()
+    assert captured["p7sBase64"] == base64.b64encode(p7s).decode()
+    assert "tsrBase64" not in captured
+
+
+def test_verify_cades_includes_tsr_when_supplied() -> None:
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json={
+            "format": "cades",
+            "cades": {"hashMatch": False, "signatureValid": False, "error": "TSR does not cover this .p7s"},
+        })
+
+    client = _client_with_handler(handler)
+    tsr = b"\x30\x01\x00"
+    result = client.verify_cades(b"doc", b"\x30\x00", tsr=tsr)
+
+    assert "tsrBase64" in captured
+    assert captured["tsrBase64"] == base64.b64encode(tsr).decode()
+    assert result.is_valid is False
+    assert result.error == "TSR does not cover this .p7s"
+
+
+def test_seal_cades_forwards_label_and_qualified() -> None:
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        captured.update(body)
+        return httpx.Response(200, content=b"\x30\x00",
+                              headers={"Content-Type": "application/pkcs7-signature"})
+
+    client = _client_with_handler(handler)
+    client.seal_cades(b"doc", certificate_id="cert-id", label="my-doc.json", qualified=True)
+
+    assert captured["label"] == "my-doc.json"
+    assert captured["qualified"] is True
 
 
 # --------------------------------------------------------------------------- end-to-end

@@ -23,6 +23,7 @@ from sigill_sdk._errors import (
 from sigill_sdk._tsr import parse_tsr
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
+    CadesVerifyResult,
     VerificationIssue,
     VerificationIssueKind,
 )
@@ -44,6 +45,23 @@ class ISigillAiEvidenceClient(Protocol):
         tsa_slug: str = "auto",
         qualified: bool = False,
     ) -> SealedAiEvidenceEnvelope: ...
+
+    def seal_cades(
+        self,
+        data: bytes,
+        certificate_id: str,
+        *,
+        label: str | None = None,
+        qualified: bool = False,
+    ) -> bytes: ...
+
+    def verify_cades(
+        self,
+        data: bytes,
+        p7s: bytes,
+        *,
+        tsr: bytes | None = None,
+    ) -> CadesVerifyResult: ...
 
     def verify(
         self,
@@ -131,6 +149,90 @@ class SigillClient:
         proof = self._stamp(digest_hex, tsa_slug=tsa_slug, qualified=qualified, label=resolved_label)
         env["proofs"] = [proof]
         return env
+
+    # ------------------------------------------------------------- seal_cades
+
+    def seal_cades(
+        self,
+        data: bytes,
+        certificate_id: str,
+        *,
+        label: str | None = None,
+        qualified: bool = False,
+    ) -> bytes:
+        """CAdES-seal arbitrary data via /seal/sign-hash.
+
+        Only the SHA-256 digest is transmitted — the original document never
+        leaves the machine. Returns the raw DER-encoded detached CAdES
+        signature (.p7s bytes).
+
+        :param data: the document bytes to seal.
+        :param certificate_id: UUID of the active seal certificate.
+        :param label: human-readable label shown in the Sigill dashboard.
+        :param qualified: request a qualified timestamp on the signature.
+        :raises httpx.HTTPStatusError: for 4xx/5xx API errors.
+        """
+        hash_hex = hash_bytes(data, alg="SHA-256")
+        body: dict = {
+            "hashHex": hash_hex,
+            "certificateId": str(certificate_id),
+            "qualified": qualified,
+        }
+        if label is not None:
+            body["label"] = label
+        resp = self._http.post("/seal/sign-hash", json=body)
+        resp.raise_for_status()
+        return resp.content
+
+    # ---------------------------------------------------------- verify_cades
+
+    def verify_cades(
+        self,
+        data: bytes,
+        p7s: bytes,
+        *,
+        tsr: bytes | None = None,
+    ) -> CadesVerifyResult:
+        """Verify a detached CAdES signature via POST /seal/verify.
+
+        Sends the original document and .p7s to the Sigill API for server-side
+        verification. The endpoint is public — no API key is required — but the
+        existing HTTP client (with auth header) works fine against it.
+
+        :param data: the original document bytes that were sealed.
+        :param p7s: the detached CAdES signature bytes (.p7s).
+        :param tsr: optional standalone RFC 3161 timestamp response bytes (.tsr).
+        :raises httpx.HTTPStatusError: for 4xx/5xx API errors.
+        """
+        import base64
+        body_json: dict = {
+            "hashHex":   hash_bytes(data, alg="SHA-256"),
+            "p7sBase64": base64.b64encode(p7s).decode(),
+        }
+        if tsr is not None:
+            body_json["tsrBase64"] = base64.b64encode(tsr).decode()
+        resp = self._http.post("/seal/verify-hash", json=body_json)
+        resp.raise_for_status()
+        body = resp.json()
+        cades = body.get("cades", {})
+        cert  = cades.get("certificate") or {}
+        ts    = cades.get("timestamp") or {}
+        hash_match      = bool(cades.get("hashMatch", False))
+        signature_valid = bool(cades.get("signatureValid", False))
+        error           = cades.get("error")
+        qual_src        = ts.get("qualificationSource", "none")
+        return CadesVerifyResult(
+            is_valid        = hash_match and signature_valid and error is None,
+            hash_match      = hash_match,
+            signature_valid = signature_valid,
+            signer          = cert.get("subject"),
+            trust           = cert.get("trust"),
+            tsa_name        = ts.get("tsaName"),
+            gen_time        = ts.get("genTime"),
+            qualified       = qual_src not in (None, "none"),
+            error           = error,
+            warnings        = list(cades.get("warnings") or []),
+        )
 
     # ---------------------------------------------------------------- verify
 

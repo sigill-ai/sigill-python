@@ -62,3 +62,38 @@ class AiEvidenceVerificationResult:
     def add_issue(self, issue: VerificationIssue) -> None:
         self.issues.append(issue)
         self.is_valid = False
+
+
+@dataclass(frozen=True)
+class CadesVerifyResult:
+    """Result of verify_cades() — server-side CAdES signature verification."""
+
+    is_valid: bool
+    """True iff hash_match, signature_valid, and no error from the server."""
+
+    hash_match: bool
+    """The .p7s messageDigest attribute matches SHA-256(original document)."""
+
+    signature_valid: bool
+    """The RSA/ECDSA signature over signedAttrs verified against the signer cert."""
+
+    signer: str | None
+    """Certificate subject DN of the signing certificate."""
+
+    trust: str | None
+    """Chain trust status: 'trusted_chain', 'self_signed', 'dev_ca', etc."""
+
+    tsa_name: str | None
+    """Name of the timestamping authority that sealed the signature, if present."""
+
+    gen_time: str | None
+    """ISO-8601 timestamp from the embedded RFC 3161 token, if present."""
+
+    qualified: bool
+    """True if the qualification source is not 'none' (LOTL or QC statement)."""
+
+    error: str | None
+    """Server-reported error message, or None on success."""
+
+    warnings: list[str]
+    """Non-fatal warnings from the server verifier."""

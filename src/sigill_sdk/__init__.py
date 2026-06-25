@@ -38,6 +38,7 @@ from sigill_sdk._envelope import (
 from sigill_sdk._client import SigillClient, ISigillAiEvidenceClient
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
+    CadesVerifyResult,
     VerificationIssue,
     VerificationIssueKind,
 )
@@ -65,6 +66,7 @@ __all__ = [
     "PayloadRef",
     "ContentHash",
     "AiEvidenceVerificationResult",
+    "CadesVerifyResult",
     "VerificationIssue",
     "VerificationIssueKind",
     "SigillError",
