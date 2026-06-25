@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sigill-sdk"
-version = "0.1.10"
+version = "0.1.11"
 description = "AI evidence envelopes (AiEvidenceEnvelopeV1) — canonicalize, seal with RFC 3161 timestamps via Sigill, and verify."
 readme = "README.md"
 requires-python = ">=3.9"
