@@ -427,3 +427,90 @@ def test_seal_then_verify_roundtrip(vectors_dir: Path) -> None:
 
     assert result.is_valid, [str(i) for i in result.issues]
     assert len(result.timestamps) == 1
+
+
+# --------------------------------------------------------------------------- pqc (hybrid) seal
+
+
+def test_seal_cades_pqc_sends_sha512_and_flag() -> None:
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/seal/sign-hash"
+        captured.update(json.loads(request.content))
+        return httpx.Response(
+            200,
+            content=b"\x30\x03p7s",  # opaque .p7s bytes
+            headers={"X-Seal-Pqc": "ml-dsa-87"},
+        )
+
+    client = _client_with_handler(handler)
+    data = b"quantum please"
+    p7s = client.seal_cades(data, "11111111-1111-1111-1111-111111111111", pqc=True)
+
+    assert p7s == b"\x30\x03p7s"
+    assert captured["pqc"] is True
+    assert captured["hashHex"] == hashlib.sha256(data).hexdigest()
+    assert captured["hashHex512"] == hashlib.sha512(data).hexdigest()
+
+
+def test_seal_cades_without_pqc_omits_sha512() -> None:
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, content=b"p7s")
+
+    client = _client_with_handler(handler)
+    client.seal_cades(b"classic", "11111111-1111-1111-1111-111111111111")
+
+    assert "pqc" not in captured
+    assert "hashHex512" not in captured
+
+
+def test_verify_cades_parses_post_quantum_dimension() -> None:
+    captured: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/seal/verify-hash"
+        captured.update(json.loads(request.content))
+        return httpx.Response(200, json={"format": "cades", "cades": {
+            "hashMatch": True,
+            "signatureValid": True,
+            "certificate": {"subject": "CN=Acme", "trust": "trusted_chain"},
+            "postQuantum": {
+                "present": True,
+                "valid": True,
+                "signatureValid": True,
+                "contentBound": "yes",
+                "trusted": "not_evaluated",
+                "algorithm": "ml-dsa-87",
+            },
+        }})
+
+    client = _client_with_handler(handler)
+    data = b"quantum please"
+    result = client.verify_cades(data, b"\x30\x03p7s")
+
+    # verify always sends SHA-512 so hybrid content binding is checked server-side
+    assert captured["hashHex512"] == hashlib.sha512(data).hexdigest()
+    assert result.is_valid          # classical governs the top-level verdict
+    assert result.post_quantum is not None
+    assert result.post_quantum.present
+    assert result.post_quantum.valid
+    assert result.post_quantum.content_bound == "yes"
+    assert result.post_quantum.trusted == "not_evaluated"
+    assert result.post_quantum.algorithm == "ml-dsa-87"
+
+
+def test_verify_cades_classical_only_has_no_post_quantum() -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"format": "cades", "cades": {
+            "hashMatch": True, "signatureValid": True,
+            "certificate": {"subject": "CN=Acme", "trust": "trusted_chain"},
+        }})
+
+    client = _client_with_handler(handler)
+    result = client.verify_cades(b"classic", b"\x30\x03p7s")
+    assert result.is_valid
+    assert result.post_quantum is None

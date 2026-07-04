@@ -65,8 +65,36 @@ class AiEvidenceVerificationResult:
 
 
 @dataclass(frozen=True)
+class PqcVerifyInfo:
+    """Post-quantum dimension of a CAdES verification (the ML-DSA-87 SignerInfo)."""
+
+    present: bool
+    """An ML-DSA signer is present in the CMS."""
+
+    valid: bool
+    """Convenience roll-up: signature verified AND content bound."""
+
+    signature_valid: bool
+    """The ML-DSA signature over its signedAttrs verified against the signer cert."""
+
+    content_bound: str
+    """'yes' | 'no' | 'not_checked' (the last when no SHA-512 digest was supplied)."""
+
+    trusted: str
+    """'yes' | 'no' | 'not_evaluated' (self-signed platform certs are 'not_evaluated')."""
+
+    algorithm: str
+    """Signature algorithm, e.g. 'ml-dsa-87'."""
+
+
+@dataclass(frozen=True)
 class CadesVerifyResult:
-    """Result of verify_cades() — server-side CAdES signature verification."""
+    """Result of verify_cades() — server-side CAdES signature verification.
+
+    ``is_valid`` reflects the classical signer only — the legal instrument. Any
+    post-quantum signer is reported separately via ``post_quantum`` and is
+    additive (quantum-resistant protection, not a qualified/legal upgrade).
+    """
 
     is_valid: bool
     """True iff hash_match, signature_valid, and no error from the server."""
@@ -97,3 +125,6 @@ class CadesVerifyResult:
 
     warnings: list[str]
     """Non-fatal warnings from the server verifier."""
+
+    post_quantum: PqcVerifyInfo | None = None
+    """Non-null when the seal carries an ML-DSA-87 signer; otherwise None."""

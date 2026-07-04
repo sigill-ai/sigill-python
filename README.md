@@ -144,6 +144,29 @@ print(result.trust)    # "trusted_chain"
 print(result.gen_time) # "2026-06-25T16:49:04Z"
 ```
 
+### Post-quantum (hybrid) sealing
+
+Pass `pqc=True` to add a post-quantum **ML-DSA-87** (FIPS 204) signer alongside
+the classical one — a single `.p7s` with two independently-verifiable signatures
+(RFC 5652 §5.1 + RFC 9882). Content still never leaves your system (only SHA-256
+and SHA-512 digests are sent).
+
+```python
+p7s = client.seal_cades(document, certificate_id=CERT_ID, label="decision.json", pqc=True)
+
+result = client.verify_cades(document, p7s)
+assert result.is_valid                    # classical signer — the legal instrument
+if result.post_quantum:
+    print(result.post_quantum.algorithm)        # "ml-dsa-87"
+    print(result.post_quantum.signature_valid)  # True
+    print(result.post_quantum.content_bound)    # "yes"
+    print(result.post_quantum.trusted)          # "not_evaluated" (self-signed platform cert)
+```
+
+`is_valid` reflects the classical signer only — the post-quantum signer is
+additive (quantum-resistant protection, not a qualified/legal upgrade), and is
+reported separately via `result.post_quantum`.
+
 `CadesVerifyResult` fields:
 
 | Field | Type | Meaning |

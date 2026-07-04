@@ -24,6 +24,7 @@ from sigill_sdk._tsr import parse_tsr
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
     CadesVerifyResult,
+    PqcVerifyInfo,
     VerificationIssue,
     VerificationIssueKind,
 )
@@ -53,6 +54,7 @@ class ISigillAiEvidenceClient(Protocol):
         *,
         label: str | None = None,
         qualified: bool = False,
+        pqc: bool = False,
     ) -> bytes: ...
 
     def verify_cades(
@@ -159,17 +161,21 @@ class SigillClient:
         *,
         label: str | None = None,
         qualified: bool = False,
+        pqc: bool = False,
     ) -> bytes:
         """CAdES-seal arbitrary data via /seal/sign-hash.
 
-        Only the SHA-256 digest is transmitted — the original document never
-        leaves the machine. Returns the raw DER-encoded detached CAdES
-        signature (.p7s bytes).
+        Only digests are transmitted — the original document never leaves the
+        machine. Returns the raw DER-encoded detached CAdES signature (.p7s bytes).
 
         :param data: the document bytes to seal.
         :param certificate_id: UUID of the active seal certificate.
         :param label: human-readable label shown in the Sigill dashboard.
         :param qualified: request a qualified timestamp on the signature.
+        :param pqc: also add a post-quantum ML-DSA-87 (FIPS 204) signer in the same
+            CMS — one .p7s, both signers independently verifiable. The SHA-512 digest
+            is computed locally and sent as the ML-DSA signer's messageDigest; content
+            still never leaves the machine. Requires a platform PQC cert server-side.
         :raises httpx.HTTPStatusError: for 4xx/5xx API errors.
         """
         hash_hex = hash_bytes(data, alg="SHA-256")
@@ -180,6 +186,9 @@ class SigillClient:
         }
         if label is not None:
             body["label"] = label
+        if pqc:
+            body["pqc"] = True
+            body["hashHex512"] = hash_bytes(data, alg="SHA-512")
         resp = self._http.post("/seal/sign-hash", json=body)
         resp.raise_for_status()
         return resp.content
@@ -207,6 +216,10 @@ class SigillClient:
         import base64
         body_json: dict = {
             "hashHex":   hash_bytes(data, alg="SHA-256"),
+            # Always supply SHA-512 so a hybrid seal's ML-DSA content binding is
+            # actually checked (content_bound 'yes'/'no' rather than 'not_checked').
+            # Ignored by the server for classical-only seals.
+            "hashHex512": hash_bytes(data, alg="SHA-512"),
             "p7sBase64": base64.b64encode(p7s).decode(),
         }
         if tsr is not None:
@@ -221,6 +234,19 @@ class SigillClient:
         signature_valid = bool(cades.get("signatureValid", False))
         error           = cades.get("error")
         qual_src        = ts.get("qualificationSource", "none")
+
+        post_quantum = None
+        pq = cades.get("postQuantum") or {}
+        if pq.get("present"):
+            post_quantum = PqcVerifyInfo(
+                present         = True,
+                valid           = bool(pq.get("valid", False)),
+                signature_valid = bool(pq.get("signatureValid", False)),
+                content_bound   = pq.get("contentBound", "not_checked"),
+                trusted         = pq.get("trusted", "not_evaluated"),
+                algorithm       = pq.get("algorithm", "ml-dsa-87"),
+            )
+
         return CadesVerifyResult(
             is_valid        = hash_match and signature_valid and error is None,
             hash_match      = hash_match,
@@ -232,6 +258,7 @@ class SigillClient:
             qualified       = qual_src not in (None, "none"),
             error           = error,
             warnings        = list(cades.get("warnings") or []),
+            post_quantum    = post_quantum,
         )
 
     # ---------------------------------------------------------------- verify
