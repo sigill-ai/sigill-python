@@ -35,7 +35,7 @@ from sigill_sdk._envelope import (
     PayloadRef,
     ContentHash,
 )
-from sigill_sdk._client import SigillClient, ISigillAiEvidenceClient
+from sigill_sdk._client import SigillClient, ISigillAiEvidenceClient, PadesSealResult
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
     CadesVerifyResult,
@@ -48,6 +48,7 @@ from sigill_sdk._errors import (
     CanonicalizationFailed,
     HashMismatch,
     InvalidProof,
+    PdfUnsupported,
     TimestampUnavailable,
     InlineContentWarning,
 )
@@ -68,6 +69,7 @@ __all__ = [
     "ContentHash",
     "AiEvidenceVerificationResult",
     "CadesVerifyResult",
+    "PadesSealResult",
     "PqcVerifyInfo",
     "VerificationIssue",
     "VerificationIssueKind",
@@ -75,6 +77,7 @@ __all__ = [
     "CanonicalizationFailed",
     "HashMismatch",
     "InvalidProof",
+    "PdfUnsupported",
     "TimestampUnavailable",
     "InlineContentWarning",
     "canonicalize",

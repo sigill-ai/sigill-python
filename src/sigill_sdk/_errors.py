@@ -54,6 +54,25 @@ class InvalidProof(SigillError):
     """A proof (e.g. RFC 3161 TSR) cannot be parsed or its signature is invalid."""
 
 
+class PdfUnsupported(SigillError):
+    """The local PDF parser cannot handle this PDF's structure.
+
+    Raised by seal_pades() when the incremental signer cannot parse the input
+    (e.g. an object stream with an exotic filter or /Predictor, or a
+    pathological page tree) — before anything is transmitted. The document is
+    fine — it just needs the server-side path: upload it to ``POST /seal/sign``
+    instead, which uses the full parser with the same PAdES output. Note that
+    path transmits the PDF to Sigill.
+    """
+
+    def __init__(self, message: str):
+        super().__init__(
+            message
+            + " — this PDF's structure is not supported by local (hash-only) sealing. "
+            "Fall back to uploading it to POST /seal/sign for server-side PAdES sealing."
+        )
+
+
 class TimestampUnavailable(SigillError):
     """Sigill returned 502 — every TSA in the auto-rotation failed.
 

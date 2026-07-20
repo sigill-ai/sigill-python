@@ -189,6 +189,54 @@ pass it as `tsr=`:
 result = client.verify_cades(document, p7s, tsr=tsr_bytes)
 ```
 
+## PAdES PDF sealing — the PDF never leaves your machine
+
+For PDFs, the SDK produces an embedded **PAdES** signature (ETSI EN 319 142-1)
+without uploading the document. It assembles the PDF signature revision locally,
+sends Sigill only the ByteRange SHA-256 digest, embeds the returned CMS, and —
+when the certificate chain supports it — upgrades the seal to **B-LT/B-LTA** by
+writing the Document Security Store and a document timestamp, all locally.
+
+```python
+pdf = open("contract.pdf", "rb").read()
+
+result = client.seal_pades(
+    pdf,
+    certificate_id=CERT_ID,
+    label="contract.pdf",
+    qualified=False,        # True → eIDAS-qualified timestamps throughout
+    reason="Approved",      # optional, lands in the PDF /Reason field
+)
+
+open("contract_sealed.pdf", "wb").write(result.sealed_pdf)
+print(result.format)          # "pades-b-lta" | "pades-b-lt" | "pades-b-t" | "pades-bes"
+print(result.timestamped_by)  # TSA name, or None if no timestamp could be embedded
+```
+
+The sealed PDF validates like any server-produced PAdES seal (Adobe, DSS,
+`POST /seal/verify`). Verification requires the PDF and stays server-side.
+
+### Unsupported PDFs and the upload fallback
+
+The local parser handles xref-table PDFs, xref-stream PDFs (PDF 1.5+), and
+FlateDecode object streams. When it cannot handle a document's structure,
+`seal_pades()` raises `PdfUnsupported` **before anything is transmitted** — with
+the default settings the privacy guarantee is absolute: nothing but digests ever
+leaves your machine.
+
+If your data policy permits it, opt in to the server-side fallback and such
+documents are sealed by uploading them to `POST /seal/sign` instead (identical
+PAdES output, but the PDF is transmitted to Sigill):
+
+```python
+result = client.seal_pades(pdf, certificate_id=CERT_ID, allow_upload_fallback=True)  # default False
+```
+
+Post-quantum hybrid sealing is not offered for PAdES — the baseline profile
+allows a single `SignerInfo` per signature. For an ML-DSA-87 hybrid seal over a
+PDF, use `seal_cades(pdf, certificate_id=CERT_ID, pqc=True)` and keep the
+detached `.p7s` alongside the file.
+
 ## Error handling
 
 Producer-time errors raise; verification errors are collected. This split is
