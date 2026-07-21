@@ -128,3 +128,45 @@ class CadesVerifyResult:
 
     post_quantum: PqcVerifyInfo | None = None
     """Non-null when the seal carries an ML-DSA-87 signer; otherwise None."""
+
+
+@dataclass(frozen=True)
+class JadesVerifyResult:
+    """Result of verify_jades() — server-side verification of a detached JAdES
+    signature (ETSI TS 119 182-1). Same dimensions and semantics as
+    :class:`CadesVerifyResult`: JAdES shares the detached, hash-only model —
+    only digests and the signature artifact are transmitted.
+    """
+
+    is_valid: bool
+    """True iff hash_match, signature_valid, and no error from the server."""
+
+    hash_match: bool
+    """The sigD digest matches the supplied hash of the original document."""
+
+    signature_valid: bool
+    """The JWS signature over the protected header verified against the signer cert."""
+
+    signer: str | None
+    """Certificate subject DN of the signing certificate."""
+
+    trust: str | None
+    """Chain trust status: 'trusted_chain', 'self_signed', 'dev_ca', etc."""
+
+    tsa_name: str | None
+    """Name of the timestamping authority that sealed the signature, if present."""
+
+    gen_time: str | None
+    """ISO-8601 timestamp from the embedded RFC 3161 token, if present."""
+
+    qualified: bool
+    """True if the qualification source is not 'none' (LOTL or QC statement)."""
+
+    error: str | None
+    """Server-reported error message, or None on success."""
+
+    warnings: list[str]
+    """Non-fatal warnings from the server verifier."""
+
+    post_quantum: PqcVerifyInfo | None = None
+    """Non-null when the seal carries an ML-DSA-87 signer; otherwise None."""

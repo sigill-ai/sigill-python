@@ -5,11 +5,15 @@ flow is the surface 95% of consumers should ever need.
 """
 from __future__ import annotations
 
+import base64
 import copy
+from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import Mapping, Protocol
 
 import httpx
 
+from sigill_sdk import _pdf
 from sigill_sdk._canonical import compute_envelope_hash, hash_bytes
 from sigill_sdk._envelope import (
     AiEvidenceEnvelopeInput,
@@ -18,12 +22,14 @@ from sigill_sdk._envelope import (
 from sigill_sdk._errors import (
     HashMismatch,
     InvalidProof,
+    PdfUnsupported,
     TimestampUnavailable,
 )
 from sigill_sdk._tsr import parse_tsr
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
     CadesVerifyResult,
+    JadesVerifyResult,
     PqcVerifyInfo,
     VerificationIssue,
     VerificationIssueKind,
@@ -31,6 +37,72 @@ from sigill_sdk._verify import (
 
 
 DEFAULT_BASE_URL = "https://api.sigill.ai"
+
+
+def _map_detached_verify(node: dict) -> dict:
+    """Shared field extraction for the CAdES and JAdES branches of
+    /seal/verify-hash — the two verifiers report the same dimensions."""
+    cert = node.get("certificate") or {}
+    ts   = node.get("timestamp") or {}
+    hash_match      = bool(node.get("hashMatch", False))
+    signature_valid = bool(node.get("signatureValid", False))
+    error           = node.get("error")
+    qual_src        = ts.get("qualificationSource", "none")
+
+    post_quantum = None
+    pq = node.get("postQuantum") or {}
+    if pq.get("present"):
+        post_quantum = PqcVerifyInfo(
+            present         = True,
+            valid           = bool(pq.get("valid", False)),
+            signature_valid = bool(pq.get("signatureValid", False)),
+            content_bound   = pq.get("contentBound", "not_checked"),
+            trusted         = pq.get("trusted", "not_evaluated"),
+            algorithm       = pq.get("algorithm", "ml-dsa-87"),
+        )
+
+    return {
+        "is_valid":        hash_match and signature_valid and error is None,
+        "hash_match":      hash_match,
+        "signature_valid": signature_valid,
+        "signer":          cert.get("subject"),
+        "trust":           cert.get("trust"),
+        "tsa_name":        ts.get("tsaName"),
+        "gen_time":        ts.get("genTime"),
+        "qualified":       qual_src not in (None, "none"),
+        "error":           error,
+        "warnings":        list(node.get("warnings") or []),
+        "post_quantum":    post_quantum,
+    }
+
+
+@dataclass(frozen=True)
+class PadesSealResult:
+    """Result of a delegated PAdES seal — seal_pades().
+
+    The input PDF's bytes never left the machine — only the ByteRange digest
+    was transmitted.
+
+    Post-quantum hybrid sealing is deliberately absent here: the PAdES baseline
+    profile (ETSI EN 319 142-1) allows a single SignerInfo in the embedded CMS,
+    so the ML-DSA-87 hybrid stays on the detached CAdES/JAdES formats until an
+    ETSI PQC PAdES profile exists.
+    """
+
+    sealed_pdf: bytes
+    """The sealed PDF: the original plus the appended signature revision(s)."""
+
+    operation_id: str
+    """UUID of the seal operation as recorded in the Sigill dashboard."""
+
+    format: str
+    """'pades-bes' | 'pades-b-t' | 'pades-b-lt' | 'pades-b-lta'."""
+
+    timestamped_by: str | None
+    """Name of the TSA that timestamped the signature, or None."""
+
+    qualified: bool
+    """True when an eIDAS-qualified TSA produced the signature timestamp."""
 
 
 class ISigillAiEvidenceClient(Protocol):
@@ -56,6 +128,38 @@ class ISigillAiEvidenceClient(Protocol):
         qualified: bool = False,
         pqc: bool = False,
     ) -> bytes: ...
+
+    def seal_jades(
+        self,
+        data: bytes,
+        certificate_id: str,
+        *,
+        label: str | None = None,
+        qualified: bool = False,
+        pqc: bool = False,
+        content_type: str | None = None,
+    ) -> bytes: ...
+
+    def verify_jades(
+        self,
+        data: bytes,
+        jades: bytes,
+        *,
+        tsr: bytes | None = None,
+    ) -> JadesVerifyResult: ...
+
+    def seal_pades(
+        self,
+        pdf: bytes,
+        certificate_id: str,
+        *,
+        label: str | None = None,
+        qualified: bool = False,
+        ltv: bool = True,
+        allow_upload_fallback: bool = False,
+        reason: str | None = None,
+        location: str | None = None,
+    ) -> PadesSealResult: ...
 
     def verify_cades(
         self,
@@ -193,6 +297,245 @@ class SigillClient:
         resp.raise_for_status()
         return resp.content
 
+    # ------------------------------------------------------------- seal_jades
+
+    def seal_jades(
+        self,
+        data: bytes,
+        certificate_id: str,
+        *,
+        label: str | None = None,
+        qualified: bool = False,
+        pqc: bool = False,
+        content_type: str | None = None,
+    ) -> bytes:
+        """JAdES-seal data via /seal/sign-hash with ``format: "jades"``.
+
+        The ETSI signature format for JSON (TS 119 182-1) — the natural fit for
+        JSON/JSONL content such as AI evidence and agent logs. Only digests are
+        transmitted; returns the detached ``.jades.json`` artifact bytes. The
+        seal covers the exact bytes — re-serializing the JSON breaks it by design.
+
+        :param data: the exact bytes to seal (e.g. a canonicalized envelope).
+        :param certificate_id: UUID of the active seal certificate.
+        :param label: human-readable label shown in the Sigill dashboard.
+        :param qualified: request a qualified timestamp on the signature.
+        :param pqc: also add a post-quantum ML-DSA-87 signer as a second JWS
+            ``signatures[]`` entry (RFC 9964) — same hybrid model as CAdES.
+        :param content_type: MIME type recorded in the JAdES sigD, e.g.
+            ``application/json``.
+        :raises httpx.HTTPStatusError: for 4xx/5xx API errors.
+        """
+        body: dict = {
+            "hashHex": hash_bytes(data, alg="SHA-256"),
+            "certificateId": str(certificate_id),
+            "qualified": qualified,
+            "format": "jades",
+        }
+        if label is not None:
+            body["label"] = label
+        if content_type is not None:
+            body["contentType"] = content_type
+        if pqc:
+            body["pqc"] = True
+            body["hashHex512"] = hash_bytes(data, alg="SHA-512")
+        resp = self._http.post("/seal/sign-hash", json=body)
+        resp.raise_for_status()
+        return resp.content
+
+    # ----------------------------------------------------------- verify_jades
+
+    def verify_jades(
+        self,
+        data: bytes,
+        jades: bytes,
+        *,
+        tsr: bytes | None = None,
+    ) -> JadesVerifyResult:
+        """Verify a detached JAdES signature via POST /seal/verify-hash.
+
+        Hash-only: the original content never leaves the machine. The endpoint
+        routes on the artifact bytes (JSON text → JAdES, DER → CAdES); the
+        ``p7sBase64`` field doubles as the artifact carrier.
+
+        :param data: the original bytes that were sealed.
+        :param jades: the detached JAdES artifact bytes (.jades.json).
+        :param tsr: optional standalone RFC 3161 timestamp response bytes (.tsr).
+        :raises httpx.HTTPStatusError: for 4xx/5xx API errors.
+        """
+        import base64
+        body_json: dict = {
+            "hashHex":   hash_bytes(data, alg="SHA-256"),
+            "hashHex512": hash_bytes(data, alg="SHA-512"),
+            "p7sBase64": base64.b64encode(jades).decode(),
+        }
+        if tsr is not None:
+            body_json["tsrBase64"] = base64.b64encode(tsr).decode()
+        resp = self._http.post("/seal/verify-hash", json=body_json)
+        resp.raise_for_status()
+        return JadesVerifyResult(**_map_detached_verify(resp.json().get("jades", {})))
+
+    # ------------------------------------------------------------- seal_pades
+
+    def seal_pades(
+        self,
+        pdf: bytes,
+        certificate_id: str,
+        *,
+        label: str | None = None,
+        qualified: bool = False,
+        ltv: bool = True,
+        allow_upload_fallback: bool = False,
+        reason: str | None = None,
+        location: str | None = None,
+    ) -> PadesSealResult:
+        """PAdES-seal a PDF via /seal/sign-pades-hash — delegated, hash-only.
+
+        The signature revision (placeholder /Contents slot, ByteRange) is
+        assembled locally by the incremental signer; only ByteRange digests are
+        ever transmitted — the PDF itself never leaves the machine. The CMS is
+        built server-side and embedded here.
+
+        :param pdf: the PDF bytes to seal. Never mutated; never transmitted
+            unless ``allow_upload_fallback`` triggers.
+        :param certificate_id: UUID of the active seal certificate.
+        :param label: human-readable label shown in the Sigill dashboard.
+        :param qualified: use an eIDAS-qualified TSA for all timestamps in the seal.
+        :param ltv: upgrade to PAdES B-LT / B-LTA when the server returns LTV
+            material: embeds a Document Security Store (chain + OCSP) and a
+            DocTimeStamp obtained via /tsa/stamp-hash. Note the DocTimeStamp
+            consumes one timestamp from the tenant quota.
+        :param allow_upload_fallback: when the local parser cannot handle this
+            PDF's structure, upload it to POST /seal/sign and seal server-side
+            (identical PAdES output, but the PDF is transmitted to Sigill).
+            Default False: the hash-only privacy guarantee is absolute and such
+            PDFs raise :class:`PdfUnsupported` instead — leave it off under a
+            strict data-residency policy.
+        :param reason: written into the PDF signature dictionary's /Reason field.
+        :param location: written into the PDF signature dictionary's /Location field.
+        :raises PdfUnsupported: when the local parser cannot handle this PDF's
+            structure and ``allow_upload_fallback`` is False — nothing has been
+            transmitted.
+        :raises httpx.HTTPStatusError: for 4xx/5xx API errors.
+        """
+        # 1. Assemble the signature revision locally: placeholder /Contents slot,
+        # ByteRange, and the digests over the signed ranges. Only these digests
+        # are ever transmitted.
+        try:
+            prep = _pdf.prepare(pdf, datetime.now(timezone.utc), reason, location)
+        except ValueError as e:
+            if not allow_upload_fallback:
+                raise PdfUnsupported(str(e)) from e
+            # Explicit opt-in: server-side sealing with the full parser. This is
+            # the one code path in the SDK that transmits the PDF itself.
+            return self._seal_pades_by_upload(
+                pdf, certificate_id, label=label, qualified=qualified,
+                reason=reason, location=location)
+
+        # 2. hash → Sigill → CMS (+ LTV material for the DSS).
+        body: dict = {
+            "hashHex": prep.document_hash.hex(),
+            "certificateId": str(certificate_id),
+            "qualified": qualified,
+        }
+        if label is not None:
+            body["label"] = label
+        resp = self._http.post("/seal/sign-pades-hash", json=body)
+        resp.raise_for_status()
+        data = resp.json()
+
+        cms = base64.b64decode(data["cmsBase64"])
+        operation_id = data["operationId"]
+        timestamped_by = data.get("timestampedBy")
+        qualified_out = bool(data.get("qualified", False))
+        cert_ders = [base64.b64decode(x) for x in (data.get("certChainDers") or [])]
+        ocsp_ders = [base64.b64decode(x) for x in (data.get("ocspDers") or [])]
+
+        # 3. Embed the CMS into the reserved slot.
+        signed_pdf = _pdf.embed(prep, cms)
+
+        # 4. Optional LTV: DSS (B-LT) + DocTimeStamp (B-LTA), both assembled
+        # locally. Mirrors the server-side /seal/sign pipeline: the DocTimeStamp
+        # is best-effort — a timestamp failure leaves a valid B-LT PDF.
+        has_dss = has_doc_ts = False
+        if ltv and (cert_ders or ocsp_ders):
+            signed_pdf = _pdf.append_dss(signed_pdf, cert_ders, ocsp_ders, cms)
+            has_dss = True
+
+            try:
+                dt_prep = _pdf.prepare_doc_timestamp(signed_pdf, datetime.now(timezone.utc))
+                stamp_body: dict = {
+                    "tsaSlug": "auto",
+                    "hashHex": dt_prep.document_hash.hex(),
+                    "qualified": qualified,
+                }
+                if label is not None:
+                    stamp_body["label"] = label
+                dt_resp = self._http.post("/tsa/stamp-hash", json=stamp_body)
+                dt_resp.raise_for_status()
+                token = base64.b64decode(dt_resp.json()["tokenBase64"])
+
+                signed_pdf = _pdf.embed_doc_timestamp(dt_prep, token)
+                has_doc_ts = True
+            except Exception:
+                # B-LT is still a valid, LTV-enabled seal; the archival timestamp
+                # can be added later by re-sealing or via the server-side path.
+                pass
+
+        # Same format ladder as the server-side /seal/sign PDF branch.
+        if timestamped_by is None:
+            fmt = "pades-bes"
+        elif not has_dss:
+            fmt = "pades-b-t"
+        elif not has_doc_ts:
+            fmt = "pades-b-lt"
+        else:
+            fmt = "pades-b-lta"
+
+        return PadesSealResult(
+            sealed_pdf=signed_pdf,
+            operation_id=operation_id,
+            format=fmt,
+            timestamped_by=timestamped_by,
+            qualified=qualified_out,
+        )
+
+    def _seal_pades_by_upload(
+        self,
+        pdf: bytes,
+        certificate_id: str,
+        *,
+        label: str | None,
+        qualified: bool,
+        reason: str | None,
+        location: str | None,
+    ) -> PadesSealResult:
+        """Upload fallback (opt-in via ``allow_upload_fallback``): server-side
+        PAdES sealing through POST /seal/sign. Same output levels as the
+        delegated path; the server handles DSS + DocTimeStamp."""
+        data: dict = {"certificateId": str(certificate_id), "qualified": "true" if qualified else "false"}
+        if label is not None:
+            data["label"] = label
+        if reason is not None:
+            data["reason"] = reason
+        if location is not None:
+            data["location"] = location
+        resp = self._http.post(
+            "/seal/sign",
+            data=data,
+            files={"file": (label or "document.pdf", pdf, "application/pdf")},
+        )
+        resp.raise_for_status()
+
+        tsa = resp.headers.get("X-Seal-Timestamped-By")
+        return PadesSealResult(
+            sealed_pdf=resp.content,
+            operation_id=resp.headers.get("X-Seal-Operation-Id", ""),
+            format=resp.headers.get("X-Seal-Format", "pades-bes"),
+            timestamped_by=None if tsa in (None, "none") else tsa,
+            qualified=resp.headers.get("X-Seal-Qualified", "").lower() == "true",
+        )
+
     # ---------------------------------------------------------- verify_cades
 
     def verify_cades(
@@ -226,40 +569,7 @@ class SigillClient:
             body_json["tsrBase64"] = base64.b64encode(tsr).decode()
         resp = self._http.post("/seal/verify-hash", json=body_json)
         resp.raise_for_status()
-        body = resp.json()
-        cades = body.get("cades", {})
-        cert  = cades.get("certificate") or {}
-        ts    = cades.get("timestamp") or {}
-        hash_match      = bool(cades.get("hashMatch", False))
-        signature_valid = bool(cades.get("signatureValid", False))
-        error           = cades.get("error")
-        qual_src        = ts.get("qualificationSource", "none")
-
-        post_quantum = None
-        pq = cades.get("postQuantum") or {}
-        if pq.get("present"):
-            post_quantum = PqcVerifyInfo(
-                present         = True,
-                valid           = bool(pq.get("valid", False)),
-                signature_valid = bool(pq.get("signatureValid", False)),
-                content_bound   = pq.get("contentBound", "not_checked"),
-                trusted         = pq.get("trusted", "not_evaluated"),
-                algorithm       = pq.get("algorithm", "ml-dsa-87"),
-            )
-
-        return CadesVerifyResult(
-            is_valid        = hash_match and signature_valid and error is None,
-            hash_match      = hash_match,
-            signature_valid = signature_valid,
-            signer          = cert.get("subject"),
-            trust           = cert.get("trust"),
-            tsa_name        = ts.get("tsaName"),
-            gen_time        = ts.get("genTime"),
-            qualified       = qual_src not in (None, "none"),
-            error           = error,
-            warnings        = list(cades.get("warnings") or []),
-            post_quantum    = post_quantum,
-        )
+        return CadesVerifyResult(**_map_detached_verify(resp.json().get("cades", {})))
 
     # ---------------------------------------------------------------- verify
 
