@@ -189,6 +189,39 @@ pass it as `tsr=`:
 result = client.verify_cades(document, p7s, tsr=tsr_bytes)
 ```
 
+## JAdES sealing for JSON
+
+For JSON and JSONL content — API payloads, agent logs, AI evidence — prefer
+**JAdES** (ETSI TS 119 182-1), the ETSI signature format for JSON. Same
+detached, hash-only model as CAdES: only digests are transmitted, and the
+returned `.jades.json` artifact verifies against the exact original bytes
+(re-serializing the JSON breaks it by design).
+
+```python
+log = open("agent-log.json", "rb").read()
+
+jades = client.seal_jades(log, certificate_id=CERT_ID,
+                          label="agent-log.json", content_type="application/json")
+# store agent-log.json.jades.json alongside the log
+
+result = client.verify_jades(log, jades)
+assert result.is_valid
+```
+
+`pqc=True` works here too — the ML-DSA-87 signer is added as a second JWS
+`signatures[]` entry (RFC 9964). `JadesVerifyResult` has the same fields as
+`CadesVerifyResult`.
+
+To seal an AI evidence envelope with a JAdES organisation seal in addition to
+its RFC 3161 proof, sign the canonical bytes:
+
+```python
+sealed = client.seal(envelope, external_payloads=payloads)
+canonical = canonicalize(sealed)  # from sigill_sdk
+jades = client.seal_jades(canonical, certificate_id=CERT_ID,
+                          label="envelope.jades.json", content_type="application/json")
+```
+
 ## PAdES PDF sealing — the PDF never leaves your machine
 
 For PDFs, the SDK produces an embedded **PAdES** signature (ETSI EN 319 142-1)

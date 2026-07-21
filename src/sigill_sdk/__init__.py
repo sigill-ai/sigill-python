@@ -39,6 +39,7 @@ from sigill_sdk._client import SigillClient, ISigillAiEvidenceClient, PadesSealR
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
     CadesVerifyResult,
+    JadesVerifyResult,
     PqcVerifyInfo,
     VerificationIssue,
     VerificationIssueKind,
@@ -69,6 +70,7 @@ __all__ = [
     "ContentHash",
     "AiEvidenceVerificationResult",
     "CadesVerifyResult",
+    "JadesVerifyResult",
     "PadesSealResult",
     "PqcVerifyInfo",
     "VerificationIssue",
