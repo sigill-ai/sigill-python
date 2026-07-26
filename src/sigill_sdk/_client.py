@@ -159,6 +159,8 @@ class ISigillAiEvidenceClient(Protocol):
         allow_upload_fallback: bool = False,
         reason: str | None = None,
         location: str | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
     ) -> PadesSealResult: ...
 
     def verify_cades(
@@ -388,6 +390,8 @@ class SigillClient:
         allow_upload_fallback: bool = False,
         reason: str | None = None,
         location: str | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
     ) -> PadesSealResult:
         """PAdES-seal a PDF via /seal/sign-pades-hash — delegated, hash-only.
 
@@ -440,6 +444,12 @@ class SigillClient:
         }
         if label is not None:
             body["label"] = label
+        # Expiry-reminder policy for the created evidence: "inherit" (default),
+        # "on" (optionally with reminder_days 30/60/90/180), or "off" (muted).
+        if reminders is not None:
+            body["reminders"] = reminders
+        if reminder_days is not None:
+            body["reminderDays"] = reminder_days
         resp = self._http.post("/seal/sign-pades-hash", json=body)
         resp.raise_for_status()
         data = resp.json()
@@ -476,6 +486,10 @@ class SigillClient:
                 }
                 if label is not None:
                     stamp_body["label"] = label
+                if reminders is not None:
+                    stamp_body["reminders"] = reminders
+                if reminder_days is not None:
+                    stamp_body["reminderDays"] = reminder_days
                 dt_resp = self._http.post("/tsa/stamp-hash", json=stamp_body)
                 dt_resp.raise_for_status()
                 token = base64.b64decode(dt_resp.json()["tokenBase64"])
