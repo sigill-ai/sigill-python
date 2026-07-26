@@ -146,7 +146,7 @@ def test_seal_pades_with_ltv_material_builds_dss_and_doc_timestamp() -> None:
     calls: list = []
 
     def handler(request: httpx.Request) -> httpx.Response:
-        calls.append(request.url.path)
+        calls.append((request.url.path, request.content.decode("latin-1")))
         if request.url.path == "/seal/sign-pades-hash":
             return _sign_pades_ok(with_ltv=True)
         return _stamp_ok()
@@ -154,8 +154,13 @@ def test_seal_pades_with_ltv_material_builds_dss_and_doc_timestamp() -> None:
     client = _client_with_handler(handler)
     result = client.seal_pades(MINIMAL_PDF, CERT_ID)
 
-    assert calls == ["/seal/sign-pades-hash", "/tsa/stamp-hash"]
+    assert [path for path, _ in calls] == ["/seal/sign-pades-hash", "/tsa/stamp-hash"]
     assert result.format == "pades-b-lta"
+
+    # The DocTimeStamp stamp call must carry the seal-operation link so the
+    # platform can attach the archival token to the operation's evidence.
+    stamp_sent = json.loads(calls[1][1])
+    assert stamp_sent["sealOperationId"] == OPERATION_ID
 
     text = result.sealed_pdf.decode("latin-1")
     assert "/Type /DSS" in text

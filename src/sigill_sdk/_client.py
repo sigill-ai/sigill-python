@@ -468,6 +468,11 @@ class SigillClient:
                     "tsaSlug": "auto",
                     "hashHex": dt_prep.document_hash.hex(),
                     "qualified": qualified,
+                    # Ties the archival DocTimeStamp to its seal operation so the
+                    # platform's evidence view can track — and archival-restamp —
+                    # the token that governs the B-LTA horizon. Older platforms
+                    # without the field simply ignore it.
+                    "sealOperationId": str(operation_id),
                 }
                 if label is not None:
                     stamp_body["label"] = label
