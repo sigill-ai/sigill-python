@@ -270,6 +270,59 @@ allows a single `SignerInfo` per signature. For an ML-DSA-87 hybrid seal over a
 PDF, use `seal_cades(pdf, certificate_id=CERT_ID, pqc=True)` and keep the
 detached `.p7s` alongside the file.
 
+### Crash-safe sealing: the two-phase flow
+
+`seal_pades()` prepares, signs, and embeds in one call. If your pipeline can
+die between the server signing (the seal is minted and billed) and your process
+persisting the result, use the two-phase flow with the tenant's **Store PAdES
+seal data** setting (Settings → Preferences, off by default):
+
+```python
+checkpoint = client.prepare_pades(pdf)
+save(checkpoint.prepared_pdf)               # your checkpoint — plain bytes
+
+result = client.seal_prepared_pades(checkpoint.prepared_pdf, CERT_ID)
+# ... process dies before result.sealed_pdf was persisted? Resume later:
+
+cms = client.get_seal_cms(operation_id)     # re-fetch the escrowed CMS
+sealed = SigillClient.complete_pades(load(), cms)  # offline, byte-identical
+```
+
+`complete_pades()` needs no network and produces exactly the bytes the
+uninterrupted flow would have (at the level the CMS carries — B-T; LTV upgrades
+are not re-applied on the resume path). Without the escrow setting, a signing
+response lost before embedding cannot be recovered.
+
+## Evidence lifecycle: tags, CI gates, and audit packages
+
+Every seal and stamp is an **evidence** in the Sigill evidence store — with a
+renewal horizon, verification history, and a custody log. The SDK exposes the
+lifecycle surface an automated caller needs:
+
+```python
+# Tag at creation — the grouping/filter dimension of the evidence store
+# (≤10 per evidence, ≤40 chars). Available on every seal method.
+client.seal_cades(artifact, CERT_ID, tags=["release-4.2", "backend"])
+
+# CI gate: does evidence exist, and how close is the renewal horizon?
+rec = client.get_evidence_record(artifact)
+if rec is None:
+    raise SystemExit("artifact was never sealed")
+print(rec.cert_not_after)   # the horizon — fail the build when too close
+
+# Public existence check (no API key needed) — consent-gated: None unless the
+# evidence owner opted in to public lookups. Third-party release verification.
+found = client.lookup(artifact)
+
+# Everything an auditor needs, independently verifiable offline:
+# tokens, certificates, verification report, custody log, SHA-256 manifest.
+zip_bytes = client.export_audit_package(rec.transaction_id)
+```
+
+Expiry-reminder policy can be set per evidence at creation on every seal
+method: `reminders="on"` (with `reminder_days=30/60/90/180`), `"off"` (muted),
+or the default `"inherit"`.
+
 ## Error handling
 
 Producer-time errors raise; verification errors are collected. This split is

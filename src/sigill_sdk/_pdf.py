@@ -113,6 +113,44 @@ def prepare(
     return PreparedPdf(full, hex_off, hex_len, doc_hash)
 
 
+# ------------------------------------------------- recover: resume from bytes
+
+
+def recover(prepared_bytes: bytes) -> PreparedPdf:
+    """Reconstruct a PreparedPdf from prepared bytes persisted by a caller —
+    the crash-resume path. The placeholder revision's finalized /ByteRange
+    carries the real offsets, so the /Contents slot and the document hash are
+    re-derived exactly; no state beyond the bytes themselves is needed."""
+    text = prepared_bytes.decode("latin-1")
+    # The placeholder signature revision is the newest incremental update,
+    # so its /ByteRange is the last one in the file.
+    br_key = text.rfind("/ByteRange")
+    if br_key < 0:
+        raise ValueError("Not a prepared PDF: no /ByteRange found")
+    open_ix = text.find("[", br_key)
+    close_ix = text.find("]", open_ix) if open_ix >= 0 else -1
+    if close_ix < 0:
+        raise ValueError("Not a prepared PDF: malformed /ByteRange")
+    parts = text[open_ix + 1:close_ix].split()
+    try:
+        r1, r1_len, r2, r2_len = (int(p) for p in parts)
+    except (TypeError, ValueError) as e:
+        raise ValueError("Not a prepared PDF: /ByteRange still a template or unparseable") from e
+
+    # The declared ranges must sandwich '<' + hex + '>' exactly and cover the
+    # whole file — anything else means the bytes are not a finalized
+    # placeholder revision from prepare().
+    hex_off = r1_len + 1
+    hex_len = r2 - r1_len - 2
+    if (r1 != 0 or hex_len <= 0 or r2 + r2_len != len(prepared_bytes)
+            or prepared_bytes[r1_len:r1_len + 1] != b"<"
+            or prepared_bytes[r2 - 1:r2] != b">"):
+        raise ValueError("Prepared bytes do not carry a finalized placeholder revision")
+
+    doc_hash = _hash_ranges(bytearray(prepared_bytes), r1, r1_len, r2, r2_len)
+    return PreparedPdf(prepared_bytes, hex_off, hex_len, doc_hash)
+
+
 # ----------------------------------------------------------------- pass 2: embed
 
 

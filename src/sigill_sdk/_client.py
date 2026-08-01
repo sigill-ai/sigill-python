@@ -77,6 +77,62 @@ def _map_detached_verify(node: dict) -> dict:
 
 
 @dataclass(frozen=True)
+class PreparedPadesPdf:
+    """Output of prepare_pades(): the PDF with its placeholder signature
+    revision appended, plus the ByteRange digest that will be signed.
+
+    ``prepared_pdf`` is the crash checkpoint: persist it before calling
+    seal_prepared_pades() and a pipeline that dies after the server signed can
+    later finish locally — re-fetch the CMS with get_seal_cms() (requires the
+    tenant's "Store PAdES seal data" escrow setting) and call complete_pades().
+    Everything needed to resume is re-derived from these bytes; no other state
+    must survive the crash."""
+
+    prepared_pdf: bytes
+    """The original PDF plus the appended placeholder signature revision."""
+
+    hash_hex: str
+    """Lowercase SHA-256 hex of the declared ByteRange — what gets signed."""
+
+
+@dataclass(frozen=True)
+class EvidenceRecord:
+    """The newest evidence record for an artifact hash, as recorded for the
+    authenticated tenant (GET /api/transactions/by-hash/{hash}).
+
+    The natural CI gate: ``cert_not_after`` is the evidence's renewal horizon —
+    the moment the active timestamp token's TSA certificate expires. A pipeline
+    can fail a release when the artifact has no record, or when the horizon is
+    closer than the policy allows."""
+
+    transaction_id: str
+    hash: str
+    hash_algorithm: str | None
+    gen_time: str | None
+    created_at: str
+    tsa_name: str | None
+    label: str | None
+    cert_not_before: str | None
+    cert_not_after: str | None
+    is_restamp: bool
+    has_tsr: bool
+
+
+@dataclass(frozen=True)
+class PublicLookupResult:
+    """Result of a public existence check (GET /api/lookup/{hash}).
+
+    Discoverability is opt-in per tenant/evidence: lookup() returning None
+    means "no publicly disclosed record" — deliberately indistinguishable from
+    "never stamped". Records carry cryptographic facts only (no labels, no
+    tenant identity), in the server's camelCase shape."""
+
+    count: int
+    latest: dict
+    records: list[dict]
+
+
+@dataclass(frozen=True)
 class PadesSealResult:
     """Result of a delegated PAdES seal — seal_pades().
 
@@ -117,6 +173,7 @@ class ISigillAiEvidenceClient(Protocol):
         *,
         tsa_slug: str = "auto",
         qualified: bool = False,
+        tags: list[str] | None = None,
     ) -> SealedAiEvidenceEnvelope: ...
 
     def seal_cades(
@@ -127,6 +184,9 @@ class ISigillAiEvidenceClient(Protocol):
         label: str | None = None,
         qualified: bool = False,
         pqc: bool = False,
+        tags: list[str] | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
     ) -> bytes: ...
 
     def seal_jades(
@@ -138,6 +198,9 @@ class ISigillAiEvidenceClient(Protocol):
         qualified: bool = False,
         pqc: bool = False,
         content_type: str | None = None,
+        tags: list[str] | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
     ) -> bytes: ...
 
     def verify_jades(
@@ -161,6 +224,7 @@ class ISigillAiEvidenceClient(Protocol):
         location: str | None = None,
         reminders: str | None = None,
         reminder_days: int | None = None,
+        tags: list[str] | None = None,
     ) -> PadesSealResult: ...
 
     def verify_cades(
@@ -210,6 +274,7 @@ class SigillClient:
         tsa_slug: str = "auto",
         qualified: bool = False,
         label: str | None = None,
+        tags: list[str] | None = None,
     ) -> SealedAiEvidenceEnvelope:
         """Seal an envelope: populate hash refs, hash the canonical form, attach a proof.
 
@@ -223,6 +288,9 @@ class SigillClient:
         :param qualified: request an eIDAS-qualified timestamp instead of a standard one.
         :param label: human-readable label shown in the Sigill dashboard. Defaults to
             ``activity.name`` from the envelope when not supplied.
+        :param tags: evidence tags attached at creation — the grouping/filter
+            dimension of the Sigill evidence store (≤10 per evidence, ≤40 chars).
+            Not part of the canonical envelope; does not affect the hash.
         """
         env = copy.deepcopy(envelope)
         external_payloads = external_payloads or {}
@@ -254,7 +322,8 @@ class SigillClient:
         resolved_label = label if label is not None else (
             envelope.get("activity", {}).get("name")
         )
-        proof = self._stamp(digest_hex, tsa_slug=tsa_slug, qualified=qualified, label=resolved_label)
+        proof = self._stamp(digest_hex, tsa_slug=tsa_slug, qualified=qualified,
+                            label=resolved_label, tags=tags)
         env["proofs"] = [proof]
         return env
 
@@ -268,6 +337,9 @@ class SigillClient:
         label: str | None = None,
         qualified: bool = False,
         pqc: bool = False,
+        tags: list[str] | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
     ) -> bytes:
         """CAdES-seal arbitrary data via /seal/sign-hash.
 
@@ -282,6 +354,10 @@ class SigillClient:
             CMS — one .p7s, both signers independently verifiable. The SHA-512 digest
             is computed locally and sent as the ML-DSA signer's messageDigest; content
             still never leaves the machine. Requires a platform PQC cert server-side.
+        :param tags: evidence tags attached at creation (≤10 per evidence, ≤40 chars).
+        :param reminders: expiry-reminder policy for the created evidence:
+            "inherit" (default), "on", or "off" (muted).
+        :param reminder_days: reminder threshold override (30/60/90/180) when "on".
         :raises httpx.HTTPStatusError: for 4xx/5xx API errors.
         """
         hash_hex = hash_bytes(data, alg="SHA-256")
@@ -292,6 +368,12 @@ class SigillClient:
         }
         if label is not None:
             body["label"] = label
+        if tags:
+            body["tags"] = list(tags)
+        if reminders is not None:
+            body["reminders"] = reminders
+        if reminder_days is not None:
+            body["reminderDays"] = reminder_days
         if pqc:
             body["pqc"] = True
             body["hashHex512"] = hash_bytes(data, alg="SHA-512")
@@ -310,6 +392,9 @@ class SigillClient:
         qualified: bool = False,
         pqc: bool = False,
         content_type: str | None = None,
+        tags: list[str] | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
     ) -> bytes:
         """JAdES-seal data via /seal/sign-hash with ``format: "jades"``.
 
@@ -338,6 +423,12 @@ class SigillClient:
             body["label"] = label
         if content_type is not None:
             body["contentType"] = content_type
+        if tags:
+            body["tags"] = list(tags)
+        if reminders is not None:
+            body["reminders"] = reminders
+        if reminder_days is not None:
+            body["reminderDays"] = reminder_days
         if pqc:
             body["pqc"] = True
             body["hashHex512"] = hash_bytes(data, alg="SHA-512")
@@ -392,6 +483,7 @@ class SigillClient:
         location: str | None = None,
         reminders: str | None = None,
         reminder_days: int | None = None,
+        tags: list[str] | None = None,
     ) -> PadesSealResult:
         """PAdES-seal a PDF via /seal/sign-pades-hash — delegated, hash-only.
 
@@ -417,6 +509,7 @@ class SigillClient:
             strict data-residency policy.
         :param reason: written into the PDF signature dictionary's /Reason field.
         :param location: written into the PDF signature dictionary's /Location field.
+        :param tags: evidence tags attached at creation (≤10 per evidence, ≤40 chars).
         :raises PdfUnsupported: when the local parser cannot handle this PDF's
             structure and ``allow_upload_fallback`` is False — nothing has been
             transmitted.
@@ -434,8 +527,88 @@ class SigillClient:
             # the one code path in the SDK that transmits the PDF itself.
             return self._seal_pades_by_upload(
                 pdf, certificate_id, label=label, qualified=qualified,
-                reason=reason, location=location)
+                reason=reason, location=location, tags=tags)
 
+        return self._seal_prepared_core(
+            prep, certificate_id, label=label, qualified=qualified, ltv=ltv,
+            reminders=reminders, reminder_days=reminder_days, tags=tags)
+
+    # ------------------------------------------------- two-phase PAdES flow
+
+    def prepare_pades(
+        self,
+        pdf: bytes,
+        *,
+        reason: str | None = None,
+        location: str | None = None,
+    ) -> PreparedPadesPdf:
+        """Phase 1 of the two-phase delegated PAdES flow: assemble the
+        placeholder signature revision locally and return it as a persistable
+        checkpoint. Persist ``prepared_pdf``, then call seal_prepared_pades() —
+        a pipeline that crashes after the server signed can finish later from
+        the checkpoint plus the escrowed CMS (get_seal_cms() +
+        complete_pades()).
+
+        :raises PdfUnsupported: when the local parser cannot handle this PDF's
+            structure; the two-phase flow has no upload fallback — use
+            seal_pades(allow_upload_fallback=True) for that.
+        """
+        try:
+            prep = _pdf.prepare(pdf, datetime.now(timezone.utc), reason, location)
+        except ValueError as e:
+            raise PdfUnsupported(str(e)) from e
+        return PreparedPadesPdf(prepared_pdf=prep.bytes, hash_hex=prep.document_hash.hex())
+
+    def seal_prepared_pades(
+        self,
+        prepared_pdf: bytes,
+        certificate_id: str,
+        *,
+        label: str | None = None,
+        qualified: bool = False,
+        ltv: bool = True,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
+        tags: list[str] | None = None,
+    ) -> PadesSealResult:
+        """Phase 2 of the two-phase delegated PAdES flow: sign a prepared
+        revision (from prepare_pades(), possibly persisted and reloaded) and
+        finish the seal locally. Everything is re-derived from the prepared
+        bytes; equivalent to seal_pades() minus the local preparation and the
+        upload fallback.
+
+        :raises ValueError: when ``prepared_pdf`` is not a finalized prepared
+            revision from prepare_pades().
+        """
+        prep = _pdf.recover(prepared_pdf)
+        return self._seal_prepared_core(
+            prep, certificate_id, label=label, qualified=qualified, ltv=ltv,
+            reminders=reminders, reminder_days=reminder_days, tags=tags)
+
+    @staticmethod
+    def complete_pades(prepared_pdf: bytes, cms: bytes) -> bytes:
+        """Finish a delegated PAdES seal offline: embed a CMS — typically
+        re-fetched from escrow via get_seal_cms() — into a prepared revision
+        persisted by prepare_pades(). No network access; the result is the
+        sealed PDF at the level the CMS carries (B-T when timestamped, else
+        B-BES). LTV upgrades are not re-applied on this path — re-seal via the
+        normal flow when B-LT/B-LTA is required."""
+        return _pdf.embed(_pdf.recover(prepared_pdf), cms)
+
+    def _seal_prepared_core(
+        self,
+        prep: "_pdf.PreparedPdf",
+        certificate_id: str,
+        *,
+        label: str | None,
+        qualified: bool,
+        ltv: bool,
+        reminders: str | None,
+        reminder_days: int | None,
+        tags: list[str] | None,
+    ) -> PadesSealResult:
+        """Shared signing core for seal_pades() and seal_prepared_pades():
+        digest → sign-pades-hash → embed → optional DSS + DocTimeStamp."""
         # 2. hash → Sigill → CMS (+ LTV material for the DSS).
         body: dict = {
             "hashHex": prep.document_hash.hex(),
@@ -450,6 +623,8 @@ class SigillClient:
             body["reminders"] = reminders
         if reminder_days is not None:
             body["reminderDays"] = reminder_days
+        if tags:
+            body["tags"] = list(tags)
         resp = self._http.post("/seal/sign-pades-hash", json=body)
         resp.raise_for_status()
         data = resp.json()
@@ -528,6 +703,7 @@ class SigillClient:
         qualified: bool,
         reason: str | None,
         location: str | None,
+        tags: list[str] | None = None,
     ) -> PadesSealResult:
         """Upload fallback (opt-in via ``allow_upload_fallback``): server-side
         PAdES sealing through POST /seal/sign. Same output levels as the
@@ -539,6 +715,10 @@ class SigillClient:
             data["reason"] = reason
         if location is not None:
             data["location"] = location
+        if tags:
+            # httpx encodes a list value as repeated form fields — the shape
+            # the server's repeated-key form reader expects.
+            data["tags"] = list(tags)
         resp = self._http.post(
             "/seal/sign",
             data=data,
@@ -554,6 +734,94 @@ class SigillClient:
             timestamped_by=None if tsa in (None, "none") else tsa,
             qualified=resp.headers.get("X-Seal-Qualified", "").lower() == "true",
         )
+
+    # -------------------------------------------------------------- evidence
+
+    def get_seal_cms(self, operation_id: str) -> bytes | None:
+        """Download the escrowed signature object for a seal operation
+        (GET /seal/operations/{id}/p7s). For PAdES operations this is the
+        /Contents CMS — the input to complete_pades(); for CAdES/JAdES it is
+        the detached .p7s / JWS. Returns None when nothing is stored for the
+        operation (the tenant setting was off, or the id is unknown)."""
+        resp = self._http.get(f"/seal/operations/{operation_id}/p7s")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        return resp.content
+
+    def get_evidence_record(
+        self,
+        data: bytes | None = None,
+        *,
+        hash_hex: str | None = None,
+    ) -> EvidenceRecord | None:
+        """Fetch the newest evidence record for an artifact, as recorded for
+        the authenticated tenant (GET /api/transactions/by-hash/{hash}).
+        Returns None when the tenant holds no record. The CI-gate primitive:
+        check existence and how close ``cert_not_after`` (the renewal horizon)
+        is.
+
+        Pass either the artifact ``data`` (hashed locally, SHA-256) or an
+        explicit ``hash_hex``."""
+        if (data is None) == (hash_hex is None):
+            raise ValueError("Pass exactly one of data or hash_hex")
+        h = hash_hex.lower() if hash_hex else hash_bytes(data, alg="SHA-256")
+        resp = self._http.get(f"/api/transactions/by-hash/{h}")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        b = resp.json()
+        return EvidenceRecord(
+            transaction_id=b["id"],
+            hash=b["hash"],
+            hash_algorithm=b.get("alg"),
+            gen_time=b.get("genTime"),
+            created_at=b["createdAt"],
+            tsa_name=b.get("tsaName"),
+            label=b.get("label"),
+            cert_not_before=b.get("certNotBefore"),
+            cert_not_after=b.get("certNotAfter"),
+            is_restamp=bool(b.get("isRestamp", False)),
+            has_tsr=bool(b.get("hasTsr", False)),
+        )
+
+    def lookup(
+        self,
+        data: bytes | None = None,
+        *,
+        hash_hex: str | None = None,
+    ) -> PublicLookupResult | None:
+        """Public existence check (GET /api/lookup/{hash}, no auth required):
+        has this artifact been timestamped, by anyone who chose to disclose
+        it? Discoverability is opt-in per tenant/evidence, so None means "no
+        publicly disclosed record" — deliberately indistinguishable from
+        "never stamped". Third-party verification of published artifacts
+        (releases, git objects)."""
+        if (data is None) == (hash_hex is None):
+            raise ValueError("Pass exactly one of data or hash_hex")
+        h = hash_hex.lower() if hash_hex else hash_bytes(data, alg="SHA-256")
+        resp = self._http.get(f"/api/lookup/{h}")
+        if resp.status_code == 404:
+            return None
+        resp.raise_for_status()
+        b = resp.json()
+        records = list(b.get("records") or [])
+        return PublicLookupResult(
+            count=int(b.get("count", len(records))),
+            latest=b.get("latest") or (records[0] if records else {}),
+            records=records,
+        )
+
+    def export_audit_package(self, transaction_id: str) -> bytes:
+        """Download the evidence's audit package
+        (GET /api/transactions/{id}/audit-package.zip): every token of the
+        restamp chain, embedded certificates, the latest verification report,
+        the custody log, the stored detached signature when present, and a
+        SHA-256 manifest — independently verifiable offline with standard
+        tools."""
+        resp = self._http.get(f"/api/transactions/{transaction_id}/audit-package.zip")
+        resp.raise_for_status()
+        return resp.content
 
     # ---------------------------------------------------------- verify_cades
 
@@ -822,7 +1090,8 @@ class SigillClient:
             }
         )
 
-    def _stamp(self, hash_hex: str, *, tsa_slug: str, qualified: bool, label: str | None):
+    def _stamp(self, hash_hex: str, *, tsa_slug: str, qualified: bool, label: str | None,
+               tags: list[str] | None = None):
         """Call Sigill /tsa/stamp-hash with the SHA-256 hex digest of the canonical envelope.
 
         Only the digest is transmitted — the envelope never leaves the machine.
@@ -836,6 +1105,8 @@ class SigillClient:
         }
         if label is not None:
             body["label"] = label
+        if tags:
+            body["tags"] = list(tags)
         resp = self._http.post("/tsa/stamp-hash", json=body)
         if resp.status_code == 502:
             try:

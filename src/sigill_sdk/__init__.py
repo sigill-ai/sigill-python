@@ -35,7 +35,14 @@ from sigill_sdk._envelope import (
     PayloadRef,
     ContentHash,
 )
-from sigill_sdk._client import SigillClient, ISigillAiEvidenceClient, PadesSealResult
+from sigill_sdk._client import (
+    SigillClient,
+    ISigillAiEvidenceClient,
+    PadesSealResult,
+    PreparedPadesPdf,
+    EvidenceRecord,
+    PublicLookupResult,
+)
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
     CadesVerifyResult,
@@ -72,6 +79,9 @@ __all__ = [
     "CadesVerifyResult",
     "JadesVerifyResult",
     "PadesSealResult",
+    "PreparedPadesPdf",
+    "EvidenceRecord",
+    "PublicLookupResult",
     "PqcVerifyInfo",
     "VerificationIssue",
     "VerificationIssueKind",
