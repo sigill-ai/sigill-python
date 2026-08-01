@@ -285,13 +285,17 @@ result = client.seal_prepared_pades(checkpoint.prepared_pdf, CERT_ID)
 # ... process dies before result.sealed_pdf was persisted? Resume later:
 
 cms = client.get_seal_cms(operation_id)     # re-fetch the escrowed CMS
-sealed = SigillClient.complete_pades(load(), cms)  # offline, byte-identical
+sealed = SigillClient.complete_pades(load(), cms)  # offline recovery
 ```
 
-`complete_pades()` needs no network and produces exactly the bytes the
-uninterrupted flow would have (at the level the CMS carries — B-T; LTV upgrades
-are not re-applied on the resume path). Without the escrow setting, a signing
-response lost before embedding cannot be recovered.
+`complete_pades()` needs no network and recovers a **valid sealed PDF at the
+level the CMS carries** — B-T when the signature timestamp succeeded, else
+B-BES. LTV material (the DSS and the archival DocTimeStamp that `ltv=True`
+would have appended) is **not reconstructed** on the resume path: with
+`ltv=False` the recovery is byte-identical to the uninterrupted flow; with the
+default LTV ladder it recovers the B-T seal, and B-LT/B-LTA can be reached
+later by re-sealing. Without the escrow setting, a signing response lost
+before embedding cannot be recovered at all.
 
 ## Evidence lifecycle: tags, CI gates, and audit packages
 

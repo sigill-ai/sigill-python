@@ -527,7 +527,8 @@ class SigillClient:
             # the one code path in the SDK that transmits the PDF itself.
             return self._seal_pades_by_upload(
                 pdf, certificate_id, label=label, qualified=qualified,
-                reason=reason, location=location, tags=tags)
+                reason=reason, location=location, tags=tags,
+                reminders=reminders, reminder_days=reminder_days)
 
         return self._seal_prepared_core(
             prep, certificate_id, label=label, qualified=qualified, ltv=ltv,
@@ -704,6 +705,8 @@ class SigillClient:
         reason: str | None,
         location: str | None,
         tags: list[str] | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
     ) -> PadesSealResult:
         """Upload fallback (opt-in via ``allow_upload_fallback``): server-side
         PAdES sealing through POST /seal/sign. Same output levels as the
@@ -715,6 +718,10 @@ class SigillClient:
             data["reason"] = reason
         if location is not None:
             data["location"] = location
+        if reminders is not None:
+            data["reminders"] = reminders
+        if reminder_days is not None:
+            data["reminderDays"] = str(reminder_days)
         if tags:
             # httpx encodes a list value as repeated form fields — the shape
             # the server's repeated-key form reader expects.

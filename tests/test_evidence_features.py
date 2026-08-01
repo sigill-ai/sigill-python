@@ -102,6 +102,33 @@ def test_tags_forwarded_on_all_seal_methods() -> None:
     assert bodies["/tsa/stamp-hash"]["tags"] == tags
 
 
+def test_upload_fallback_forwards_tags_and_reminders() -> None:
+    """The fallback must carry the caller's full intent — QA: reminders were
+    silently dropped on this path."""
+    unsupported = b"%PDF-1.4\nnot really a pdf"
+    seen: dict = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.path == "/seal/sign"
+        seen["body"] = request.content
+        return httpx.Response(200, content=b"sealed", headers={
+            "X-Seal-Operation-Id": OPERATION_ID,
+            "X-Seal-Format": "pades-b-lta",
+            "X-Seal-Timestamped-By": "Test TSA",
+            "X-Seal-Qualified": "false",
+        })
+
+    client = _client_with_handler(handler)
+    client.seal_pades(unsupported, CERT_ID, allow_upload_fallback=True,
+                      tags=["a", "b"], reminders="on", reminder_days=60)
+
+    body = seen["body"]
+    # Repeated form fields for tags; scalar fields for the reminder override.
+    assert body.count(b'name="tags"') == 2
+    assert b'name="reminders"' in body and b"\r\non\r\n" in body
+    assert b'name="reminderDays"' in body and b"\r\n60\r\n" in body
+
+
 def test_tags_omitted_when_not_supplied() -> None:
     bodies: list[dict] = []
 
