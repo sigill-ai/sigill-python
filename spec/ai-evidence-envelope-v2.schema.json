@@ -238,7 +238,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["seq"],
-      "description": "RESERVED (mechanism defined, semantics deliberately open in v2.0): cryptographic sequencing for multi-step agent runs. What constitutes a 'step' (turn / tool call / run) is out of scope for v2.0. See spec §5.4.",
+      "description": "RESERVED (mechanism defined, semantics deliberately open in v2.0): cryptographic sequencing for multi-step agent runs. What constitutes a 'step' (turn / tool call / run) is out of scope for v2.0. See spec §3.4.",
       "properties": {
         "seq": {
           "type": "integer",
@@ -254,7 +254,7 @@
     },
     "extensions": {
       "type": "object",
-      "description": "Named extension point for profile- or producer-specific data that is not part of the shared envelope-family core. Each key is an extension identifier (a registered profile name such as 'sigill-evidence', or reverse-DNS for producer-private extensions); each value is an object owned entirely by that extension. Extensions are signed like everything else in the envelope but carry no cross-profile semantics; generic viewers and verifiers ignore extensions they do not know.",
+      "description": "Named extension point for producer-private data that is not part of the shared envelope-family core. Each key is an extension identifier (reverse-DNS recommended, e.g. 'com.example.review-workflow'); each value is an object owned entirely by that extension. Extensions are signed like everything else in the envelope but carry no cross-profile semantics; generic viewers and verifiers ignore extensions they do not know. Sibling profiles are not extensions — they are their own content types with their own schemas.",
       "additionalProperties": { "type": "object" }
     }
   },
