@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sigill.ai/ai-evidence-artifact/v2.json",
+  "title": "AiEvidenceArtifactV2",
+  "description": "The self-contained AI evidence artifact, version 2: one file (*.ai-evidence.json, media type application/vnd.sigill.ai-evidence+json) carrying the v2 envelope and the JAdES signature over it. The wrapper is deliberately trivial — verification is JCS(envelope) hashing to sigD.hashV[0], then standard ETSI TS 119 182-1 validation with the caller supplying content objects for hashV[1..n]. A validator that only understands TS 119 182-1 can verify the 'signature' member directly, given the canonical envelope bytes as object 0. See ai-evidence-envelope-v2.md §6–§7.",
+  "type": "object",
+  "required": ["envelope", "signature"],
+  "additionalProperties": false,
+  "properties": {
+    "envelope": {
+      "$ref": "https://schemas.sigill.ai/ai-evidence-envelope/v2.json",
+      "description": "The v2 evidence envelope — the signed metadata document (detached object 0 of the signature's sigD)."
+    },
+    "signature": {
+      "type": "object",
+      "description": "A JAdES signature in General JWS JSON Serialization (RFC 7515 §7.2.1). The JWS Payload is detached and, under sigD mechanism ObjectIdByURIHash, contributes as an empty stream — hence no 'payload' member (forbidden by additionalProperties). signatures[0] is the classical signer; an optional second entry is the ML-DSA-87 hybrid signer. Each entry carries its own protected header with its own sigD (ETSI TS 119 182-1 §5.2.8.1 NOTE 1).",
+      "additionalProperties": false,
+      "required": ["signatures"],
+      "properties": {
+        "signatures": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["protected", "signature"],
+            "properties": {
+              "protected": {
+                "type": "string",
+                "description": "base64url-encoded JWS Protected Header (alg, iat, certificate reference, crit ['sigD','b64'], b64:false, sigD)."
+              },
+              "header": {
+                "type": "object",
+                "description": "JWS Unprotected Header. Carries 'etsiU' (sigTst timestamp tokens, rVals revocation values) on the classical signer's entry."
+              },
+              "signature": {
+                "type": "string",
+                "description": "base64url-encoded JWS Signature Value."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

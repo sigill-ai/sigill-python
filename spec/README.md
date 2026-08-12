@@ -3,6 +3,11 @@
 This document is the normative specification of the **AI Evidence Envelope, version 1**
 (`schemaName: "AiEvidenceEnvelope"`, `schemaVersion: "1"`).
 
+> **Version 2 (agreed 12 Aug 2026):** v1 is superseded for *producing*
+> evidence by the JAdES-sealed
+> [`AiEvidenceEnvelopeV2`](./ai-evidence-envelope-v2.md). v1 envelopes remain
+> verifiable indefinitely.
+
 The envelope is a tamper-evident record of an AI generation call. It is designed to be:
 
 - **Reusable** across business domains (nothing here is consumer-specific or business-domain-specific).
