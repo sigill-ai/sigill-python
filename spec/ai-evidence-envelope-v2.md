@@ -1,30 +1,27 @@
 # AiEvidenceEnvelopeV2 — Specification
 
-**Status: AGREED, 12 Aug 2026** (founder review Raymond + Hallvard —
-sigill-dotnet#4 / platform#37). Supersedes
+**Status: v2.0, agreed 12 Aug 2026.** Supersedes
 [`AiEvidenceEnvelopeV1`](./README.md) for *producing* evidence;
 v1 envelopes remain verifiable indefinitely and nothing re-signs old evidence.
-Standing review condition: **the opaque-URN requirement on remote paths
-(§3.1) is load-bearing for hashing anonymity and stays normative** — it MUST
-NOT be relaxed to guidance in future revisions.
+**The opaque-URN requirement on remote paths (§3.1) is load-bearing for
+hashing anonymity and is normative** — it MUST NOT be relaxed to guidance in
+future revisions.
 
-This is the format contract only. The platform API is specified separately in
-the platform repo (`docs/ai-evidence-jades-profile.md`, PR #37) and will not
-be built until this document is agreed. That contract is **blind in both
-directions** (platform [D8], 12 Aug): the producer sends digests and opaque
-URIs and receives the JWS; the **artifact is always assembled client-side**;
-platform verification takes the JWS plus a digest map and returns
-cryptographic verdicts. Sigill never receives the envelope — everything
-envelope-shaped in this document (schema validation, canonicalization, role
-coverage) is the SDK's job.
+This is the format contract; the Sigill platform signing and verification
+endpoints are documented in the platform API reference. That contract is
+**blind in both directions**: the producer sends digests and opaque URIs and
+receives the JWS; the **artifact is always assembled client-side**; platform
+verification takes the JWS plus a digest map and returns cryptographic
+verdicts. Sigill never receives the envelope — everything envelope-shaped in
+this document (schema validation, canonicalization, role coverage) is the
+SDK's job.
 
-**Scope disambiguation** — "envelope" means three things in the Sigill family
-today. This document versions exactly one of them: the **AI evidence
-envelope** (`AiEvidenceEnvelope`) produced by the SDKs and the browser
-extension. `EvidenceEnvelopeV3` in sigill-evidence is a **separate version
-track that persists**; it is expected to become another *consumer* of the same
-JAdES multi-object signing layer (its own content type, its own schema), not
-an instance of this schema.
+**Scope** — this document versions exactly one format: the **AI evidence
+envelope** (`AiEvidenceEnvelope`) produced by the Sigill SDKs and the browser
+extension. Other Sigill envelope formats are **sibling profiles** — their own
+content types, their own schemas, signed through the same JAdES multi-object
+mechanism — not instances of this schema, and not versioned by this
+document.
 
 **Regulatory positioning** (scope honesty): this format supports
 record-keeping, provenance and audit evidence — the Article 12-style
@@ -68,9 +65,9 @@ Two v1 constructs disappear because the JWS now owns them:
 
 ## 2. Family core, profile fields, extensions
 
-The envelope family (this schema, and future profiles such as the
-sigill-evidence envelope) shares a **core vocabulary** that generic viewers
-and verifiers can render without profile-specific code:
+The envelope family (this schema and its sibling profiles) shares a **core
+vocabulary** that generic viewers and verifiers can render without
+profile-specific code:
 
 - **Core** (family-shared): `schemaName`, `schemaVersion`, `evidenceId`,
   `createdAt`, `actor`, `activity`, `objects[]` (with roles), `chain`,
@@ -82,11 +79,10 @@ and verifiers can render without profile-specific code:
   objects owned entirely by that extension. Extensions are signed like
   everything else but carry no cross-profile semantics; unknown extensions
   are ignored, never rejected. `extensions` is for **producer-private data
-  within a profile** — sibling profiles are not extensions: sigill-evidence
-  is its own profile with its own cty and its own schema, carrying its
-  trust-model-specific data (the registry-anchored identity graph) as
-  profile fields. Trust levels are never mixed into this profile's
-  customer-asserted core.
+  within a profile** — sibling profiles are not extensions: a sibling
+  profile is its own content type with its own schema, carrying its
+  trust-model-specific data as profile fields. Trust levels are never mixed
+  into this profile's customer-asserted core.
 
 The schema stays `additionalProperties: false` everywhere: the *only* place
 for unmodelled data is `extensions` (and per-object `metadata`). This
@@ -378,7 +374,7 @@ issue, so consumers can render a complete report.
 
 ## 8. What Sigill receives and persists
 
-**Blind by architecture** (platform [D8]): Sigill's nature is to not accept
+**Blind by architecture**: Sigill's nature is to not accept
 and store GDPR data, and the contract enforces it structurally. On produce,
 Sigill receives digests, opaque URIs, MIME types and the caller-chosen
 label/tags — never the envelope, never content; there is no parameter to send
@@ -448,38 +444,41 @@ keep the v1 path for `verify()`, deprecate it for `produce()`.
 
 ## 11. Test vectors
 
-`test-vectors/` gains v2 scenarios **when the platform endpoint exists**
-(signatures depend on platform-issued certificates and are not byte-stable).
-Two vector classes are planned:
+`test-vectors/` gains v2 scenarios alongside the v2 implementation
+(signatures depend on issued certificates and are not byte-stable). Two
+vector classes:
 
 1. **Canonicalization vectors** (byte-stable, cross-language): envelope input
    → exact canonical bytes → SHA-256/SHA-512 hex. These gate the .NET/Python
    interop exactly like v1's `canonical.json` files.
 2. **Verification vectors** (fixed test certificate): full artifacts with
-   known-good and known-broken objects, exercising every §7.1 error and the
+   known-good and known-broken objects, exercising every §7.2 error and the
    multiple-signature policy.
 
-## 12. Open points for this review
+## 12. Design decisions (record)
 
-Settled by prior review (platform PR #37) and treated as fixed here: the
-self-contained `{envelope, signature}` artifact [D1], JCS canonicalization
-[D2], and the **blind platform contract in both directions** [D8] (12 Aug:
-digests + opaque URIs in / JWS out, artifact assembled client-side, blind
-verification, name-free persistence — design principle: Sigill does not
-accept and store GDPR data). D8 also absorbs the content-type-driven-endpoint
-ask [D7]: a blind endpoint is content-type-agnostic by construction, and
-`EvidenceEnvelopeV3` signs through the identical mechanism with its own cty.
-Still open — veto or bless per point:
+Decisions made during review of this version, recorded so future revisions
+revisit them deliberately:
 
-- **[O1] `encoding` enum**: reduced to `utf-8 | binary` (base64 fell with
-  inline). Sufficient, or does any producer hash base64-normalized content?
-- **[O2] `extensions` shape**: named extension blocks, object-valued, keyed
-  by profile id / reverse-DNS (§2). Does this match the family-core intent
-  for sigill-evidence carrying its identity graph?
-- **[O3] Metadata-only records**: `objects: []` is legal (envelope-only
-  seal). Keep, or require ≥ 1 payload?
-- **[O4] Actor-id hashing default** (= platform D4): opt-in helper
-  (recommended) vs default-on.
-- **[O5] `chain` reservation** (= platform D5): reserved with the
-  recommended-preimage note in §3.4, semantics open. OK to ship reserved, or
-  omit entirely until the agent case exists?
+- **Artifact container**: the self-contained `{envelope, signature}` file
+  (§6); separate distribution and unprotected-header carriage rejected.
+- **Canonicalization**: RFC 8785/JCS (§4); byte-exact as-transmitted
+  envelopes rejected (simpler spec, brittle tooling).
+- **Blind platform contract, both directions** (§7.1, §8): digests + opaque
+  URIs in / JWS out, artifact assembled client-side, blind verification,
+  name-free persistence. Follows from the design principle that Sigill does
+  not accept and store personal data. A blind endpoint is also
+  content-type-agnostic by construction — sibling profiles sign through the
+  identical mechanism with their own cty.
+- **`encoding` enum**: `utf-8 | binary` (§3.1); `base64` fell with inline
+  payloads.
+- **`extensions` shape**: named, object-valued blocks for producer-private
+  data within a profile (§2); sibling profiles are their own content types,
+  never extensions.
+- **Metadata-only records**: `objects: []` is legal (§3.1); role and count
+  requirements belong in per-profile verification policy, not the schema.
+- **Actor-id hashing**: opt-in SDK helper, not default-on (§9) — default-on
+  gives stronger privacy but worse UX for the producer's own audit, and the
+  actor id never reaches Sigill either way.
+- **`chain`**: reserved with open semantics (§3.4) rather than omitted, so
+  the field name and shape are stable before multi-step producers exist.
