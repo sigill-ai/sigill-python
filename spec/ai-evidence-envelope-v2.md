@@ -326,7 +326,16 @@ cryptographically valid sigD-bearing classical signature wins** (in
 later valid signatures do not broaden the evidence set — one signature
 defines one record. Skipped invalid entries are reported as warnings. The
 ML-DSA signer is verified *against the winning record* (same `pars`, SHA-512
-digests), reported as `pqc: verified | failed | absent`.
+digests), reported as `pqc: verified | failed | absent | not_checked`.
+
+**Hybrid seals are both-required** (normative): a seal carrying an ML-DSA
+signer has made two commitments to the record, and the record-keeping
+verdict requires both. `complete` is reachable only when `pqc` is `absent`
+or `verified`; verifying a hybrid seal with SHA-256 digests alone yields
+`pqc: not_checked` and `complete: false`, with a warning naming the gap —
+the classical verdict never masquerades as full hybrid verification. On the
+remote path the SHA-512 digests travel as a second map (`digests512`),
+keyed by the same URIs.
 
 **Role coverage** ("is a prompt and an output present?") is an
 *envelope-layer* check — `sigD` knows URIs and digests, not roles. The
@@ -344,13 +353,17 @@ verification.
   schema conformance, role coverage. No Sigill dependency; same posture as
   the v1 verifier.
 - **Via the platform (hashing anonymity)**: the request is the JWS
-  `signature` member plus a digest per referenced `pars` URI — the
-  envelope's own digest is simply the entry for `urn:sigill:envelope`,
-  computed client-side with JCS. No special case: the envelope is just
-  object 0. Sigill sees certificates, signed hashes and opaque URNs; never
-  the envelope, never content. The response is the cryptographic verdict
-  set above (per-object, `missing`/`unreferenced`, `complete`, the
-  multiple-signature policy applied server-side).
+  `signature` member plus a SHA-256 digest per referenced `pars` URI
+  (`digests`) and, for hybrid seals, the SHA-512 map (`digests512`) keyed
+  by the same URIs — the envelope's own digests are simply the entries for
+  `urn:sigill:envelope`, computed client-side with JCS. No special case:
+  the envelope is just object 0. Omitted or partial `digests512` on a
+  hybrid seal yields `pqc: not_checked` (a mismatch yields `failed`) and
+  can never produce `complete: true`. Sigill sees certificates, signed
+  hashes and opaque URNs; never the envelope, never content. The response
+  is the cryptographic verdict set above (per-object,
+  `missing`/`unreferenced`, `pqc`, `complete`, the multiple-signature
+  policy applied server-side).
 - **Division of labour**: the platform verifies *what was signed*; the
   verifier's own copy of the envelope says *what the objects mean*. Envelope
   schema validation and role coverage are therefore client-side always —
@@ -378,7 +391,8 @@ issue, so consumers can render a complete report.
 and store GDPR data, and the contract enforces it structurally. On produce,
 Sigill receives digests, opaque URIs, MIME types and the caller-chosen
 label/tags — never the envelope, never content; there is no parameter to send
-either. On verify, Sigill receives the JWS and a digest map. What it
+either. On verify, Sigill receives the JWS and the digest map(s) — `digests`,
+plus `digests512` when verifying a hybrid seal (§7.1). What it
 persists is exactly what any seal operation persists today (operation row,
 `DocumentHash` = envelope hash, timestamp token, label/tags) plus a
 **name-free** digest manifest (digests + ctys + count — no URIs at rest).
