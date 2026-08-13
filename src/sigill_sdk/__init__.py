@@ -61,6 +61,12 @@ from sigill_sdk._errors import (
     InlineContentWarning,
 )
 from sigill_sdk._canonical import canonicalize, compute_envelope_hash
+from sigill_sdk._evidence_v2 import (
+    EvidenceV2Artifact,
+    EvidenceV2ObjectVerdict,
+    EvidenceV2Payload,
+    EvidenceV2VerificationResult,
+)
 from importlib.metadata import version as _meta_version, PackageNotFoundError as _PNF
 
 try:
@@ -92,6 +98,10 @@ __all__ = [
     "PdfUnsupported",
     "TimestampUnavailable",
     "InlineContentWarning",
+    "EvidenceV2Artifact",
+    "EvidenceV2ObjectVerdict",
+    "EvidenceV2Payload",
+    "EvidenceV2VerificationResult",
     "canonicalize",
     "compute_envelope_hash",
 ]

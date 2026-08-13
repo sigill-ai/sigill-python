@@ -14,7 +14,7 @@ from typing import Mapping, Protocol
 import httpx
 
 from sigill_sdk import _pdf
-from sigill_sdk._canonical import compute_envelope_hash, hash_bytes
+from sigill_sdk._canonical import canonicalize, compute_envelope_hash, hash_bytes
 from sigill_sdk._envelope import (
     AiEvidenceEnvelopeInput,
     SealedAiEvidenceEnvelope,
@@ -23,7 +23,17 @@ from sigill_sdk._errors import (
     HashMismatch,
     InvalidProof,
     PdfUnsupported,
+    SigillError,
     TimestampUnavailable,
+)
+from sigill_sdk._evidence_v2 import (
+    ENVELOPE_URI,
+    EvidenceV2Artifact,
+    EvidenceV2ObjectVerdict,
+    EvidenceV2Payload,
+    EvidenceV2VerificationResult,
+    build_envelope_and_request_objects,
+    has_ml_dsa_signer,
 )
 from sigill_sdk._tsr import parse_tsr
 from sigill_sdk._verify import (
@@ -467,6 +477,198 @@ class SigillClient:
         resp = self._http.post("/seal/verify-hash", json=body_json)
         resp.raise_for_status()
         return JadesVerifyResult(**_map_detached_verify(resp.json().get("jades", {})))
+
+    # ------------------------------------------------------ seal_evidence_v2
+
+    def seal_evidence_v2(
+        self,
+        envelope: dict,
+        payloads: list[EvidenceV2Payload],
+        certificate_id: str,
+        *,
+        qualified: bool = False,
+        pqc: bool = False,
+        label: str | None = None,
+        tags: list[str] | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
+    ) -> EvidenceV2Artifact:
+        """Seal an AI evidence v2 record — the blind multi-object JAdES contract.
+
+        The SDK canonicalizes the envelope (RFC 8785), hashes it and every
+        payload locally, and sends *digests and opaque URIs only* to
+        ``POST /seal/sign-hashes``; neither the envelope nor any content ever
+        leaves the machine. The returned JAdES JWS is assembled with the
+        envelope into the self-contained ``{envelope, signature}`` artifact —
+        client-side, because no artifact ever exists server-side.
+
+        ``envelope`` carries the descriptive fields (purpose, actor, activity,
+        model, …); the SDK fills identity defaults when absent and OWNS
+        ``objects[]``, deriving it from ``payloads`` so the envelope list and
+        the signed object list are aligned by construction. With ``pqc=True``,
+        SHA-512 digests are computed alongside and an ML-DSA-87 hybrid signer
+        is added.
+
+        :raises SigillError: on invalid roles, reserved or duplicate URIs
+            (before any network call), or an API error.
+        """
+        env, request_objects = build_envelope_and_request_objects(
+            envelope, payloads, pqc=pqc
+        )
+
+        # The envelope is hashed AS-IS (no v1 field-stripping — spec §4).
+        canonical = canonicalize(env)
+        envelope_hash_hex = hash_bytes(canonical)
+
+        body: dict = {
+            "envelopeHashHex": envelope_hash_hex,
+            "certificateId": str(certificate_id),
+            "objects": request_objects,
+            "qualified": qualified,
+        }
+        if pqc:
+            body["pqc"] = True
+            body["envelopeHashHex512"] = hash_bytes(canonical, alg="SHA-512")
+        if label is not None:
+            body["label"] = label
+        if tags:
+            body["tags"] = list(tags)
+        if reminders is not None:
+            body["reminders"] = reminders
+        if reminder_days is not None:
+            body["reminderDays"] = reminder_days
+
+        resp = self._http.post("/seal/sign-hashes", json=body)
+        if resp.status_code >= 400:
+            raise SigillError(f"Blind sealing failed ({resp.status_code}): {resp.text}")
+        signature = resp.json().get("signature")
+        if not isinstance(signature, dict):
+            raise SigillError("The sealing response did not carry a JWS signature object.")
+
+        # The artifact exists only here — Sigill never saw the envelope.
+        return EvidenceV2Artifact(
+            envelope=env, signature=signature, envelope_hash_hex=envelope_hash_hex
+        )
+
+    # ---------------------------------------------------- verify_evidence_v2
+
+    def verify_evidence_v2(
+        self,
+        artifact: EvidenceV2Artifact,
+        payloads: dict[str, bytes] | None = None,
+        *,
+        required_roles: list[str] | None = None,
+    ) -> EvidenceV2VerificationResult:
+        """Verify an AI evidence v2 artifact via the blind (public)
+        ``POST /seal/verify-objects`` endpoint.
+
+        Only digests travel: the envelope digest is recomputed locally with
+        RFC 8785 and supplied payload bytes are hashed locally, keyed by their
+        URIs. For hybrid seals the SHA-512 map is sent automatically — a
+        hybrid seal can only reach ``complete`` when the ML-DSA commitment
+        verifies too, and that rule is also enforced client-side in
+        :attr:`EvidenceV2VerificationResult.ok`.
+        """
+        payloads = payloads or {}
+
+        canonical = canonicalize(artifact.envelope)
+        digests = {ENVELOPE_URI: hash_bytes(canonical)}
+        for uri, data in payloads.items():
+            digests[uri] = hash_bytes(data)
+
+        body: dict = {"signature": artifact.signature, "digests": digests}
+
+        hybrid = has_ml_dsa_signer(artifact.signature)
+        if hybrid:
+            digests512 = {ENVELOPE_URI: hash_bytes(canonical, alg="SHA-512")}
+            for uri, data in payloads.items():
+                digests512[uri] = hash_bytes(data, alg="SHA-512")
+            body["digests512"] = digests512
+
+        resp = self._http.post("/seal/verify-objects", json=body)
+        if resp.status_code >= 400:
+            raise SigillError(f"Blind verification failed ({resp.status_code}): {resp.text}")
+        raw = resp.json()
+        r = raw.get("objects") or {}
+
+        issues: list[str] = []
+        verdicts: list[EvidenceV2ObjectVerdict] = []
+        signed_uris: list[str] = []
+        for o in r.get("objects") or []:
+            uri = o.get("par") or ""
+            signed_uris.append(uri)
+            verdicts.append(
+                EvidenceV2ObjectVerdict(
+                    uri=uri,
+                    content_type=o.get("contentType"),
+                    supplied=bool(o.get("supplied")),
+                    hash_match=bool(o.get("hashMatch")),
+                )
+            )
+
+        # Envelope-layer checks — the SDK's job, on the SDK's copy (spec §7.1):
+        # 1:1 order-preserving alignment between objects[] and pars[1…].
+        envelope_uris = [
+            o.get("uri") or "" for o in artifact.envelope.get("objects") or []
+        ]
+        signed_payload_uris = [u for u in signed_uris if u != ENVELOPE_URI]
+        alignment_ok = envelope_uris == signed_payload_uris
+        if not alignment_ok:
+            issues.append(
+                "The envelope's objects[] do not align 1:1 (in order) with the signed sigD object list."
+            )
+
+        # Role coverage: the role must exist in the envelope AND its payload
+        # must have been supplied and verified.
+        missing_roles: list[str] = []
+        if required_roles:
+            verified_uris = {v.uri for v in verdicts if v.supplied and v.hash_match}
+            for role in required_roles:
+                covered = any(
+                    o.get("role") == role and (o.get("uri") or "") in verified_uris
+                    for o in artifact.envelope.get("objects") or []
+                )
+                if not covered:
+                    missing_roles.append(role)
+            if missing_roles:
+                issues.append(
+                    "Required role(s) not covered by a verified payload: "
+                    + ", ".join(missing_roles)
+                    + "."
+                )
+
+        # Defensive on the hybrid dimension: the SDK detected the ML-DSA signer
+        # itself, so a response with no pqc verdict (older or third-party
+        # verifier build) must NEVER let the classical verdict stand in for the
+        # hybrid one. Missing pqc on a hybrid JWS ⇒ not_checked.
+        pqc_verdict = r.get("pqc")
+        if pqc_verdict is None:
+            pqc_verdict = "not_checked" if hybrid else "absent"
+            if hybrid:
+                issues.append(
+                    "Hybrid seal: the verifier returned no pqc verdict — treat the ML-DSA commitment as not checked."
+                )
+        elif pqc_verdict in ("not_checked", "failed"):
+            issues.append(f"Hybrid seal: the ML-DSA commitment is '{pqc_verdict}'.")
+        for w in r.get("warnings") or []:
+            if isinstance(w, str):
+                issues.append(w)
+
+        return EvidenceV2VerificationResult(
+            signature_valid=bool(r.get("signatureValid")),
+            complete=bool(r.get("complete")),
+            pqc=pqc_verdict,
+            object_count=int(r.get("objectCount") or 0),
+            supplied_count=int(r.get("suppliedCount") or 0),
+            matched_count=int(r.get("matchedCount") or 0),
+            objects=verdicts,
+            missing=[m for m in r.get("missing") or [] if isinstance(m, str)],
+            unreferenced=[u for u in r.get("unreferenced") or [] if isinstance(u, str)],
+            alignment_ok=alignment_ok,
+            missing_roles=missing_roles,
+            issues=issues,
+            raw=raw,
+        )
 
     # ------------------------------------------------------------- seal_pades
 
