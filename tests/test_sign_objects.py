@@ -150,6 +150,13 @@ def test_sign_object_hashes_validates_uris_and_digests_before_network() -> None:
         )
     with pytest.raises(SigillError, match="Duplicate"):
         client.sign_object_hashes(ENVELOPE_HEX, [one, one], CERT)
+    # Byte-exact identity: a padded URI is rejected, never silently trimmed —
+    # the caller's envelope already references it verbatim, and a normalized
+    # signature would no longer align with that envelope.
+    with pytest.raises(SigillError, match="whitespace"):
+        client.sign_object_hashes(
+            ENVELOPE_HEX, [SignedObjectDigest(uri="urn:example:1 ", hash_hex=OBJECT_HEX)], CERT
+        )
     with pytest.raises(SigillError, match="envelope_hash_hex"):
         client.sign_object_hashes("not-hex", [one], CERT)
     with pytest.raises(SigillError, match="64 hex"):

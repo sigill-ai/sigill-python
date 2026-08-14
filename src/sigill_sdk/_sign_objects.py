@@ -132,9 +132,16 @@ def build_sign_hashes_body(
     seen: set[str] = set()
     request_objects: list[dict[str, Any]] = []
     for o in objects:
-        uri = (o.uri or "").strip()
+        # URIs are signed byte-exactly and the caller's envelope already
+        # references them — never normalize; reject what the platform would
+        # sign differently than the caller's own copy says.
+        uri = o.uri or ""
         if not uri:
             raise SigillError("Every object needs a non-empty opaque URI.")
+        if uri != uri.strip():
+            raise SigillError(
+                f"Object URI '{uri}' has leading or trailing whitespace — URIs are signed byte-exactly and are never normalized."
+            )
         if uri == ENVELOPE_URI:
             raise SigillError(f"'{ENVELOPE_URI}' is reserved for the envelope itself.")
         if uri in seen:
