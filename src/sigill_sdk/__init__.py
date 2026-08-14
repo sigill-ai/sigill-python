@@ -67,6 +67,12 @@ from sigill_sdk._evidence_v2 import (
     EvidenceV2Payload,
     EvidenceV2VerificationResult,
 )
+from sigill_sdk._sign_objects import (
+    ObjectsVerificationResult,
+    SignedObjectDigest,
+    SignedObjectVerdict,
+    SignHashesResult,
+)
 from importlib.metadata import version as _meta_version, PackageNotFoundError as _PNF
 
 try:
@@ -102,6 +108,10 @@ __all__ = [
     "EvidenceV2ObjectVerdict",
     "EvidenceV2Payload",
     "EvidenceV2VerificationResult",
+    "ObjectsVerificationResult",
+    "SignedObjectDigest",
+    "SignedObjectVerdict",
+    "SignHashesResult",
     "canonicalize",
     "compute_envelope_hash",
 ]
