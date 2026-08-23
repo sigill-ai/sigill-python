@@ -35,6 +35,13 @@ from sigill_sdk._evidence_v2 import (
     build_envelope_and_request_objects,
     has_ml_dsa_signer,
 )
+from sigill_sdk._sign_objects import (
+    ObjectsVerificationResult,
+    SignHashesResult,
+    SignedObjectDigest,
+    build_sign_hashes_body,
+    parse_objects_verdict,
+)
 from sigill_sdk._tsr import parse_tsr
 from sigill_sdk._verify import (
     AiEvidenceVerificationResult,
@@ -520,34 +527,93 @@ class SigillClient:
         canonical = canonicalize(env)
         envelope_hash_hex = hash_bytes(canonical)
 
-        body: dict = {
-            "envelopeHashHex": envelope_hash_hex,
-            "certificateId": str(certificate_id),
-            "objects": request_objects,
-            "qualified": qualified,
-        }
-        if pqc:
-            body["pqc"] = True
-            body["envelopeHashHex512"] = hash_bytes(canonical, alg="SHA-512")
-        if label is not None:
-            body["label"] = label
-        if tags:
-            body["tags"] = list(tags)
-        if reminders is not None:
-            body["reminders"] = reminders
-        if reminder_days is not None:
-            body["reminderDays"] = reminder_days
-
-        resp = self._http.post("/seal/sign-hashes", json=body)
-        if resp.status_code >= 400:
-            raise SigillError(f"Blind sealing failed ({resp.status_code}): {resp.text}")
-        signature = resp.json().get("signature")
-        if not isinstance(signature, dict):
-            raise SigillError("The sealing response did not carry a JWS signature object.")
+        # Delegate to the profile-agnostic tier. envelope_content_type stays
+        # unset on purpose: the AI-evidence profile is pinned to its own cty
+        # (the platform default) — that is the profile discriminator (spec §5.2).
+        result = self.sign_object_hashes(
+            envelope_hash_hex,
+            [
+                SignedObjectDigest(
+                    uri=o["uri"],
+                    hash_hex=o["hashHex"],
+                    hash_hex512=o.get("hashHex512"),
+                    content_type=o.get("contentType"),
+                )
+                for o in request_objects
+            ],
+            certificate_id,
+            envelope_hash_hex512=hash_bytes(canonical, alg="SHA-512") if pqc else None,
+            qualified=qualified,
+            pqc=pqc,
+            label=label,
+            tags=tags,
+            reminders=reminders,
+            reminder_days=reminder_days,
+        )
 
         # The artifact exists only here — Sigill never saw the envelope.
         return EvidenceV2Artifact(
-            envelope=env, signature=signature, envelope_hash_hex=envelope_hash_hex
+            envelope=env, signature=result.signature, envelope_hash_hex=envelope_hash_hex
+        )
+
+    # --------------------------------------------------- sign_object_hashes
+
+    def sign_object_hashes(
+        self,
+        envelope_hash_hex: str,
+        objects: list[SignedObjectDigest],
+        certificate_id: str,
+        *,
+        envelope_content_type: str | None = None,
+        envelope_hash_hex512: str | None = None,
+        qualified: bool = False,
+        pqc: bool = False,
+        label: str | None = None,
+        tags: list[str] | None = None,
+        reminders: str | None = None,
+        reminder_days: int | None = None,
+    ) -> SignHashesResult:
+        """Sign a multi-object record by digests — the profile-agnostic tier
+        beneath :meth:`seal_evidence_v2` (spec §2/§12).
+
+        The caller supplies the digest of its own envelope (signed as object 0
+        under ``urn:sigill:envelope``) and a digest + opaque URI per content
+        object, and may set ``envelope_content_type`` — the profile
+        discriminator (spec §5.2) — so sibling profiles sign through the same
+        blind mechanism without being presented as AI evidence. Content never
+        travels; the caller assembles its own artifact from the returned JWS.
+
+        :raises SigillError: on invalid digests, reserved or duplicate URIs
+            (before any network call), or an API error.
+        """
+        body = build_sign_hashes_body(
+            envelope_hash_hex,
+            list(objects),
+            certificate_id,
+            envelope_content_type=envelope_content_type,
+            envelope_hash_hex512=envelope_hash_hex512,
+            qualified=qualified,
+            pqc=pqc,
+            label=label,
+            tags=tags,
+            reminders=reminders,
+            reminder_days=reminder_days,
+        )
+        resp = self._http.post("/seal/sign-hashes", json=body)
+        if resp.status_code >= 400:
+            raise SigillError(f"Blind sealing failed ({resp.status_code}): {resp.text}")
+        raw = resp.json()
+        signature = raw.get("signature")
+        if not isinstance(signature, dict):
+            raise SigillError("The sealing response did not carry a JWS signature object.")
+        return SignHashesResult(
+            signature=signature,
+            operation_id=raw.get("operationId"),
+            format=raw.get("format"),
+            timestamped_by=raw.get("timestampedBy"),
+            qualified=bool(raw.get("qualified")),
+            pqc=bool(raw.get("pqc")),
+            raw=raw,
         )
 
     # ---------------------------------------------------- verify_evidence_v2
@@ -576,35 +642,27 @@ class SigillClient:
         for uri, data in payloads.items():
             digests[uri] = hash_bytes(data)
 
-        body: dict = {"signature": artifact.signature, "digests": digests}
-
-        hybrid = has_ml_dsa_signer(artifact.signature)
-        if hybrid:
+        digests512 = None
+        if has_ml_dsa_signer(artifact.signature):
             digests512 = {ENVELOPE_URI: hash_bytes(canonical, alg="SHA-512")}
             for uri, data in payloads.items():
                 digests512[uri] = hash_bytes(data, alg="SHA-512")
-            body["digests512"] = digests512
 
-        resp = self._http.post("/seal/verify-objects", json=body)
-        if resp.status_code >= 400:
-            raise SigillError(f"Blind verification failed ({resp.status_code}): {resp.text}")
-        raw = resp.json()
-        r = raw.get("objects") or {}
+        # The cryptographic dimension is the profile-agnostic tier's job …
+        core = self.verify_object_hashes(artifact.signature, digests, digests512)
 
+        # … and the envelope-layer checks below are this profile's (spec §7.1).
         issues: list[str] = []
-        verdicts: list[EvidenceV2ObjectVerdict] = []
-        signed_uris: list[str] = []
-        for o in r.get("objects") or []:
-            uri = o.get("par") or ""
-            signed_uris.append(uri)
-            verdicts.append(
-                EvidenceV2ObjectVerdict(
-                    uri=uri,
-                    content_type=o.get("contentType"),
-                    supplied=bool(o.get("supplied")),
-                    hash_match=bool(o.get("hashMatch")),
-                )
+        verdicts = [
+            EvidenceV2ObjectVerdict(
+                uri=v.uri,
+                content_type=v.content_type,
+                supplied=v.supplied,
+                hash_match=v.hash_match,
             )
+            for v in core.objects
+        ]
+        signed_uris = [v.uri for v in core.objects]
 
         # Envelope-layer checks — the SDK's job, on the SDK's copy (spec §7.1):
         # 1:1 order-preserving alignment between objects[] and pars[1…].
@@ -637,37 +695,64 @@ class SigillClient:
                     + "."
                 )
 
-        # Defensive on the hybrid dimension: the SDK detected the ML-DSA signer
-        # itself, so a response with no pqc verdict (older or third-party
-        # verifier build) must NEVER let the classical verdict stand in for the
-        # hybrid one. Missing pqc on a hybrid JWS ⇒ not_checked.
-        pqc_verdict = r.get("pqc")
-        if pqc_verdict is None:
-            pqc_verdict = "not_checked" if hybrid else "absent"
-            if hybrid:
-                issues.append(
-                    "Hybrid seal: the verifier returned no pqc verdict — treat the ML-DSA commitment as not checked."
-                )
-        elif pqc_verdict in ("not_checked", "failed"):
-            issues.append(f"Hybrid seal: the ML-DSA commitment is '{pqc_verdict}'.")
-        for w in r.get("warnings") or []:
-            if isinstance(w, str):
-                issues.append(w)
+        # The hybrid dimension (including the defensive not_checked fallback
+        # when the verifier returned no pqc verdict) is handled by the
+        # profile-agnostic tier — its issues carry over verbatim.
+        issues.extend(core.issues)
 
         return EvidenceV2VerificationResult(
-            signature_valid=bool(r.get("signatureValid")),
-            complete=bool(r.get("complete")),
-            pqc=pqc_verdict,
-            object_count=int(r.get("objectCount") or 0),
-            supplied_count=int(r.get("suppliedCount") or 0),
-            matched_count=int(r.get("matchedCount") or 0),
+            signature_valid=core.signature_valid,
+            complete=core.complete,
+            pqc=core.pqc,
+            object_count=core.object_count,
+            supplied_count=core.supplied_count,
+            matched_count=core.matched_count,
             objects=verdicts,
-            missing=[m for m in r.get("missing") or [] if isinstance(m, str)],
-            unreferenced=[u for u in r.get("unreferenced") or [] if isinstance(u, str)],
+            missing=list(core.missing),
+            unreferenced=list(core.unreferenced),
             alignment_ok=alignment_ok,
             missing_roles=missing_roles,
             issues=issues,
-            raw=raw,
+            raw=core.raw,
+        )
+
+    # ------------------------------------------------- verify_object_hashes
+
+    def verify_object_hashes(
+        self,
+        signature: dict,
+        digests: Mapping[str, str] | None = None,
+        digests512: Mapping[str, str] | None = None,
+        *,
+        tsr_base64: str | None = None,
+    ) -> ObjectsVerificationResult:
+        """Verify a multi-object seal by digests via the blind (public)
+        ``POST /seal/verify-objects`` endpoint — the profile-agnostic tier
+        beneath :meth:`verify_evidence_v2`.
+
+        Digest maps are keyed by the signed pars URIs (the envelope digest
+        rides under ``urn:sigill:envelope`` — no special case); for hybrid
+        seals ``digests512`` must carry the SHA-512 map or the platform
+        honestly reports pqc ``not_checked``. Returns per-object verdicts,
+        missing/unreferenced URIs, and the compound
+        :attr:`ObjectsVerificationResult.ok`; envelope-layer checks (schema,
+        alignment, roles) remain the calling profile's job.
+        """
+        body: dict = {"signature": signature}
+        if digests is not None:
+            body["digests"] = dict(digests)
+        if digests512 is not None:
+            body["digests512"] = dict(digests512)
+        if tsr_base64 is not None:
+            body["tsrBase64"] = tsr_base64
+
+        resp = self._http.post("/seal/verify-objects", json=body)
+        if resp.status_code >= 400:
+            raise SigillError(f"Blind verification failed ({resp.status_code}): {resp.text}")
+        return parse_objects_verdict(
+            resp.json(),
+            hybrid=has_ml_dsa_signer(signature),
+            had_digests512=digests512 is not None,
         )
 
     # ------------------------------------------------------------- seal_pades
