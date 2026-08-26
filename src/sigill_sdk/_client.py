@@ -237,6 +237,7 @@ class ISigillAiEvidenceClient(Protocol):
         qualified: bool = False,
         ltv: bool = True,
         allow_upload_fallback: bool = False,
+        signer_name: str | None = None,
         reason: str | None = None,
         location: str | None = None,
         reminders: str | None = None,
@@ -766,6 +767,7 @@ class SigillClient:
         qualified: bool = False,
         ltv: bool = True,
         allow_upload_fallback: bool = False,
+        signer_name: str | None = None,
         reason: str | None = None,
         location: str | None = None,
         reminders: str | None = None,
@@ -794,6 +796,11 @@ class SigillClient:
             Default False: the hash-only privacy guarantee is absolute and such
             PDFs raise :class:`PdfUnsupported` instead — leave it off under a
             strict data-residency policy.
+        :param signer_name: written into the PDF signature dictionary's /Name
+            field — the signer name Acrobat shows before validation runs
+            (without it, unvalidated signatures show as "Signed by Unknown").
+            Set it to the seal certificate's subject CN; the cert lives
+            server-side in the delegated flow.
         :param reason: written into the PDF signature dictionary's /Reason field.
         :param location: written into the PDF signature dictionary's /Location field.
         :param tags: evidence tags attached at creation (≤10 per evidence, ≤40 chars).
@@ -806,7 +813,7 @@ class SigillClient:
         # ByteRange, and the digests over the signed ranges. Only these digests
         # are ever transmitted.
         try:
-            prep = _pdf.prepare(pdf, datetime.now(timezone.utc), reason, location)
+            prep = _pdf.prepare(pdf, datetime.now(timezone.utc), signer_name, reason, location)
         except ValueError as e:
             if not allow_upload_fallback:
                 raise PdfUnsupported(str(e)) from e
@@ -827,6 +834,7 @@ class SigillClient:
         self,
         pdf: bytes,
         *,
+        signer_name: str | None = None,
         reason: str | None = None,
         location: str | None = None,
     ) -> PreparedPadesPdf:
@@ -842,7 +850,7 @@ class SigillClient:
             seal_pades(allow_upload_fallback=True) for that.
         """
         try:
-            prep = _pdf.prepare(pdf, datetime.now(timezone.utc), reason, location)
+            prep = _pdf.prepare(pdf, datetime.now(timezone.utc), signer_name, reason, location)
         except ValueError as e:
             raise PdfUnsupported(str(e)) from e
         return PreparedPadesPdf(prepared_pdf=prep.bytes, hash_hex=prep.document_hash.hex())
@@ -936,7 +944,7 @@ class SigillClient:
             has_dss = True
 
             try:
-                dt_prep = _pdf.prepare_doc_timestamp(signed_pdf, datetime.now(timezone.utc))
+                dt_prep = _pdf.prepare_doc_timestamp(signed_pdf)
                 stamp_body: dict = {
                     "tsaSlug": "auto",
                     "hashHex": dt_prep.document_hash.hex(),

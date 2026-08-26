@@ -79,6 +79,7 @@ class PreparedDocTimestamp:
 def prepare(
     pdf: bytes,
     signing_time: datetime,
+    signer_name: str | None = None,
     reason: str | None = None,
     location: str | None = None,
     cms_reserved_bytes: int = DEFAULT_CMS_RESERVED_BYTES,
@@ -87,6 +88,10 @@ def prepare(
 
     :param pdf: the original PDF bytes; never mutated, never transmitted.
     :param signing_time: written into the signature dictionary's /M field.
+    :param signer_name: optional /Name field — the signer name Acrobat shows
+        before validation runs (without it, unvalidated signatures show as
+        "Signed by Unknown"). Set it to the seal certificate's subject CN;
+        the cert lives server-side in the delegated flow.
     :param reason: optional /Reason field of the signature dictionary.
     :param location: optional /Location field of the signature dictionary.
     :param cms_reserved_bytes: size of the reserved /Contents slot.
@@ -101,6 +106,8 @@ def prepare(
         "<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached\n"
         f"/ByteRange {_BR_TPL}\n/Contents <{empty_hex}>\n/M ({_fmt_date(signing_time)})\n"
     )
+    if signer_name is not None:
+        body += f"/Name ({_pdf_esc(signer_name)})\n"
     if reason is not None:
         body += f"/Reason ({_pdf_esc(reason)})\n"
     if location is not None:
@@ -259,7 +266,7 @@ def _add_dss_to_catalog(cat: str, dss_id: int) -> str:
 # ------------------------------------------------- pass 4: DocTimeStamp (B-LTA)
 
 
-def prepare_doc_timestamp(signed_pdf: bytes, now: datetime) -> PreparedDocTimestamp:
+def prepare_doc_timestamp(signed_pdf: bytes) -> PreparedDocTimestamp:
     """Append a DocTimeStamp signature field as a fourth incremental update.
 
     PAdES B-LTA. The returned ``document_hash`` is the SHA-256 ByteRange digest
@@ -270,9 +277,11 @@ def prepare_doc_timestamp(signed_pdf: bytes, now: datetime) -> PreparedDocTimest
 
     # /SubFilter /ETSI.RFC3161 identifies this as a document timestamp; the
     # /Contents slot holds the raw TimeStampToken DER.
+    # No /M: EN 319 142-1 §5.4.3 says /M should not be present in a
+    # DocTimeStamp dict — readers take the time from the token's genTime.
     body = (
         "<< /Type /DocTimeStamp /Filter /Adobe.PPKLite /SubFilter /ETSI.RFC3161\n"
-        f"/ByteRange {_BR_TPL}\n/Contents <{empty_hex}>\n/M ({_fmt_date(now)})\n>>"
+        f"/ByteRange {_BR_TPL}\n/Contents <{empty_hex}>\n>>"
     )
 
     full, hex_off, hex_len, doc_hash = _append_signature_revision(
@@ -342,7 +351,16 @@ def _append_signature_revision(
         "<< /Type /Annot /Subtype /Widget /Rect [0 0 0 0]\n"
         f"/FT /Sig /T ({field_title}) /V {sig_id} 0 R /P {page_id} 0 R /F 132 >>")
 
-    append_obj(page_id, _add_annot_to_page(s.page1_content, fld_id))
+    # When the page references its /Annots array indirectly, re-emit that
+    # array object instead of the page — rewriting the page would add a
+    # second /Annots key (duplicate keys are undefined behaviour, and a
+    # last-wins parser would silently drop every pre-existing annotation).
+    if s.annots_array_id > 0:
+        assert s.annots_array_content is not None
+        append_obj(s.annots_array_id,
+                   _add_ref_to_annots_array(s.annots_array_content, fld_id))
+    else:
+        append_obj(page_id, _add_annot_to_page(s.page1_content, fld_id))
 
     append_obj(af_id,
         _add_field_to_acroform(s.acroform_content, fld_id)
@@ -407,6 +425,8 @@ class _Struct:
     page1_content: str
     acroform_id: int
     acroform_content: str | None
+    annots_array_id: int
+    annots_array_content: str | None
     startxref: int
 
 
@@ -440,6 +460,17 @@ def _parse_structure(pdf: bytes) -> _Struct:
     p1_id = _walk_to_first_leaf_page(t, offsets, compressed, pages)
     p1 = _get_obj(t, offsets, compressed, p1_id)
 
+    # A page may hold its annotation array inline (/Annots [ ... ]) or as an
+    # indirect reference (/Annots 9 0 R). Resolve the indirect form here so
+    # the signing passes can re-emit the ARRAY object rather than adding a
+    # second /Annots key to the page dictionary.
+    annots_id = 0
+    annots_content: str | None = None
+    anm = re.search(r"/Annots\s+(\d+)\s+\d+\s+R", p1)
+    if anm is not None:
+        annots_id = int(anm.group(1))
+        annots_content = _get_obj(t, offsets, compressed, annots_id)
+
     af_id = 0
     af_content: str | None = None
     am = re.search(r"/AcroForm\s+(\d+)\s+\d+\s+R", cat)
@@ -449,7 +480,8 @@ def _parse_structure(pdf: bytes) -> _Struct:
 
     max_id = max(max(offsets, default=0), max(compressed, default=0))
 
-    return _Struct(max_id, cat_id, cat, p1_id, p1, af_id, af_content, sx)
+    return _Struct(max_id, cat_id, cat, p1_id, p1, af_id, af_content,
+                   annots_id, annots_content, sx)
 
 
 def _walk_to_first_leaf_page(
@@ -597,8 +629,23 @@ def _add_annot_to_page(page: str, fld_id: int) -> str:
     if m:
         c = page.index("]", m.end())
         return page[:c] + f" {fld_id} 0 R" + page[c:]
+    # Indirect /Annots must be handled by the caller (re-emit the array
+    # object). Falling through would write a SECOND /Annots key into the
+    # page dict — duplicate keys are undefined per ISO 32000-1 §7.3.7.
+    if re.search(r"/Annots\s+\d+\s+\d+\s+R", page):
+        raise ValueError(
+            "Page has an indirect /Annots reference — resolve it and patch "
+            "the array object instead")
     dd = page.rfind(">>")
     return page[:dd] + f"\n/Annots [{fld_id} 0 R]\n>>"
+
+
+def _add_ref_to_annots_array(arr: str, fld_id: int) -> str:
+    """Append a reference to an /Annots ARRAY object body ("[...]")."""
+    c = arr.rfind("]")
+    if c < 0:
+        raise ValueError("/Annots target object is not an array")
+    return arr[:c].rstrip() + f" {fld_id} 0 R]"
 
 
 def _add_field_to_acroform(af: str, fld_id: int) -> str:

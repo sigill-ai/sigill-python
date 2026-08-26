@@ -25,7 +25,6 @@ PDF = (
 ).encode("ascii")
 
 T1 = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
-T2 = datetime(2026, 1, 2, 3, 4, 6, tzinfo=timezone.utc)
 
 
 def _pattern(length: int, mod: int) -> bytes:
@@ -42,19 +41,19 @@ def test_signer_output_matches_cross_repo_golden_vectors() -> None:
     ocsp = _pattern(200, 17)
     token = _pattern(400, 23)
 
-    prep = _pdf.prepare(PDF, T1, "Golden", "Vector (X)")
-    assert _sha(prep.bytes) == "03ccfbecd8e840624613d05687b0e3a99530593b361d11f6de0461d2eb6fcde5"
-    assert prep.document_hash.hex() == "47266535eedf3ff5f91439055ed9048f171279cf6fe2209cc0d4bf0e2ddbb7e2"
+    prep = _pdf.prepare(PDF, T1, "Golden Vector", "Golden", "Vector (X)")
+    assert _sha(prep.bytes) == "b5d39c763dd5a7e9fc24dad7b070e00b9f0c6c40658c714dca99690b54a6b712"
+    assert prep.document_hash.hex() == "ff51dc7d56810a178dcbc05a43c1cdb34b4f75a0d50351d47ae19faac6a5c83c"
 
     embedded = _pdf.embed(prep, cms)
-    assert _sha(embedded) == "fe12166e8359c77615becf76b0be828fa65ef591f5d42b0669f61f6a686b882b"
+    assert _sha(embedded) == "cf39c8cc8375423558f89d70efd5f490b473297fee6a4c49fc16794b252603f8"
 
     dss = _pdf.append_dss(embedded, [cert], [ocsp], cms)
-    assert _sha(dss) == "d2d8ac0179883b29edad8d18f3c0ef69db7613c45bfdb878f6acb043097256d3"
+    assert _sha(dss) == "4640e64a37264e912f331539751f220ba8ac73ddcfc489adad61060d4b01da87"
 
-    dt = _pdf.prepare_doc_timestamp(dss, T2)
-    assert _sha(dt.bytes) == "6756707d60d22f50ee34a3850c5a48bd0f67db9de8adfc41b5ee47d4f79fd913"
-    assert dt.document_hash.hex() == "e6270386b20cfe1a67e2c12e7ae99e2f3e1d223844e6870f09fbfad17cea6148"
+    dt = _pdf.prepare_doc_timestamp(dss)
+    assert _sha(dt.bytes) == "ac259ce36157a452883e48b63f7e5819c1fa10b7d7e594aa0802772a8150ae74"
+    assert dt.document_hash.hex() == "811393190bf59d619c02ae2e69b4a6eda7d63007f1554074875c23e8c3b17b24"
 
     final = _pdf.embed_doc_timestamp(dt, token)
-    assert _sha(final) == "bd088853743d90d82ee4cdb79aaa1d4fc2f9543ed12078ff0ab58c00c33bdb51"
+    assert _sha(final) == "fb4fa1d61ec7a178a005fb9314ecf9650f4a12b111d483be4bf45c507751bdc5"
