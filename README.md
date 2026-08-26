@@ -237,8 +237,11 @@ result = client.seal_pades(
     pdf,
     certificate_id=CERT_ID,
     label="contract.pdf",
-    qualified=False,        # True → eIDAS-qualified timestamps throughout
-    reason="Approved",      # optional, lands in the PDF /Reason field
+    qualified=False,             # True → eIDAS-qualified timestamps throughout
+    signer_name="ACME Corp AS",  # recommended: your seal cert's subject CN —
+                                 # lands in /Name, what Acrobat shows before
+                                 # validation runs (otherwise "Unknown")
+    reason="Approved",           # optional, lands in the PDF /Reason field
 )
 
 open("contract_sealed.pdf", "wb").write(result.sealed_pdf)
