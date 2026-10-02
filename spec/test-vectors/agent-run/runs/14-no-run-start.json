@@ -1,0 +1,380 @@
+{
+  "description": "seq 0 is not a run_start: the run has no signed configuration or policy.",
+  "bundle": {
+    "profile": "AgentExecutionProfileV1",
+    "bundleVersion": "1",
+    "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+    "agentIdentity": null,
+    "artifacts": [
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000100",
+          "createdAt": "2026-10-01T09:00:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "model_output",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000001"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:instruction-set:run",
+              "role": "input",
+              "contentType": "text/plain",
+              "sizeBytes": 66
+            },
+            {
+              "uri": "urn:example:obj:tool-manifest:run",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 60
+            },
+            {
+              "uri": "urn:example:obj:model-config:run",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 35
+            },
+            {
+              "uri": "urn:example:obj:execution-policy:run",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 71
+            },
+            {
+              "uri": "urn:example:obj:request",
+              "role": "prompt",
+              "contentType": "text/plain",
+              "sizeBytes": 37
+            }
+          ],
+          "chain": {
+            "seq": 0
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "agentIdentityEvidenceId": "00000000-0000-4000-8000-000000000001",
+              "assuranceProfile": "throughput",
+              "timestampPolicy": {
+                "profile": "throughput",
+                "everyEvents": 10,
+                "everySeconds": 300,
+                "runStart": false,
+                "runEnd": true,
+                "consequential": true
+              },
+              "stepType": "model_output",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:00:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:instruction-set:run": "instruction-set",
+                "urn:example:obj:tool-manifest:run": "tool-manifest",
+                "urn:example:obj:model-config:run": "model-config",
+                "urn:example:obj:execution-policy:run": "execution-policy",
+                "urn:example:obj:request": "user-request"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiT2RDV3ppdUxLOEJKYjZuZ256Qkdpc2hId3kyeW1vaWJWUFJuTjE5WFZsYyIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQ6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnRvb2wtbWFuaWZlc3Q6cnVuIiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZzpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6ZXhlY3V0aW9uLXBvbGljeTpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6cmVxdWVzdCJdfX0",
+              "signature": "OOXmCkYR7umDNmbFomcllZ3w0xXhtEeYkq2yugBGg3w"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:instruction-set:run": "db07b7c851073c1796a02f5efc72392a7345fcf7c82db25808601af5988fa4f5",
+          "urn:example:obj:tool-manifest:run": "2c825fd97258cb0365bf997f4c8418d2f956c6d16b8a4061c3a19dc4a61d6e9b",
+          "urn:example:obj:model-config:run": "b9f635b45475fb726ad1b3c9898384d3a88bd5e2019187da1fc9050b351c666e",
+          "urn:example:obj:execution-policy:run": "6aefaf7bdf1bfd0b7b61ed9c3c5871d519064eef8193876ba4507cbc6045e1d3",
+          "urn:example:obj:request": "4e19df762bbfb5f19383d2e37fb12c16e7fc3b20cdbc5673583ebf2a0120bc9d"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000101",
+          "createdAt": "2026-10-01T09:01:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "tool_call",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000100"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:step-0-tool-arguments",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 17
+            }
+          ],
+          "chain": {
+            "seq": 1,
+            "prevSignatureSha256": "d4be2abf768db56782107fa7491bf2ad276cfdcefffbb30c39df452ef28b5a49"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "tool": "lookup_ticket",
+              "stepType": "tool_call",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:01:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:step-0-tool-arguments": "tool-arguments"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsib0VlQ09ZY0ZDeVNCZVItZWx6TldWTXlGWlcxM1ZmbFcya0JGLVVGcnNWayIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
+              "signature": "Ffe4ETwUG4a6BSszCe41WMCiHELvtUmOGnFYSjWfU-s"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:step-0-tool-arguments": "81e37ac0460db1c937e4453bd1e5981d3b2957c9533367ae79d8b8b17329fc48"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000102",
+          "createdAt": "2026-10-01T09:02:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "tool_result",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000101"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:step-1-tool-result",
+              "role": "output",
+              "contentType": "application/json",
+              "sizeBytes": 33
+            }
+          ],
+          "chain": {
+            "seq": 2,
+            "prevSignatureSha256": "072a980b583bf167c6e5b32e55f485b93425f5a43956b880ee2bba6bda61247c"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "tool": "lookup_ticket",
+              "stepType": "tool_result",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:02:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:step-1-tool-result": "tool-result"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiX2Rja2w2aF9Mdl9BbjhMbGJLZ3NIMGFQaUFkaExVdldNcVZiLTh0UWU2QSIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
+              "signature": "nKsIIQa0PnC2kKuSEXyS4zruGBlrPSAyGxINtOjaqNQ"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:step-1-tool-result": "10a3d6b76b148e7bd675f8b22bb008a76378c524d99bbdc35bda766d0d065104"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000103",
+          "createdAt": "2026-10-01T09:03:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "model_output",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000102"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:step-2-model-output",
+              "role": "output",
+              "contentType": "text/plain",
+              "sizeBytes": 34
+            }
+          ],
+          "chain": {
+            "seq": 3,
+            "prevSignatureSha256": "40417afdacecaf4d2cfbe896631a8d582a76f58d9b6a2b0d088db574edfbd655"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "stepType": "model_output",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:03:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:step-2-model-output": "model-output"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsicXVUWXVkdktuamJBS0xFRVNzZ0ZNVXBxZzczT2NZWFZuMDBudEI5Y2NOcyIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1tb2RlbC1vdXRwdXQiXX19",
+              "signature": "uGPp4ZZL5gNmyX7jCkwLseDJ7q7cAlqL_jCExENYKas"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:step-2-model-output": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000104",
+          "createdAt": "2026-10-01T09:04:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "run_end",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000103"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [],
+          "chain": {
+            "seq": 4,
+            "prevSignatureSha256": "b4198e589035fd267f8a378aa3b1e373080a9895b0ec50203ca12db7d10fecd2"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "finalSeq": 3,
+              "finalPrevSignatureSha256": "b4198e589035fd267f8a378aa3b1e373080a9895b0ec50203ca12db7d10fecd2",
+              "runDisposition": "completed",
+              "usage": {
+                "inputTokens": 900,
+                "outputTokens": 120
+              },
+              "stepType": "run_end",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:04:00.000Z",
+              "consequential": true,
+              "timestamp": "required",
+              "objectKinds": {}
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiVUItN0gzZWF1TzJIMkxVTkNEaVVNVWdoNVFpQmgxRjhvSVpaNHFsX05GRSJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+              "signature": "PDfh9ksUKrWZuKV5cvO8sDxHQfM4ZcOmD61lDbMqvHI",
+              "header": {
+                "stubTimestamp": {
+                  "genTime": "2026-10-01T09:04:00Z",
+                  "valid": true
+                }
+              }
+            }
+          ]
+        },
+        "objectDigests": {}
+      }
+    ]
+  },
+  "expected": {
+    "verdict": "run_invalid",
+    "checks": {
+      "correlation": "ok",
+      "sequence": "bad",
+      "chain": "ok",
+      "envelope": "ok",
+      "signatures": "ok",
+      "timestamps": "ok",
+      "objects": "warn",
+      "finalization": "ok",
+      "identity": "warn"
+    },
+    "missingSeqs": [],
+    "fingerprint": "8df21f768a71ed130a9537b93ba6ded07866ede709ac2cb44d5253dbf640d360",
+    "findingsContain": [
+      "The run has no run_start"
+    ]
+  }
+}

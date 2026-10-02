@@ -14,6 +14,14 @@ from typing import Mapping, Protocol
 import httpx
 
 from sigill_sdk import _pdf
+from sigill_sdk._agent_run import (
+    AgentDefinition,
+    AgentRun,
+    AgentRunBundle,
+    AgentRunVerificationResult,
+    remote_verifier,
+    verify_agent_run,
+)
 from sigill_sdk._canonical import canonicalize, compute_envelope_hash, hash_bytes
 from sigill_sdk._envelope import (
     AiEvidenceEnvelopeInput,
@@ -573,6 +581,7 @@ class SigillClient:
         tags: list[str] | None = None,
         reminders: str | None = None,
         reminder_days: int | None = None,
+        timestamp: bool = True,
     ) -> SignHashesResult:
         """Sign a multi-object record by digests — the profile-agnostic tier
         beneath :meth:`seal_evidence_v2` (spec §2/§12).
@@ -583,6 +592,9 @@ class SigillClient:
         discriminator (spec §5.2) — so sibling profiles sign through the same
         blind mechanism without being presented as AI evidence. Content never
         travels; the caller assembles its own artifact from the returned JWS.
+
+        ``timestamp=False`` seals B-B (signature only), for records anchored
+        later by a timestamped successor, such as the steps of an agent run.
 
         :raises SigillError: on invalid digests, reserved or duplicate URIs
             (before any network call), or an API error.
@@ -599,6 +611,7 @@ class SigillClient:
             tags=tags,
             reminders=reminders,
             reminder_days=reminder_days,
+            timestamp=timestamp,
         )
         resp = self._http.post("/seal/sign-hashes", json=body)
         if resp.status_code >= 400:
@@ -755,6 +768,20 @@ class SigillClient:
             hybrid=has_ml_dsa_signer(signature),
             had_digests512=digests512 is not None,
         )
+
+    # ------------------------------------------------------------ agent runs
+
+    def start_agent_run(self, agent: AgentDefinition, *, certificate_id: str, **options) -> AgentRun:
+        """Opens an agent run recorded under AgentExecutionProfileV1
+        (``spec/agent-execution-profile-v1.md``). Options are those of
+        :meth:`AgentRun.start`."""
+        return AgentRun.start(self, agent, certificate_id=certificate_id, **options)
+
+    def verify_agent_run(self, bundle: AgentRunBundle) -> AgentRunVerificationResult:
+        """Verifies an agent run bundle (spec §8). The envelopes are read
+        locally; each artifact's signature is checked through the blind
+        ``POST /seal/verify-objects`` endpoint — digests only, never content."""
+        return verify_agent_run(bundle, remote_verifier(self))
 
     # ------------------------------------------------------------- seal_pades
 

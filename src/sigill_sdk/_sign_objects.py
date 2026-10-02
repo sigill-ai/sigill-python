@@ -113,6 +113,7 @@ def build_sign_hashes_body(
     tags: list[str] | None,
     reminders: str | None,
     reminder_days: int | None,
+    timestamp: bool = True,
 ) -> dict[str, Any]:
     """Validate the digest inputs and build the wire body — every failure
     here happens before any network call."""
@@ -171,6 +172,8 @@ def build_sign_hashes_body(
     }
     if envelope_content_type is not None:
         body["envelopeContentType"] = envelope_content_type
+    if not timestamp:
+        body["timestamp"] = False
     if pqc:
         body["pqc"] = True
         body["envelopeHashHex512"] = envelope_hash_hex512

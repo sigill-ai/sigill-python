@@ -1,0 +1,45 @@
+[
+  {
+    "name": "general-jws",
+    "signature": {
+      "signatures": [
+        {
+          "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+          "signature": "_ND8j_F44YVYgkayZxU4HsSEn2lxxmRh93P4zdl5CGE"
+        }
+      ]
+    },
+    "expected": "663e33b53636f00718d9f6424805571f20cb87ce1e0fbf8c812511557688c079"
+  },
+  {
+    "name": "hybrid-mldsa-first",
+    "description": "The ML-DSA entry is skipped; unprotected headers are ignored.",
+    "signature": {
+      "signatures": [
+        {
+          "protected": "eyJhbGciOiJNTC1EU0EtODcifQ",
+          "signature": "cG9zdC1xdWFudHVtIHNpZ25hdHVyZSB2YWx1ZQ"
+        },
+        {
+          "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+          "signature": "_ND8j_F44YVYgkayZxU4HsSEn2lxxmRh93P4zdl5CGE",
+          "header": {
+            "stubTimestamp": {
+              "genTime": "2026-10-01T09:00:00Z",
+              "valid": true
+            }
+          }
+        }
+      ]
+    },
+    "expected": "663e33b53636f00718d9f6424805571f20cb87ce1e0fbf8c812511557688c079"
+  },
+  {
+    "name": "flattened-jws",
+    "signature": {
+      "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+      "signature": "_ND8j_F44YVYgkayZxU4HsSEn2lxxmRh93P4zdl5CGE"
+    },
+    "expected": "663e33b53636f00718d9f6424805571f20cb87ce1e0fbf8c812511557688c079"
+  }
+]

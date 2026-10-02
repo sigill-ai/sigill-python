@@ -1,0 +1,489 @@
+{
+  "description": "run_start binds two instruction sets: the configuration is ambiguous.",
+  "bundle": {
+    "profile": "AgentExecutionProfileV1",
+    "bundleVersion": "1",
+    "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+    "agentIdentity": {
+      "envelope": {
+        "schemaName": "AiEvidenceEnvelope",
+        "schemaVersion": "2",
+        "evidenceId": "00000000-0000-4000-8000-000000000001",
+        "createdAt": "2026-10-01T08:00:00.000Z",
+        "purpose": {
+          "category": "agent-identity",
+          "businessContext": "support-triage"
+        },
+        "actor": {
+          "type": "agent",
+          "id": "urn:example:agent:support-triage",
+          "tenantId": "tenant-example"
+        },
+        "activity": {
+          "name": "agent_identity"
+        },
+        "model": {
+          "provider": "example-ai",
+          "name": "example-model-1"
+        },
+        "objects": [
+          {
+            "uri": "urn:example:obj:agent-manifest",
+            "role": "input",
+            "contentType": "application/json",
+            "sizeBytes": 159
+          },
+          {
+            "uri": "urn:example:obj:instruction-set",
+            "role": "input",
+            "contentType": "text/plain",
+            "sizeBytes": 66
+          },
+          {
+            "uri": "urn:example:obj:tool-manifest",
+            "role": "input",
+            "contentType": "application/json",
+            "sizeBytes": 60
+          },
+          {
+            "uri": "urn:example:obj:model-config",
+            "role": "input",
+            "contentType": "application/json",
+            "sizeBytes": 35
+          },
+          {
+            "uri": "urn:example:obj:execution-policy",
+            "role": "input",
+            "contentType": "application/json",
+            "sizeBytes": 71
+          },
+          {
+            "uri": "urn:example:obj:registration",
+            "role": "input",
+            "contentType": "application/json",
+            "sizeBytes": 150
+          }
+        ],
+        "extensions": {
+          "ai.sigill.agent-execution": {
+            "recordType": "agent-identity",
+            "stepType": "record:agent-identity",
+            "agentId": "urn:example:agent:support-triage",
+            "agentVersion": "2.4.0",
+            "configSha256": "d8c95c6beddb2d1e5a2e94f85c2dc3ea3587772a810578020b71f81640f8d22e",
+            "eventTime": "2026-10-01T08:00:00.000Z",
+            "objectKinds": {
+              "urn:example:obj:agent-manifest": "agent-manifest",
+              "urn:example:obj:instruction-set": "instruction-set",
+              "urn:example:obj:tool-manifest": "tool-manifest",
+              "urn:example:obj:model-config": "model-config",
+              "urn:example:obj:execution-policy": "execution-policy",
+              "urn:example:obj:registration": "registration-record"
+            }
+          }
+        }
+      },
+      "signature": {
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiUThBNlo0Smg1TGFmaWhvNUUtOXBQS3k2TzNiT0VOUXk2OFlxaTJsekFzWSIsImVoMFhzVkpUMG04T0VtRDB1M0Y1SlptUUVoTUlDNlBreThvWHhDTDZGZEkiLCIyd2UzeUZFSFBCZVdvQzllX0hJNUtuTkZfUGZJTGJKWUNHQWE5WmlQcFBVIiwiTElKZjJYSll5d05sdjVsX1RJUVkwdmxXeHRGcmlrQmh3NkdkeEtZZGJwcyIsInVmWTF0RlIxLTNKcTBiUEppWU9FMDZpTDFlSUJrWWZhSDhrRkN6VWNabTQiLCJhdS12ZTk4Yl9RdDdZZTJjUEZoeDFSa0dUdS1CazRkcnBGQjh2R0JGNGRNIiwidUdUUDg0M1VDSF9Pb3J5QWVnMEZjdEdpbjliSXNoNVI2bE1ucFlSYzBOVSJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6YWdlbnQtbWFuaWZlc3QiLCJ1cm46ZXhhbXBsZTpvYmo6aW5zdHJ1Y3Rpb24tc2V0IiwidXJuOmV4YW1wbGU6b2JqOnRvb2wtbWFuaWZlc3QiLCJ1cm46ZXhhbXBsZTpvYmo6bW9kZWwtY29uZmlnIiwidXJuOmV4YW1wbGU6b2JqOmV4ZWN1dGlvbi1wb2xpY3kiLCJ1cm46ZXhhbXBsZTpvYmo6cmVnaXN0cmF0aW9uIl19fQ",
+            "signature": "sSORSvFJspOI4Pt1yawgWD6-T2viFOmEec-jHmxkd-c",
+            "header": {
+              "stubTimestamp": {
+                "genTime": "2026-10-01T08:00:01Z",
+                "valid": true
+              }
+            }
+          }
+        ]
+      },
+      "objectDigests": {
+        "urn:example:obj:agent-manifest": "7a1d17b15253d26f0e1260f4bb71792599901213080ba3e4cbca17c422fa15d2",
+        "urn:example:obj:instruction-set": "db07b7c851073c1796a02f5efc72392a7345fcf7c82db25808601af5988fa4f5",
+        "urn:example:obj:tool-manifest": "2c825fd97258cb0365bf997f4c8418d2f956c6d16b8a4061c3a19dc4a61d6e9b",
+        "urn:example:obj:model-config": "b9f635b45475fb726ad1b3c9898384d3a88bd5e2019187da1fc9050b351c666e",
+        "urn:example:obj:execution-policy": "6aefaf7bdf1bfd0b7b61ed9c3c5871d519064eef8193876ba4507cbc6045e1d3",
+        "urn:example:obj:registration": "b864cff38dd4087fcea2bc807a0d0572d1a29fd6c8b21e51ea5327a5845cd0d5"
+      }
+    },
+    "artifacts": [
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000100",
+          "createdAt": "2026-10-01T09:00:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "run_start",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000001"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:instruction-set:run",
+              "role": "input",
+              "contentType": "text/plain",
+              "sizeBytes": 66
+            },
+            {
+              "uri": "urn:example:obj:tool-manifest:run",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 60
+            },
+            {
+              "uri": "urn:example:obj:model-config:run",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 35
+            },
+            {
+              "uri": "urn:example:obj:execution-policy:run",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 71
+            },
+            {
+              "uri": "urn:example:obj:request",
+              "role": "prompt",
+              "contentType": "text/plain",
+              "sizeBytes": 37
+            },
+            {
+              "uri": "urn:example:obj:instruction-set:second",
+              "role": "input",
+              "contentType": "text/plain",
+              "sizeBytes": 19
+            }
+          ],
+          "chain": {
+            "seq": 0
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "agentIdentityEvidenceId": "00000000-0000-4000-8000-000000000001",
+              "assuranceProfile": "throughput",
+              "timestampPolicy": {
+                "profile": "throughput",
+                "everyEvents": 10,
+                "everySeconds": 300,
+                "runStart": false,
+                "runEnd": true,
+                "consequential": true
+              },
+              "stepType": "run_start",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:00:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:instruction-set:run": "instruction-set",
+                "urn:example:obj:tool-manifest:run": "tool-manifest",
+                "urn:example:obj:model-config:run": "model-config",
+                "urn:example:obj:execution-policy:run": "execution-policy",
+                "urn:example:obj:request": "user-request",
+                "urn:example:obj:instruction-set:second": "instruction-set"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsidTlzeEVhSl83eUg1Ynl5Y1RZa2xMb3pRRWRSQUo1Y3Jjb3lFQnI3R3RMSSIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIiwiTTRtTDhnb1ExeFlfbWlzcU1iNXlRa1ZidkxEeTNpTk42UjVycWhqTlpYMCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6aW5zdHJ1Y3Rpb24tc2V0OnJ1biIsInVybjpleGFtcGxlOm9iajp0b29sLW1hbmlmZXN0OnJ1biIsInVybjpleGFtcGxlOm9iajptb2RlbC1jb25maWc6cnVuIiwidXJuOmV4YW1wbGU6b2JqOmV4ZWN1dGlvbi1wb2xpY3k6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnJlcXVlc3QiLCJ1cm46ZXhhbXBsZTpvYmo6aW5zdHJ1Y3Rpb24tc2V0OnNlY29uZCJdfX0",
+              "signature": "mCh-SDb3iYF9jnCEZhG8nSSktUrpx7AMA15IdIUIWBQ"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:instruction-set:run": "db07b7c851073c1796a02f5efc72392a7345fcf7c82db25808601af5988fa4f5",
+          "urn:example:obj:tool-manifest:run": "2c825fd97258cb0365bf997f4c8418d2f956c6d16b8a4061c3a19dc4a61d6e9b",
+          "urn:example:obj:model-config:run": "b9f635b45475fb726ad1b3c9898384d3a88bd5e2019187da1fc9050b351c666e",
+          "urn:example:obj:execution-policy:run": "6aefaf7bdf1bfd0b7b61ed9c3c5871d519064eef8193876ba4507cbc6045e1d3",
+          "urn:example:obj:request": "4e19df762bbfb5f19383d2e37fb12c16e7fc3b20cdbc5673583ebf2a0120bc9d",
+          "urn:example:obj:instruction-set:second": "33898bf20a10d7163f9a2b2a31be7242455bbcb0f2de234de91e6baa18cd657d"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000101",
+          "createdAt": "2026-10-01T09:01:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "tool_call",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000100"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:step-0-tool-arguments",
+              "role": "input",
+              "contentType": "application/json",
+              "sizeBytes": 17
+            }
+          ],
+          "chain": {
+            "seq": 1,
+            "prevSignatureSha256": "018bc6d21ef30dd5bb519f5a757d9c5c25a40bd88d97fcd417b979cacb05561b"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "tool": "lookup_ticket",
+              "stepType": "tool_call",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:01:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:step-0-tool-arguments": "tool-arguments"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiQ0NaWVdyYTZjd3NDVHdMX0h3UXM0YUdpREthLU14U01Fb2UtYWN6TXhvSSIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
+              "signature": "BQ1tquVjSyu8K9VEuPQLFMwHg_r8qefUWw9HNJLAtL0"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:step-0-tool-arguments": "81e37ac0460db1c937e4453bd1e5981d3b2957c9533367ae79d8b8b17329fc48"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000102",
+          "createdAt": "2026-10-01T09:02:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "tool_result",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000101"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:step-1-tool-result",
+              "role": "output",
+              "contentType": "application/json",
+              "sizeBytes": 33
+            }
+          ],
+          "chain": {
+            "seq": 2,
+            "prevSignatureSha256": "dd8fad7cad9f8b3fd080aecc950eaac1e6b52465678ed846e8880cd7f81808dd"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "tool": "lookup_ticket",
+              "stepType": "tool_result",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:02:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:step-1-tool-result": "tool-result"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiNEhCY3lsQjZySFR1aFQ2elNPZ0R2X3BKZzgzdlg4S0pKM25sVm94QkhjNCIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
+              "signature": "eHIUHVowcOpPWjVaoFU6M2tpioqEQYiQQwxos_Tq_Ww"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:step-1-tool-result": "10a3d6b76b148e7bd675f8b22bb008a76378c524d99bbdc35bda766d0d065104"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000103",
+          "createdAt": "2026-10-01T09:03:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "model_output",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000102"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:step-2-model-output",
+              "role": "output",
+              "contentType": "text/plain",
+              "sizeBytes": 34
+            }
+          ],
+          "chain": {
+            "seq": 3,
+            "prevSignatureSha256": "8caa9327792f9ed094be977046515324a3e7ac52a145f64a04524e1b6b82e695"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "stepType": "model_output",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:03:00.000Z",
+              "consequential": false,
+              "timestamp": "none",
+              "objectKinds": {
+                "urn:example:obj:step-2-model-output": "model-output"
+              }
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiLTduSElIdjRGV3R1VGNDLWhiRmhaZmJTM3JvUE4yZGl3dC1PTU05bXAzMCIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1tb2RlbC1vdXRwdXQiXX19",
+              "signature": "vXa4JxQch2T69huJleNP6TdYpski9TgcBmzoAWZCvFA"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:step-2-model-output": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AiEvidenceEnvelope",
+          "schemaVersion": "2",
+          "evidenceId": "00000000-0000-4000-8000-000000000104",
+          "createdAt": "2026-10-01T09:04:00.000Z",
+          "purpose": {
+            "category": "agent-execution",
+            "businessContext": "support-triage"
+          },
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "tenantId": "tenant-example"
+          },
+          "activity": {
+            "name": "run_end",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+            "parentEvidenceId": "00000000-0000-4000-8000-000000000103"
+          },
+          "model": {
+            "provider": "example-ai",
+            "name": "example-model-1"
+          },
+          "objects": [],
+          "chain": {
+            "seq": 4,
+            "prevSignatureSha256": "a0a0bb2d9b8bf4e5174e1c55c8d1fce4fab14b52706099815b20befafe8fc556"
+          },
+          "extensions": {
+            "ai.sigill.agent-execution": {
+              "finalSeq": 3,
+              "finalPrevSignatureSha256": "a0a0bb2d9b8bf4e5174e1c55c8d1fce4fab14b52706099815b20befafe8fc556",
+              "runDisposition": "completed",
+              "usage": {
+                "inputTokens": 900,
+                "outputTokens": 120
+              },
+              "stepType": "run_end",
+              "agentVersion": "2.4.0",
+              "eventTime": "2026-10-01T09:04:00.000Z",
+              "consequential": true,
+              "timestamp": "required",
+              "objectKinds": {}
+            }
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiY00wWlg5ZS1ra3l1RDNvTkJQb2FLWjJEbjNLejdlYmg2Y2FmMUEzN1BvRSJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+              "signature": "pwXq8GrF0VeZk82-K45MM3YKPUBvMQJAxXI_QDt7c1k",
+              "header": {
+                "stubTimestamp": {
+                  "genTime": "2026-10-01T09:04:00Z",
+                  "valid": true
+                }
+              }
+            }
+          ]
+        },
+        "objectDigests": {}
+      }
+    ]
+  },
+  "expected": {
+    "verdict": "run_invalid",
+    "checks": {
+      "correlation": "ok",
+      "sequence": "ok",
+      "chain": "ok",
+      "envelope": "ok",
+      "signatures": "ok",
+      "timestamps": "ok",
+      "objects": "warn",
+      "finalization": "ok",
+      "identity": "bad"
+    },
+    "missingSeqs": [],
+    "fingerprint": "63ce9e3dc480c3e99ea1d156cb15f0c56be63a64e3d946c8899519acde7f68f1",
+    "findingsContain": [
+      "more than one signed object of kind 'instruction-set'"
+    ]
+  }
+}

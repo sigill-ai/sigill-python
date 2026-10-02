@@ -330,6 +330,76 @@ Expiry-reminder policy can be set per evidence at creation on every seal
 method: `reminders="on"` (with `reminder_days=30/60/90/180`), `"off"` (muted),
 or the default `"inherit"`.
 
+## Agent runs: verifiable multi-step execution
+
+For agents that call tools, retrieve context and act over several steps, a
+single envelope is not enough: you need to show *what happened, in what
+order, under which configuration* — and that nothing was removed afterwards.
+`AgentRun` records a run under
+[AgentExecutionProfileV1](spec/agent-execution-profile-v1.md): every step is
+an ordinary v2 artifact, sealed blind and chained to the previous step's
+signature.
+
+```python
+from sigill_sdk import AgentConfiguration, AgentDefinition, AgentModelRef, AgentRunBundle
+
+agent = AgentDefinition(
+    agent_id="urn:example:agent:support-triage",   # opaque — no personal data
+    agent_version="2.4.0",
+    model=AgentModelRef("anthropic", "claude-sonnet-5"),
+    configuration=AgentConfiguration(
+        instruction_set=system_prompt_bytes,
+        tool_manifest=tool_schemas_json,
+        model_config=sampling_params_json,
+        execution_policy=allowlist_and_limits_json,
+    ),
+)
+
+run = client.start_agent_run(agent, certificate_id=cert_id)
+run.record_tool_call("lookup_ticket", args_json)
+run.record_tool_result("lookup_ticket", result_json)
+run.record_tool_call("close_ticket", args_json, consequential=True)  # side effect → timestamped now
+run.record_model_output(answer_bytes)
+bundle = run.finish("completed")
+
+open("run.json", "w").write(bundle.to_json())
+```
+
+Later, anyone holding the bundle can verify it:
+
+```python
+result = client.verify_agent_run(AgentRunBundle.parse(open("run.json").read()))
+# result.verdict  -> "run_finalized" | "run_open" | "run_invalid"
+# result.checks   -> correlation, sequence, chain, envelope, signatures,
+#                    timestamps, objects, finalization, identity: ok | warn | bad
+# result.findings -> exactly what failed, e.g. "Sequence gap: no artifact for seq 2 (deleted or withheld)."
+print(result.scope)  # what a verdict does — and does not — establish
+```
+
+What to know:
+
+- **Content never leaves your machine.** Sealing and verification send digests
+  and opaque URNs only. A bundle carries digests by default; pass
+  `retain_payloads=True` (or use `bundle.with_payloads(...)`) only when the
+  recipient may read the content — supplying payloads upgrades the `objects`
+  check from "digests match" to "content matches".
+- **Timestamps where they matter.** By default (`throughput`) every step is
+  signed and chained, and RFC 3161 timestamps go on `run_end`, consequential
+  steps and every 10 events / 300 seconds. The policy is signed into
+  `run_start`, so the verifier knows which steps had to carry one. Use
+  `timestamp_policy=AgentTimestampPolicy(profile="per-event")` to timestamp
+  everything, and `run.checkpoint()` from a timer to anchor an idle run.
+- **Configuration is bound.** The first run registers an *identity record*
+  (instructions, tools, model config, execution policy). Store `run.identity`
+  and pass it as `identity=` while the configuration is unchanged; a changed
+  configuration needs a new one.
+- **Persist as you go.** `on_artifact_sealed` runs after each step is sealed. A
+  sealing failure stops the chain; the partial bundle (`run.to_bundle()`)
+  verifies as open or invalid, never as finalized.
+- **Bring your own verifier.** `verify_agent_run(bundle, verifier)` accepts any
+  callable `(signature, digests) -> BlindObjectsVerdict`; `remote_verifier(client)`
+  is the blind endpoint used above.
+
 ## Error handling
 
 Producer-time errors raise; verification errors are collected. This split is

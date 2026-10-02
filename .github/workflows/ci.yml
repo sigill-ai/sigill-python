@@ -51,7 +51,7 @@ jobs:
       - name: Verify committed canonical bytes match regeneration
         run: |
           set -euo pipefail
-          for vec in spec/test-vectors/01-complete-ai-call spec/test-vectors/02-pii-redacted; do
+          for vec in spec/test-vectors/01-complete-ai-call spec/test-vectors/02-pii-redacted spec/test-vectors/agent-run; do
             python "$vec/_generate.py"
           done
           if ! git diff --quiet -- spec/test-vectors; then
