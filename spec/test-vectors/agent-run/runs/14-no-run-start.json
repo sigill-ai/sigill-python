@@ -87,7 +87,7 @@
                 "urn:example:obj:tool-manifest:run": "tool-manifest",
                 "urn:example:obj:model-config:run": "model-config",
                 "urn:example:obj:execution-policy:run": "execution-policy",
-                "urn:example:obj:request": "user-request"
+                "urn:example:obj:request": "user-turn"
               }
             }
           }
@@ -95,8 +95,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiT2RDV3ppdUxLOEJKYjZuZ256Qkdpc2hId3kyeW1vaWJWUFJuTjE5WFZsYyIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQ6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnRvb2wtbWFuaWZlc3Q6cnVuIiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZzpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6ZXhlY3V0aW9uLXBvbGljeTpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6cmVxdWVzdCJdfX0",
-              "signature": "OOXmCkYR7umDNmbFomcllZ3w0xXhtEeYkq2yugBGg3w"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsicHV6cE5IZVM4VUhJM0x5cjMzTElvZm9CYUVuZ1I1NllEcnViQlVUVS1kayIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQ6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnRvb2wtbWFuaWZlc3Q6cnVuIiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZzpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6ZXhlY3V0aW9uLXBvbGljeTpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6cmVxdWVzdCJdfX0",
+              "signature": "lNmBPE1g52fEJeUAgFT2pZTVf5Cp49EQZqoOSbmvc4E"
             }
           ]
         },
@@ -142,11 +142,18 @@
           ],
           "chain": {
             "seq": 1,
-            "prevSignatureSha256": "d4be2abf768db56782107fa7491bf2ad276cfdcefffbb30c39df452ef28b5a49"
+            "prevSignatureSha256": "af2e193cbcb90b4cdc085ee6c938e91fd0750c0ade7149f95810fc10c98b01eb"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
-              "tool": "lookup_ticket",
+              "tool": {
+                "name": "lookup_ticket",
+                "operation": "read"
+              },
+              "authorization": {
+                "decision": "allowed",
+                "policyId": "support-tools-v1"
+              },
               "stepType": "tool_call",
               "agentVersion": "2.4.0",
               "eventTime": "2026-10-01T09:01:00.000Z",
@@ -161,8 +168,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsib0VlQ09ZY0ZDeVNCZVItZWx6TldWTXlGWlcxM1ZmbFcya0JGLVVGcnNWayIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
-              "signature": "Ffe4ETwUG4a6BSszCe41WMCiHELvtUmOGnFYSjWfU-s"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiQ2ZjRmFxWDJELUZraWxSTE53R3I3YVEteEJLbExsMUJ3Zy1xWWVCbVdCWSIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
+              "signature": "wO-jDwjS9YVokuesXf6R6ikGFs7B7zvKs9VvrkYNpJM"
             }
           ]
         },
@@ -197,18 +204,20 @@
           "objects": [
             {
               "uri": "urn:example:obj:step-1-tool-result",
-              "role": "output",
+              "role": "context",
               "contentType": "application/json",
               "sizeBytes": 33
             }
           ],
           "chain": {
             "seq": 2,
-            "prevSignatureSha256": "072a980b583bf167c6e5b32e55f485b93425f5a43956b880ee2bba6bda61247c"
+            "prevSignatureSha256": "4e2d106d7922dcffd35ce73824be788c1347b575cbc1302b91ab62e0acb51938"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
-              "tool": "lookup_ticket",
+              "tool": {
+                "name": "lookup_ticket"
+              },
               "stepType": "tool_result",
               "agentVersion": "2.4.0",
               "eventTime": "2026-10-01T09:02:00.000Z",
@@ -223,8 +232,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiX2Rja2w2aF9Mdl9BbjhMbGJLZ3NIMGFQaUFkaExVdldNcVZiLTh0UWU2QSIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
-              "signature": "nKsIIQa0PnC2kKuSEXyS4zruGBlrPSAyGxINtOjaqNQ"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiR3MxUFVYQ1prRWNqTnRUd25mRWtVRWtiNWVwbFFCVUx2ZUtFTXRJTFlMQSIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
+              "signature": "AHao2BE6XVA0uYPNxxmmCMSdhznO4OSOUqm-AAYA8J4"
             }
           ]
         },
@@ -258,7 +267,7 @@
           },
           "objects": [
             {
-              "uri": "urn:example:obj:step-2-model-output",
+              "uri": "urn:example:obj:step-2-assistant-reply",
               "role": "output",
               "contentType": "text/plain",
               "sizeBytes": 34
@@ -266,7 +275,7 @@
           ],
           "chain": {
             "seq": 3,
-            "prevSignatureSha256": "40417afdacecaf4d2cfbe896631a8d582a76f58d9b6a2b0d088db574edfbd655"
+            "prevSignatureSha256": "6cb0a26b5daebcfc6983b901729deab59627c8d8252131d08514fa1cf6578731"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
@@ -276,7 +285,7 @@
               "consequential": false,
               "timestamp": "none",
               "objectKinds": {
-                "urn:example:obj:step-2-model-output": "model-output"
+                "urn:example:obj:step-2-assistant-reply": "assistant-reply"
               }
             }
           }
@@ -284,13 +293,13 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsicXVUWXVkdktuamJBS0xFRVNzZ0ZNVXBxZzczT2NZWFZuMDBudEI5Y2NOcyIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1tb2RlbC1vdXRwdXQiXX19",
-              "signature": "uGPp4ZZL5gNmyX7jCkwLseDJ7q7cAlqL_jCExENYKas"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiTEVCN3VYXzNKbHUzNGppS2dnNmJ1NUhuRllneWVZRHNRN3lHTjNrVjhnYyIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1hc3Npc3RhbnQtcmVwbHkiXX19",
+              "signature": "tBIkRYg1rWzYPd5B2HKy8GaKnuPG45DIlt16TkI3-54"
             }
           ]
         },
         "objectDigests": {
-          "urn:example:obj:step-2-model-output": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
+          "urn:example:obj:step-2-assistant-reply": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
         }
       },
       {
@@ -320,12 +329,12 @@
           "objects": [],
           "chain": {
             "seq": 4,
-            "prevSignatureSha256": "b4198e589035fd267f8a378aa3b1e373080a9895b0ec50203ca12db7d10fecd2"
+            "prevSignatureSha256": "91f30bc87020ae4c1ac2afc8f6b74187ca0a5abd38a3167c661a6366fdc9b42b"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
               "finalSeq": 3,
-              "finalPrevSignatureSha256": "b4198e589035fd267f8a378aa3b1e373080a9895b0ec50203ca12db7d10fecd2",
+              "finalPrevSignatureSha256": "91f30bc87020ae4c1ac2afc8f6b74187ca0a5abd38a3167c661a6366fdc9b42b",
               "runDisposition": "completed",
               "usage": {
                 "inputTokens": 900,
@@ -343,8 +352,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiVUItN0gzZWF1TzJIMkxVTkNEaVVNVWdoNVFpQmgxRjhvSVpaNHFsX05GRSJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
-              "signature": "PDfh9ksUKrWZuKV5cvO8sDxHQfM4ZcOmD61lDbMqvHI",
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSUZHMDQ3VTljZWlWamxpSnRoS2ctQkl1NGhFd0dHVzRMMzk0QnVLeUd6USJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+              "signature": "pv0VF_gSnq5soCrgZL_esoSBKO-lpB5CEjQMJiQgErQ",
               "header": {
                 "stubTimestamp": {
                   "genTime": "2026-10-01T09:04:00Z",
@@ -372,7 +381,7 @@
       "identity": "warn"
     },
     "missingSeqs": [],
-    "fingerprint": "8df21f768a71ed130a9537b93ba6ded07866ede709ac2cb44d5253dbf640d360",
+    "fingerprint": "a50c8a3dfe5016d2728d787b78d01a363a69e5ddc4a33338d549b9f3d704937a",
     "findingsContain": [
       "The run has no run_start"
     ]

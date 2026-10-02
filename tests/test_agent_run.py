@@ -20,6 +20,7 @@ import httpx
 import pytest
 
 from sigill_sdk import (
+    AgentAuthorization,
     AgentConfiguration,
     AgentDefinition,
     AgentModelRef,
@@ -100,13 +101,16 @@ def test_configuration_digest_matches_vector() -> None:
     cfg = AgentConfiguration(instruction_set=b("instructionSet"), tool_manifest=b("toolManifest"),
                              model_config=b("modelConfig"), execution_policy=b("executionPolicy"))
     assert configuration_digest(b("agentManifest"), cfg) == v["expected"]
+    without = AgentConfiguration(instruction_set=b("instructionSet"), tool_manifest=b("toolManifest"),
+                                 execution_policy=b("executionPolicy"))
+    assert configuration_digest(b("agentManifest"), without) == v["expectedWithoutModelConfig"]
 
 
 RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_there_are_run_vectors() -> None:
-    assert len(RUN_VECTORS) == 24
+    assert len(RUN_VECTORS) == 30
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -253,7 +257,7 @@ def test_recorded_run_verifies_as_finalized_and_no_content_ever_travels() -> Non
     sealed_steps: list = []
     run = client.start_agent_run(
         _agent(), certificate_id=CERT,
-        start_objects=[AgentRunObject("user-request", "prompt", SECRET, "text/plain")],
+        start_objects=[AgentRunObject("user-turn", "prompt", SECRET, "text/plain")],
         on_artifact_sealed=lambda a: sealed_steps.append(a.step_type), _clock=_clock())
     run.record_tool_call("lookup_ticket", b'{"ticket":"4411"}')
     run.record_tool_result("lookup_ticket", b'{"status":"open"}')
@@ -288,6 +292,53 @@ def test_recorded_run_verifies_as_finalized_and_no_content_ever_travels() -> Non
         if "parentEvidenceId" in a.envelope["activity"]:
             _uuid.UUID(a.envelope["activity"]["parentEvidenceId"])
         assert a.envelope["actor"]["type"] == "agent"
+
+
+def test_authorization_and_human_approval_flow_verifies_as_finalized() -> None:
+    sealer = StubSealer()
+    run = AgentRun.start(_client(sealer), _agent(), certificate_id=CERT, _clock=_clock())
+    auth = run.record_authorization(AgentAuthorization("allowed", policy_id="support-tools-v1",
+                                                       reason="write requires approval"),
+                                    tool="close_ticket", operation="write")
+    approval = run.record_human_approval("approved", receipt=b'{"decision":"approved"}',
+                                         identity_assertion=b"eyJhbGciOiJFUzI1NiJ9.x.y",
+                                         approver_ref="urn:example:approver:42",
+                                         action_evidence_id=auth.evidence_id)
+    run.record_tool_call("close_ticket", b'{"ticket":"4411"}', operation="write", consequential=True,
+                         authorization=AgentAuthorization("allowed", policy_id="support-tools-v1"))
+    bundle = run.finish()
+
+    ext = approval.envelope["extensions"]["ai.sigill.agent-execution"]
+    assert ext["approval"] == {"decision": "approved", "approverRef": "urn:example:approver:42",
+                               "actionEvidenceId": auth.evidence_id}
+    assert ext["timestamp"] == "required"  # consequential by default
+    assert sorted(ext["objectKinds"].values()) == ["approval-receipt", "identity-assertion"]
+    call = bundle.artifacts[3].envelope["extensions"]["ai.sigill.agent-execution"]
+    assert call["tool"] == {"name": "close_ticket", "operation": "write"}
+    assert call["authorization"] == {"decision": "allowed", "policyId": "support-tools-v1"}
+    result = verify_agent_run(bundle, stub_verify)
+    assert result.verdict == "run_finalized", result.findings
+    assert b"eyJhbGciOiJFUzI1NiJ9" not in json.dumps(sealer.requests).encode()
+
+
+def test_invalid_authorization_decision_is_rejected_before_sealing() -> None:
+    run = AgentRun.start(_client(StubSealer()), _agent(), certificate_id=CERT, _clock=_clock())
+    with pytest.raises(ValueError):
+        run.record_authorization(AgentAuthorization("maybe"))
+    assert not run.is_broken
+
+
+def test_run_without_model_config_verifies_as_finalized() -> None:
+    agent = _agent()
+    agent = AgentDefinition(agent_id=agent.agent_id, agent_version=agent.agent_version, model=agent.model,
+                            configuration=AgentConfiguration(
+                                instruction_set=b"You triage.", tool_manifest=b"{}", execution_policy=b"{}"))
+    run = AgentRun.start(_client(StubSealer()), agent, certificate_id=CERT, _clock=_clock())
+    kinds = run.artifacts[0].envelope["extensions"]["ai.sigill.agent-execution"]["objectKinds"].values()
+    assert "model-config" not in kinds
+    result = verify_agent_run(run.finish(), stub_verify)
+    assert result.verdict == "run_finalized", result.findings
+    assert result.checks["identity"] == "ok"
 
 
 def test_retained_payloads_upgrade_objects_to_ok() -> None:

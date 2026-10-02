@@ -74,6 +74,7 @@ from sigill_sdk._sign_objects import (
     SignHashesResult,
 )
 from sigill_sdk._agent_run import (
+    AgentAuthorization,
     AgentConfiguration,
     AgentDefinition,
     AgentIdentityVerdict,
@@ -139,6 +140,7 @@ __all__ = [
     "SignHashesResult",
     "canonicalize",
     "compute_envelope_hash",
+    "AgentAuthorization",
     "AgentConfiguration",
     "AgentDefinition",
     "AgentIdentityVerdict",

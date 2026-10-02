@@ -1,5 +1,5 @@
 {
-  "description": "Signed policy everyEvents=2, but seq 1 was sealed without a timestamp.",
+  "description": "tool_call's tool block is a string, not {name, operation}.",
   "bundle": {
     "profile": "AgentExecutionProfileV1",
     "bundleVersion": "1",
@@ -172,7 +172,7 @@
               "assuranceProfile": "throughput",
               "timestampPolicy": {
                 "profile": "throughput",
-                "everyEvents": 2,
+                "everyEvents": 10,
                 "everySeconds": 300,
                 "runStart": false,
                 "runEnd": true,
@@ -196,8 +196,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiaERObXJoYV9VMnE1UW5BM08xbkRlazVrOWFUcGllTlJCNVlUSEJsR3JOMCIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQ6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnRvb2wtbWFuaWZlc3Q6cnVuIiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZzpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6ZXhlY3V0aW9uLXBvbGljeTpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6cmVxdWVzdCJdfX0",
-              "signature": "oB0AUuU6KqWmD9iem3V5HrH3CEb8C-geQgKB-OaGFjM"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiczFQLTJKc0JGcVRnTUFDWWgzY3pzQkd4OERRNFRkZTJUZW81SUF2QTM5NCIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQ6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnRvb2wtbWFuaWZlc3Q6cnVuIiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZzpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6ZXhlY3V0aW9uLXBvbGljeTpydW4iLCJ1cm46ZXhhbXBsZTpvYmo6cmVxdWVzdCJdfX0",
+              "signature": "8jnxdBWw6Ok2638EPKFBlmAnver6JCZYzOk9kldspbY"
             }
           ]
         },
@@ -243,14 +243,11 @@
           ],
           "chain": {
             "seq": 1,
-            "prevSignatureSha256": "045f5499aab8e2d4aa6eb549d91abc255eaac8975058f1f52e612452e9986353"
+            "prevSignatureSha256": "adf9896e2aa529f4404f07964ad621471a64475ae928232d0607d114696acb15"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
-              "tool": {
-                "name": "lookup_ticket",
-                "operation": "read"
-              },
+              "tool": "lookup_ticket",
               "authorization": {
                 "decision": "allowed",
                 "policyId": "support-tools-v1"
@@ -269,8 +266,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsid1NFRWhLa0NKbXd3M0d3VlNwanRfNy03b0lxWWw5NU5KdzM5OW1TUU4xUSIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
-              "signature": "6eScUpOdka1nNixKFVxWavmTzRNFjbflD11Bb4bAgeQ"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiLTVvZVRjeFZ5NExOdk0xa3RrOEVjbWlZNWFMM2RGMHRhdlVEejdIamc5NCIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
+              "signature": "jTIRAx8WxOLI0iXoYraNz61dDRja4n4mqRRnO2KKiuE"
             }
           ]
         },
@@ -312,7 +309,7 @@
           ],
           "chain": {
             "seq": 2,
-            "prevSignatureSha256": "3dc500a6ea718099b15cd1bb94117d644d9fb7703d510ec2d2f64fb45c1a5069"
+            "prevSignatureSha256": "4ba4ad5a0e2efcaba7576df89597a8e567b3b0bb63111c20394f2161bb4130f4"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
@@ -333,8 +330,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiMWVJd3JkRF9vTi01aU9TZlZnbldOX3paV2JkcVRXYkRINmZOLTF5YnRIdyIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
-              "signature": "m2AzOWeTfdreWFMr4O8d_rovlK9w5ATj_KpfUSIWeB8"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsidmc5bE1pVjVqWTd2SFRVVENYS3EtNE1pVzZOVjI5Y1JRMkd1eGgta1JZWSIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
+              "signature": "QhpguWMxcHL4B1MmAEM5j49Rx6VWPdjQcrFx1Xd6-Pg"
             }
           ]
         },
@@ -376,7 +373,7 @@
           ],
           "chain": {
             "seq": 3,
-            "prevSignatureSha256": "8fc1ed212fd3ffe53cf5746b46fcaa407096f44698c26a08f6ef80419d8d267c"
+            "prevSignatureSha256": "bfdd090b50751f88968ddc67b22f5d7fcff2b6486ea653a48dac7150c7bb4c36"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
@@ -394,8 +391,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiM0huWUFXaGFrU2cyTnBtSU9fNUdxQTRUa182M2xWRlNxOUh2MlN2S3M5USIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1hc3Npc3RhbnQtcmVwbHkiXX19",
-              "signature": "dO_INfgiVLnDdrHY17FYWj37BOObaEb9WMoLwwvvsUc"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiZ1BjVnZVNUR3ZkVJTU9ycHU0ci1UU2hiWU03MTVSbF9STU9WVmtmMlVPVSIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1hc3Npc3RhbnQtcmVwbHkiXX19",
+              "signature": "wFRDvT_yY2almME8JHaSIGT8n35daq8s4JE5PmaJjkE"
             }
           ]
         },
@@ -430,12 +427,12 @@
           "objects": [],
           "chain": {
             "seq": 4,
-            "prevSignatureSha256": "5956baddd820dcf892b5a861dfd4c736363b30d724cc6600e8c7f23186026110"
+            "prevSignatureSha256": "0825e3d8e32addf78830d0b7d939bd13b2c769820e88ef16d9151d0075a83844"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
               "finalSeq": 3,
-              "finalPrevSignatureSha256": "5956baddd820dcf892b5a861dfd4c736363b30d724cc6600e8c7f23186026110",
+              "finalPrevSignatureSha256": "0825e3d8e32addf78830d0b7d939bd13b2c769820e88ef16d9151d0075a83844",
               "runDisposition": "completed",
               "usage": {
                 "inputTokens": 900,
@@ -453,8 +450,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsicWFnSzB1ZnhuZEN3ZFhpazA3U2l1X0tid2VuVTJSS2lPU2YzRWs1ckIyZyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
-              "signature": "5tCLPR3TG6fQT0ofDQjOXDFO4PzxMs-olAnlWYPwnx8",
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiM1BaNVFqUUhLcm04cmV4UTFONXg0OUpjVmF4VktKZExlM2NrYUVFbHp4YyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+              "signature": "nD-iWvZqywOnkJDn5kZLSPG6vRBX_yRwQPMaD80eD34",
               "header": {
                 "stubTimestamp": {
                   "genTime": "2026-10-01T09:04:00Z",
@@ -474,17 +471,17 @@
       "correlation": "ok",
       "sequence": "ok",
       "chain": "ok",
-      "envelope": "ok",
+      "envelope": "bad",
       "signatures": "ok",
-      "timestamps": "bad",
+      "timestamps": "ok",
       "objects": "warn",
       "finalization": "ok",
       "identity": "ok"
     },
     "missingSeqs": [],
-    "fingerprint": "402708c1ae4389aa421cae4bc40b48d8f0f2ecdf9df6c706aaf395504adfd476",
+    "fingerprint": "201f01c42e7f1cd32c0a02f2ece755e1fa267ac35ccf3ec128c164c51e3bf5a0",
     "findingsContain": [
-      "seq 1 (tool_call): a timestamp is required"
+      "tool must be an object with a non-empty string name"
     ]
   }
 }

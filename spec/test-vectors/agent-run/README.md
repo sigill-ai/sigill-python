@@ -6,7 +6,7 @@ Every SDK consumes them and must reproduce the expected values exactly.
 | File | Asserts |
 |---|---|
 | `chain-digest.json` | §4 chain digest over General, hybrid (ML-DSA entry first) and flattened JWS inputs. |
-| `config-digest.json` | §3.5 configuration digest from the five configuration objects (base64). |
+| `config-digest.json` | §3.6 configuration digest from the configuration objects (base64), with and without the optional model-config. |
 | `runs/*.json` | Complete bundles (§7) with their expected run verdict, the nine check states, the listed missing `seq` values, the §8.1 fingerprint, and substrings that must appear among the findings. |
 
 ## The stub signer

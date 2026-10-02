@@ -25,7 +25,7 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
-from sigill_sdk._schema import parse_date_time, validate_envelope_v2
+from sigill_sdk._schema import is_uuid, parse_date_time, validate_envelope_v2
 from sigill_sdk._sign_objects import ENVELOPE_URI, SignedObjectDigest
 
 PROFILE = "AgentExecutionProfileV1"
@@ -37,10 +37,16 @@ EXTENSION_KEY = "ai.sigill.agent-execution"
 """Key of the signed profile block under ``extensions``."""
 
 CONFIGURATION_KINDS = ("instruction-set", "tool-manifest", "model-config", "execution-policy")
-"""The configuration object kinds every ``run_start`` and identity record carry (§3.2)."""
+"""The configuration object kinds bound by ``run_start`` and the identity record (§3.2)."""
+
+OPTIONAL_CONFIGURATION_KINDS = ("model-config",)
+"""Configuration kinds that may be absent — on both sides, or on neither (§3.2)."""
 
 IDENTITY_KINDS = ("agent-manifest",) + CONFIGURATION_KINDS + ("registration-record",)
-"""The object kinds an identity record carries, exactly one each (§3.5)."""
+"""The object kinds an identity record carries, at most one each; all but the
+optional configuration kinds are required (§3.6)."""
+
+_AUTH_DECISIONS = ("allowed", "denied")
 
 MAX_ARTIFACTS = 2000
 """Upper bound on artifacts per bundle (§7)."""
@@ -147,9 +153,21 @@ class AgentConfiguration:
     instruction_set: bytes
     """The stable instruction set (system prompt), without per-run context."""
     tool_manifest: bytes
-    model_config: bytes
     execution_policy: bytes
     """What the agent is allowed to do: scope, allowlists, approval rules, limits."""
+    model_config: Optional[bytes] = None
+    """Optional model configuration (sampling parameters, limits)."""
+
+    def objects(self) -> list["AgentRunObject"]:
+        """The configuration as detached objects, in a fixed order."""
+        objs = [
+            AgentRunObject("instruction-set", "input", self.instruction_set, "text/plain"),
+            AgentRunObject("tool-manifest", "input", self.tool_manifest, "application/json"),
+        ]
+        if self.model_config is not None:
+            objs.append(AgentRunObject("model-config", "input", self.model_config, "application/json"))
+        objs.append(AgentRunObject("execution-policy", "input", self.execution_policy, "application/json"))
+        return objs
 
 
 @dataclass(frozen=True)
@@ -180,15 +198,41 @@ class AgentDefinition:
 
 
 def configuration_digest(agent_manifest: bytes, configuration: AgentConfiguration) -> str:
-    """The configuration digest (§3.5): SHA-256 over the JCS of the five
-    configuration objects' SHA-256 digests."""
-    return hash_bytes(canonicalize({
-        "agentManifest": hash_bytes(agent_manifest),
-        "instructionSet": hash_bytes(configuration.instruction_set),
-        "toolManifest": hash_bytes(configuration.tool_manifest),
-        "modelConfig": hash_bytes(configuration.model_config),
-        "executionPolicy": hash_bytes(configuration.execution_policy),
-    }))
+    """The configuration digest (§3.6): SHA-256 over the JCS of the
+    configuration objects' SHA-256 digests (``modelConfig`` only when bound)."""
+    return _configuration_digest_from_hex(
+        hash_bytes(agent_manifest), hash_bytes(configuration.instruction_set), hash_bytes(configuration.tool_manifest),
+        hash_bytes(configuration.model_config) if configuration.model_config is not None else None,
+        hash_bytes(configuration.execution_policy))
+
+
+def _configuration_digest_from_hex(manifest: str, instruction_set: str, tool_manifest: str,
+                                   model_config: Optional[str], execution_policy: str) -> str:
+    d = {"agentManifest": manifest, "instructionSet": instruction_set, "toolManifest": tool_manifest,
+         "executionPolicy": execution_policy}
+    if model_config is not None:
+        d["modelConfig"] = model_config
+    return hash_bytes(canonicalize(d))
+
+
+@dataclass(frozen=True)
+class AgentAuthorization:
+    """A policy decision taken before an action (§3.4)."""
+
+    decision: str
+    """``allowed`` or ``denied``."""
+    policy_id: Optional[str] = None
+    reason: Optional[str] = None
+
+    def to_json(self) -> dict:
+        if self.decision not in _AUTH_DECISIONS:
+            raise ValueError("authorization decision must be 'allowed' or 'denied'.")
+        out: dict = {"decision": self.decision}
+        if self.policy_id is not None:
+            out["policyId"] = self.policy_id
+        if self.reason is not None:
+            out["reason"] = self.reason
+        return out
 
 
 @dataclass(frozen=True)
@@ -197,7 +241,7 @@ class AgentRunObject:
     transmitted."""
 
     kind: str
-    """Profile kind (§3.4), e.g. ``tool-arguments``, ``model-output``."""
+    """Profile kind (§3.5), e.g. ``tool-arguments``, ``assistant-reply``."""
     role: str
     """v2 role: prompt | input | context | output | artifact | log."""
     data: bytes
@@ -499,15 +543,9 @@ def _register_identity(client: Any, agent: AgentDefinition, certificate_id: str,
     }
     if registered_by is not None:
         registration["registeredBy"] = registered_by
-    c = agent.configuration
-    objects = [
-        AgentRunObject("agent-manifest", "input", manifest, "application/json"),
-        AgentRunObject("instruction-set", "input", c.instruction_set, "text/plain"),
-        AgentRunObject("tool-manifest", "input", c.tool_manifest, "application/json"),
-        AgentRunObject("model-config", "input", c.model_config, "application/json"),
-        AgentRunObject("execution-policy", "input", c.execution_policy, "application/json"),
-        AgentRunObject("registration-record", "input", canonicalize(registration), "application/json"),
-    ]
+    objects = [AgentRunObject("agent-manifest", "input", manifest, "application/json")]
+    objects += agent.configuration.objects()
+    objects.append(AgentRunObject("registration-record", "input", canonicalize(registration), "application/json"))
     block: dict = {
         "recordType": "agent-identity",
         "stepType": "record:agent-identity",
@@ -529,7 +567,7 @@ def _register_identity(client: Any, agent: AgentDefinition, certificate_id: str,
 
 def register_agent_identity(client: Any, agent: AgentDefinition, certificate_id: str, *,
                             registered_by: Optional[str] = None, qualified: bool = False) -> AgentRunArtifact:
-    """Registers an identity record (§3.5) for the agent's current
+    """Registers an identity record (§3.6) for the agent's current
     configuration. Store it and pass it as ``identity=`` to
     :meth:`AgentRun.start` while the configuration is unchanged."""
     return _register_identity(client, agent, certificate_id, registered_by, qualified, _utcnow)[0]
@@ -626,13 +664,7 @@ class AgentRun:
             else:
                 run._payloads.update(_identity_payloads(agent, identity))
 
-        c = agent.configuration
-        objects = [
-            AgentRunObject("instruction-set", "input", c.instruction_set, "text/plain"),
-            AgentRunObject("tool-manifest", "input", c.tool_manifest, "application/json"),
-            AgentRunObject("model-config", "input", c.model_config, "application/json"),
-            AgentRunObject("execution-policy", "input", c.execution_policy, "application/json"),
-        ]
+        objects = agent.configuration.objects()
         objects.extend(start_objects or [])
         run._seal_step("run_start", objects, {
             "agentIdentityEvidenceId": identity.evidence_id,
@@ -673,28 +705,62 @@ class AgentRun:
 
     def record_retrieval(self, context: bytes, content_type: str = "text/plain") -> AgentRunArtifact:
         """Retrieved context (RAG) the agent read."""
-        return self.record("retrieval", [AgentRunObject("retrieved-context", "context", context, content_type)])
+        return self.record("retrieval", [AgentRunObject("retrieval-result", "context", context, content_type)])
 
-    def record_tool_call(self, tool: str, arguments: bytes, *, consequential: bool = False,
+    def record_tool_call(self, tool: str, arguments: bytes, *, operation: Optional[str] = None,
+                         authorization: Optional[AgentAuthorization] = None, consequential: bool = False,
                          content_type: str = "application/json") -> AgentRunArtifact:
-        """A tool call the agent decided to make. Mark write-class calls ``consequential``."""
+        """A tool call the agent decided to make (§3.4). ``operation`` classifies
+        it (e.g. ``read``, ``write``); mark write-class calls ``consequential``.
+        ``authorization`` records the policy decision taken before the call."""
+        ext: dict = {"tool": _tool_block(tool, operation)}
+        if authorization is not None:
+            ext["authorization"] = authorization.to_json()
         return self.record("tool_call", [AgentRunObject("tool-arguments", "input", arguments, content_type)],
-                           {"tool": tool}, consequential=consequential)
+                           ext, consequential=consequential)
 
     def record_tool_result(self, tool: str, result: bytes, content_type: str = "application/json") -> AgentRunArtifact:
-        """The result a tool returned."""
-        return self.record("tool_result", [AgentRunObject("tool-result", "output", result, content_type)],
-                           {"tool": tool})
+        """The result a tool returned — context for the model's next turn."""
+        return self.record("tool_result", [AgentRunObject("tool-result", "context", result, content_type)],
+                           {"tool": _tool_block(tool, None)})
 
-    def record_approval(self, decision: bytes, *, consequential: bool = True,
-                        content_type: str = "application/json") -> AgentRunArtifact:
-        """A human or policy approval decision. Consequential by default: it authorizes a side effect."""
-        return self.record("approval", [AgentRunObject("approval-decision", "input", decision, content_type)],
-                           consequential=consequential)
+    def record_authorization(self, authorization: AgentAuthorization, *, tool: Optional[str] = None,
+                             operation: Optional[str] = None) -> AgentRunArtifact:
+        """A standalone policy decision (§3.4), e.g. "this write needs approval"."""
+        ext: dict = {"authorization": authorization.to_json()}
+        if tool is not None:
+            ext["tool"] = _tool_block(tool, operation)
+        return self.record("authorization", extension=ext)
+
+    def record_human_approval(self, decision: str, *, receipt: Optional[bytes] = None,
+                              identity_assertion: Optional[bytes] = None, approver_ref: Optional[str] = None,
+                              action_evidence_id: Optional[str] = None, decided_at: Optional[datetime] = None,
+                              consequential: bool = True, receipt_content_type: str = "application/json",
+                              identity_assertion_content_type: str = "application/jwt") -> AgentRunArtifact:
+        """A human approval (§3.4). ``approver_ref`` is opaque — never a name or
+        e-mail address. The receipt and an identity assertion (e.g. an IdP
+        token) are bound as detached objects; their bytes stay local.
+        Consequential by default: an approval authorizes a side effect."""
+        if not decision:
+            raise ValueError("decision is required.")
+        approval: dict = {"decision": decision}
+        if approver_ref is not None:
+            approval["approverRef"] = approver_ref
+        if action_evidence_id is not None:
+            approval["actionEvidenceId"] = action_evidence_id
+        if decided_at is not None:
+            approval["decidedAt"] = _format_time(decided_at)
+        objects = []
+        if receipt is not None:
+            objects.append(AgentRunObject("approval-receipt", "input", receipt, receipt_content_type))
+        if identity_assertion is not None:
+            objects.append(AgentRunObject("identity-assertion", "input", identity_assertion,
+                                          identity_assertion_content_type))
+        return self.record("human_approval", objects, {"approval": approval}, consequential=consequential)
 
     def record_model_output(self, output: bytes, content_type: str = "text/plain") -> AgentRunArtifact:
         """What the model produced."""
-        return self.record("model_output", [AgentRunObject("model-output", "output", output, content_type)])
+        return self.record("model_output", [AgentRunObject("assistant-reply", "output", output, content_type)])
 
     def checkpoint(self, reason: str = "idle") -> AgentRunArtifact:
         """Anchors the chain head with a timestamped ``checkpoint`` step (§5) —
@@ -775,6 +841,15 @@ class AgentRun:
             raise RuntimeError("The run is finished.")
 
 
+def _tool_block(name: str, operation: Optional[str]) -> dict:
+    if not name:
+        raise ValueError("tool name is required.")
+    block: dict = {"name": name}
+    if operation is not None:
+        block["operation"] = operation
+    return block
+
+
 def _identity_payloads(agent: AgentDefinition, identity: AgentRunArtifact) -> dict[str, bytes]:
     ext = _obj((_obj(identity.envelope.get("extensions")) or {}).get(EXTENSION_KEY)) or {}
     c = agent.configuration
@@ -785,7 +860,8 @@ def _identity_payloads(agent: AgentDefinition, identity: AgentRunArtifact) -> di
         "model-config": c.model_config,
         "execution-policy": c.execution_policy,
     }  # the registration record's bytes are not reconstructible here
-    return {uri: by_kind[k] for uri, k in (_obj(ext.get("objectKinds")) or {}).items() if k in by_kind}
+    return {uri: by_kind[k] for uri, k in (_obj(ext.get("objectKinds")) or {}).items()
+            if k in by_kind and by_kind[k] is not None}
 
 
 # ── Verification ────────────────────────────────────────────────────────────
@@ -1010,11 +1086,52 @@ def _conformance(env: dict, ext: dict, step_type: str, is_identity: bool) -> lis
     if "objectKinds" in ext and not (isinstance(kinds, dict) and all(isinstance(x, str) for x in kinds.values())):
         errs.append("objectKinds is not an object of strings")
 
+    errs.extend(_block_conformance(ext, step_type))
+
     if is_identity:
         if "chain" in env:
             errs.append("the identity record must not carry chain")
         if ext.get("agentId") != actor.get("id"):
             errs.append("agentId must equal actor.id")
+    return errs
+
+
+def _block_conformance(ext: dict, step_type: str) -> list[str]:
+    """The §3.4 tool / authorization / approval block shapes."""
+    errs: list[str] = []
+    if "tool" in ext:
+        tool = ext["tool"]
+        if not (isinstance(tool, dict) and isinstance(tool.get("name"), str) and tool["name"]):
+            errs.append("tool must be an object with a non-empty string name")
+        else:
+            for k in ("operation", "useId"):
+                if k in tool and not isinstance(tool[k], str):
+                    errs.append(f"tool.{k} is not a string")
+    if "authorization" in ext:
+        auth = ext["authorization"]
+        if not isinstance(auth, dict):
+            errs.append("authorization must be an object")
+        else:
+            if auth.get("decision") not in _AUTH_DECISIONS:
+                errs.append("authorization.decision must be 'allowed' or 'denied'")
+            for k in ("policyId", "reason"):
+                if k in auth and not isinstance(auth[k], str):
+                    errs.append(f"authorization.{k} is not a string")
+    elif step_type == "authorization":
+        errs.append("an authorization step must carry an authorization block")
+    if "approval" in ext or step_type == "human_approval":
+        appr = ext.get("approval")
+        if not (isinstance(appr, dict) and isinstance(appr.get("decision"), str) and appr["decision"]):
+            errs.append("approval must be an object with a non-empty string decision")
+        else:
+            if "approverRef" in appr and not isinstance(appr["approverRef"], str):
+                errs.append("approval.approverRef is not a string")
+            if "actionEvidenceId" in appr and not (isinstance(appr["actionEvidenceId"], str)
+                                                   and is_uuid(appr["actionEvidenceId"])):
+                errs.append("approval.actionEvidenceId is not a UUID")
+            if "decidedAt" in appr and not (isinstance(appr["decidedAt"], str)
+                                            and parse_date_time(appr["decidedAt"]) is not None):
+                errs.append("approval.decidedAt is not a date-time")
     return errs
 
 
@@ -1478,21 +1595,23 @@ def _verify_identity(bundle: AgentRunBundle, start: Optional[_Signed], start_art
     id_d, id_unique = digests_by_kind(sa, bundle.agent_identity, "Identity record", IDENTITY_KINDS)
     st_d, st_unique = (digests_by_kind(start, start_art, "run_start", CONFIGURATION_KINDS)
                        if start else ({}, True))
-    missing_kinds = [k for k in IDENTITY_KINDS if k not in id_d]
+    missing_kinds = [k for k in IDENTITY_KINDS if k not in id_d and k not in OPTIONAL_CONFIGURATION_KINDS]
     for k in missing_kinds:
         findings.append(f"Identity record: no signed object of kind '{k}'.")
     kinds_complete = id_unique and st_unique and not missing_kinds
-    config_matches = all(k in id_d and k in st_d and id_d[k] == st_d[k] for k in CONFIGURATION_KINDS)
+    # Required kinds must be present and equal; an optional kind is on both sides (and equal) or on neither.
+    config_matches = all(
+        (k in id_d and k in st_d and id_d[k] == st_d[k])
+        or (k in OPTIONAL_CONFIGURATION_KINDS and k not in id_d and k not in st_d)
+        for k in CONFIGURATION_KINDS)
     if not config_matches:
         findings.append("run_start's instruction set / tool manifest / model config / execution policy do not match "
                         "the identity record's.")
     config_digest_valid = False
-    if all(k in id_d for k in ("agent-manifest",) + CONFIGURATION_KINDS):
-        recomputed = hash_bytes(canonicalize({
-            "agentManifest": id_d["agent-manifest"], "instructionSet": id_d["instruction-set"],
-            "toolManifest": id_d["tool-manifest"], "modelConfig": id_d["model-config"],
-            "executionPolicy": id_d["execution-policy"],
-        }))
+    if all(k in id_d for k in ("agent-manifest", "instruction-set", "tool-manifest", "execution-policy")):
+        recomputed = _configuration_digest_from_hex(
+            id_d["agent-manifest"], id_d["instruction-set"], id_d["tool-manifest"], id_d.get("model-config"),
+            id_d["execution-policy"])
         config_digest_valid = recomputed == sa.config_sha256
     if not config_digest_valid:
         findings.append("Identity record: configSha256 does not match the digest of its configuration objects.")

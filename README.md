@@ -333,15 +333,16 @@ or the default `"inherit"`.
 ## Agent runs: verifiable multi-step execution
 
 For agents that call tools, retrieve context and act over several steps, a
-single envelope is not enough: you need to show *what happened, in what
-order, under which configuration* — and that nothing was removed afterwards.
+single envelope is not enough: you need to show which security-relevant steps
+were captured, in the order they were captured, under which configuration —
+and that nothing captured was changed or removed afterwards.
 `AgentRun` records a run under
 [AgentExecutionProfileV1](spec/agent-execution-profile-v1.md): every step is
 an ordinary v2 artifact, sealed blind and chained to the previous step's
 signature.
 
 ```python
-from sigill_sdk import AgentConfiguration, AgentDefinition, AgentModelRef, AgentRunBundle
+from sigill_sdk import AgentAuthorization, AgentConfiguration, AgentDefinition, AgentModelRef, AgentRunBundle
 
 agent = AgentDefinition(
     agent_id="urn:example:agent:support-triage",   # opaque — no personal data
@@ -350,15 +351,30 @@ agent = AgentDefinition(
     configuration=AgentConfiguration(
         instruction_set=system_prompt_bytes,
         tool_manifest=tool_schemas_json,
-        model_config=sampling_params_json,
         execution_policy=allowlist_and_limits_json,
+        model_config=sampling_params_json,          # optional
     ),
 )
 
+policy = AgentAuthorization("allowed", policy_id="support-tools-v1")
+
 run = client.start_agent_run(agent, certificate_id=cert_id)
-run.record_tool_call("lookup_ticket", args_json)
+run.record_tool_call("lookup_ticket", args_json, operation="read", authorization=policy)
 run.record_tool_result("lookup_ticket", result_json)
-run.record_tool_call("close_ticket", args_json, consequential=True)  # side effect → timestamped now
+
+# A write that needs a human: record the decision, then the approval, then the call.
+gate = run.record_authorization(
+    AgentAuthorization("allowed", policy_id="support-tools-v1", reason="write requires approval"),
+    tool="close_ticket", operation="write")
+run.record_human_approval(
+    "approved",
+    receipt=approval_receipt_json,          # bound by digest; bytes stay with you
+    identity_assertion=approver_id_token,   # e.g. the IdP token of the approver
+    approver_ref="urn:example:approver:42", # opaque — never a name or e-mail
+    action_evidence_id=gate.evidence_id)
+run.record_tool_call("close_ticket", args_json, operation="write",
+                     authorization=policy, consequential=True)  # side effect → timestamped now
+
 run.record_model_output(answer_bytes)
 bundle = run.finish("completed")
 
@@ -390,7 +406,7 @@ What to know:
   `timestamp_policy=AgentTimestampPolicy(profile="per-event")` to timestamp
   everything, and `run.checkpoint()` from a timer to anchor an idle run.
 - **Configuration is bound.** The first run registers an *identity record*
-  (instructions, tools, model config, execution policy). Store `run.identity`
+  (instructions, tools, execution policy and, optionally, model config). Store `run.identity`
   and pass it as `identity=` while the configuration is unchanged; a changed
   configuration needs a new one.
 - **Persist as you go.** `on_artifact_sealed` runs after each step is sealed. A

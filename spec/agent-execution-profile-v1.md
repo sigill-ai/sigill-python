@@ -62,12 +62,12 @@ next to it.
 
 | Field | Type | Meaning |
 |---|---|---|
-| `stepType` | string, REQUIRED | `run_start`, `retrieval`, `tool_call`, `tool_result`, `approval`, `model_output`, `checkpoint`, `run_end`, or a producer-defined value. Verifiers treat unknown values as ordinary steps. |
+| `stepType` | string, REQUIRED | `run_start`, `retrieval`, `tool_call`, `authorization`, `human_approval`, `tool_result`, `model_output`, `checkpoint`, `run_end`, or a producer-defined value. Verifiers treat unknown values as ordinary steps. Integrations emit the steps needed to reconstruct the consequential parts of a run, not necessarily all of them. |
 | `agentVersion` | string | The agent build the step was produced by. MUST equal `run_start`'s when `run_start` carries one. |
 | `eventTime` | date-time | When the producer observed the event. A producer **claim**; only timestamps prove time. |
 | `consequential` | boolean | The step had an external side effect (a write-class tool call, a delivered message, an export). Consequential steps are always anchored (§5). |
 | `timestamp` | `"required"` \| `"none"` | The producer's own timestamp decision for this step. Informational: the verifier recomputes the requirement from the signed policy (§5) and also honours `"required"`. |
-| `objectKinds` | object | Map from each `objects[].uri` to a profile kind (§3.4). Kinds live here, not in per-object `metadata`, because they are profile semantics. |
+| `objectKinds` | object | Map from each `objects[].uri` to a profile kind (§3.5). Kinds live here, not in per-object `metadata`, because they are profile semantics. |
 
 ### 3.2 `run_start`
 
@@ -80,10 +80,11 @@ carries:
 | `assuranceProfile` | `"throughput"` or `"per-event"` (§5). When present it MUST equal `timestampPolicy.profile`. |
 | `timestampPolicy` | REQUIRED. `{ "profile", "everyEvents", "everySeconds", "runStart", "runEnd": true, "consequential": true }` (§5): `profile` a known profile, `everyEvents`/`everySeconds` non-negative integers, `runStart` a boolean, `runEnd` and `consequential` exactly `true`. |
 
-and exactly one object of each **configuration kind**: `instruction-set`,
-`tool-manifest`, `model-config`, `execution-policy`. Their digests MUST equal
-the identity record's objects of the same kinds. Further objects (the user's
-request, the turn's context) MAY follow.
+and exactly one object of each REQUIRED **configuration kind** —
+`instruction-set`, `tool-manifest`, `execution-policy` — plus at most one
+OPTIONAL `model-config`. Each configuration object's digest MUST equal the
+identity record's object of the same kind; `model-config` is present in both
+or in neither. Further objects (the user's turn, its context) MAY follow.
 
 ### 3.3 `run_end`
 
@@ -100,28 +101,54 @@ chain head:
 `run_end` MUST carry a valid signature timestamp. Because it commits to the
 head, that single token anchors every signature before it.
 
-### 3.4 Object kinds
+### 3.4 Tool, authorization and approval blocks
+
+Steps about tools and approvals carry structured, signed blocks in the
+profile block. When present they MUST have these shapes; a verifier fails
+`envelope` otherwise.
+
+| Block | On | Shape |
+|---|---|---|
+| `tool` | `tool_call`, `tool_result`, `authorization` | `{ "name": string (REQUIRED, non-empty), "operation"?: string, "useId"?: string }`. `operation` classifies the call (e.g. `read`, `write`, `create`); `useId` correlates a call with its result. |
+| `authorization` | `tool_call`, `authorization` | `{ "decision": "allowed" \| "denied" (REQUIRED), "policyId"?: string, "reason"?: string }` — the policy decision taken before the action. An `authorization` step MUST carry it. |
+| `approval` | `human_approval` | `{ "decision": string (REQUIRED, non-empty, e.g. `approved`, `rejected`), "approverRef"?: string, "actionEvidenceId"?: UUID, "decidedAt"?: date-time }` — REQUIRED on `human_approval`. |
+
+`approverRef` is an opaque reference to the approver (never a name or e-mail
+address). `actionEvidenceId` names the step that was approved. The approval
+receipt and any identity assertion are bound as detached objects
+(`approval-receipt`, `identity-assertion`); their bytes stay with the
+producer. A `human_approval` step SHOULD be `consequential`: it authorizes a
+side effect. Binding an identity assertion lets a verifier move from "the
+producer says someone approved" towards "the producer bound a verifiable
+identity artifact to this approval"; it does not prove the approval without
+validating that artifact.
+
+### 3.5 Object kinds
 
 | Kind | Typical role | Where |
 |---|---|---|
 | `agent-manifest` | `input` | identity record |
 | `instruction-set` | `input` | identity record, `run_start` |
 | `tool-manifest` | `input` | identity record, `run_start` |
-| `model-config` | `input` | identity record, `run_start` |
+| `model-config` | `input` | identity record, `run_start` (optional) |
 | `execution-policy` | `input` | identity record, `run_start` |
 | `registration-record` | `input` | identity record |
-| `user-request` | `prompt` | any step |
-| `retrieved-context` | `context` | `retrieval` |
+| `user-turn` | `prompt` | `run_start` or any step |
+| `turn-context` | `context` | `run_start` or any step |
+| `conversation-history` | `context` | `run_start` or any step |
+| `retrieval-result` | `context` | `retrieval` |
 | `tool-arguments` | `input` | `tool_call` |
-| `tool-result` | `output` | `tool_result` |
-| `approval-decision` | `input` | `approval` |
-| `model-output` | `output` | `model_output` |
+| `tool-result` | `context` | `tool_result` |
+| `approval-receipt` | `input` | `human_approval` |
+| `identity-assertion` | `input` | `human_approval` (e.g. an IdP token or signed session attestation) |
+| `assistant-reply` | `output` | `model_output` |
 
 Producers MAY define further kinds. The `execution-policy` describes what the
 agent is allowed to do (scope, allowlists, limits); the `tool-manifest` only
-describes the tools.
+describes the tools. Kinds are profile semantics and therefore live in the
+signed profile block (`objectKinds`), not in per-object `metadata`.
 
-### 3.5 The identity record
+### 3.6 The identity record
 
 A standalone artifact (no `chain`, no `correlationId`) with
 `purpose.category: "agent-identity"`, `activity.name: "agent_identity"` and
@@ -138,7 +165,8 @@ the profile block:
 | `eventTime` | Registration time (claim). |
 
 Objects: exactly one each of `agent-manifest`, `instruction-set`,
-`tool-manifest`, `model-config`, `execution-policy`, `registration-record`.
+`tool-manifest`, `execution-policy`, `registration-record`, and at most one
+`model-config`.
 
 The configuration digest is
 
@@ -147,7 +175,7 @@ configSha256 = SHA-256( JCS({
   "agentManifest":   sha256hex(agent-manifest bytes),
   "instructionSet":  sha256hex(instruction-set bytes),
   "toolManifest":    sha256hex(tool-manifest bytes),
-  "modelConfig":     sha256hex(model-config bytes),
+  "modelConfig":     sha256hex(model-config bytes),   ← only when a model-config is bound
   "executionPolicy": sha256hex(execution-policy bytes)
 }) )
 ```
@@ -160,7 +188,10 @@ register a new one when it changes. The identity record MUST be timestamped.
 
 ## 4. The chain
 
-`chain.seq` is zero-based and contiguous within a run. `chain.prevSignatureSha256`
+`chain.seq` is zero-based and contiguous within a run. It records the order
+in which evidence was **captured and sealed**, not necessarily the causal
+order of execution; in concurrent or distributed agents a verifier MUST NOT
+infer strict causality from `seq`. `chain.prevSignatureSha256`
 is absent at `seq: 0` and present on every later step.
 
 **Preimage (normative — this closes v2 §3.4):** `prevSignatureSha256` is the
@@ -191,8 +222,8 @@ chooses an **assurance profile** and signs it, once, into `run_start`:
 }
 ```
 
-- **`per-event`** — every step is timestamped. For low-volume,
-  high-consequence agents.
+- **`per-event`** (the "high-assurance" profile) — every step is
+  timestamped. For low-volume, high-consequence agents.
 - **`throughput`** — every step is signed and chained immediately;
   timestamps are required on: `run_end`; every `checkpoint`; every step with
   `consequential: true`; `run_start` when `runStart` is true; any step
@@ -278,12 +309,12 @@ A run verifier runs nine checks and reports each as `ok`, `warn` or `bad`:
 | `correlation` | A step carries no signed, non-empty `correlationId`, or its `correlationId` differs from the other steps'. |
 | `sequence` | A `seq` is missing, duplicated or a step has no `chain`; or the run does not have exactly one `run_start`, at `seq` 0. Missing positions are listed. |
 | `chain` | Any `prevSignatureSha256` does not match the chain digest (§4) of the step before it, or `seq` 0 carries one. |
-| `envelope` | A step does not validate against the complete v2 schema or is not valid I-JSON (§2), lacks a profile block, breaks the §2 conventions (`actor.type`, `purpose.category`, `activity.name` = step type), or its signed actor/version differs from `run_start`'s. |
+| `envelope` | A step does not validate against the complete v2 schema or is not valid I-JSON (§2), lacks a profile block, breaks the §2 conventions (`actor.type`, `purpose.category`, `activity.name` = step type) or the §3.4 block shapes, or its signed actor/version differs from `run_start`'s. |
 | `signatures` | Any step's signature fails to verify. |
 | `timestamps` | A step required by §5 lacks a valid timestamp, a present timestamp is invalid, or `run_start`'s signed policy is absent or malformed (§3.2). `warn` while no valid `run_end` anchor exists. |
 | `objects` | A signed object was not supplied, no longer matches, the signature and envelope disagree on the object list, or unsigned objects were supplied (as an artifact's digests or as a bundle payload no artifact signed). `warn` when every object matched by digest but some payloads were not supplied. |
 | `finalization` | There is more than one `run_end`, `run_end` is not last, has no valid `runDisposition`, its `finalSeq`/`finalPrevSignatureSha256` do not match the observed head, or it lacks a valid anchor. `warn` when there is no `run_end`. |
-| `identity` | `run_start` references an identity record that is absent; the record is not a well-formed identity record (§3.5); its signature, objects, timestamp, linkage or actor/version fail; its object kinds are not exactly one each; its `configSha256` differs from the recomputed digest; or `run_start`'s configuration objects are duplicated or differ from the record's. `warn` when no identity record is declared. |
+| `identity` | `run_start` references an identity record that is absent; the record is not a well-formed identity record (§3.6); its signature, objects, timestamp, linkage or actor/version fail; its required object kinds are not exactly one each (§3.6); its `configSha256` differs from the recomputed digest; or `run_start`'s configuration objects are duplicated or differ from the record's. `warn` when no identity record is declared. |
 
 The **run verdict** is:
 
@@ -325,7 +356,22 @@ fingerprint = sha256hex(JCS({ "profile", "artifacts", "identity", "payloads" }))
 When an envelope or signature is not valid I-JSON the fingerprint is
 undefined (null); the run is invalid anyway.
 
-## 9. Privacy
+## 9. Sub-runs (reserved)
+
+When an agent starts a sub-agent or delegated run, the binding is intended to
+be two-way: the child run gets its own `correlationId`; the parent emits a
+`delegation` step that commits to the child's `correlationId` (and, when
+known, the child's `run_start` `evidenceId`); the child's `run_start` commits
+back to the parent's chain head at delegation time. A verifier would then
+report one of four binding states: `mutually_bound`, `parent_only`,
+`child_only` or `unbound`. `parentEvidenceId` alone is never such a binding.
+
+The block names and the verification rules are reserved for a later revision
+of this profile. Until then, `delegation` is an ordinary step, and producers
+MUST NOT emit profile-block members named `delegation` or `parentRun` with
+other meanings.
+
+## 10. Privacy
 
 - Object URIs, `actor.id`, `correlationId` and `registeredBy` are opaque;
   none may carry personal data (v2 §9).
@@ -335,7 +381,7 @@ undefined (null); the run is invalid anyway.
   confidential to the producer. Verification by digest needs only their
   hashes; share the bytes only with parties entitled to read them.
 
-## 10. Test vectors
+## 11. Test vectors
 
 `test-vectors/agent-run/` contains cross-language vectors: the chain digest
 over fixed JWS inputs, the configuration digest, and complete run bundles with

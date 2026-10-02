@@ -126,26 +126,31 @@ REGISTRATION = jcs.canonicalize({"action": "agent-registration", "agentId": AGEN
 
 
 def config_digest(manifest: bytes, cfg: dict[str, bytes]) -> str:
-    return sha256hex(jcs.canonicalize({
+    d = {
         "agentManifest": sha256hex(manifest),
         "instructionSet": sha256hex(cfg["instruction-set"]),
         "toolManifest": sha256hex(cfg["tool-manifest"]),
-        "modelConfig": sha256hex(cfg["model-config"]),
         "executionPolicy": sha256hex(cfg["execution-policy"]),
-    }))
+    }
+    if "model-config" in cfg:  # optional (§3.6)
+        d["modelConfig"] = sha256hex(cfg["model-config"])
+    return sha256hex(jcs.canonicalize(d))
 
 
 CONFIG_BYTES = {k: v[2] for k, v in CONFIG.items()}
 CONFIG_SHA = config_digest(MANIFEST, CONFIG_BYTES)
 
 
-def identity_artifact(payloads: dict[str, bytes], *, ext_override: dict | None = None) -> dict:
+def identity_artifact(payloads: dict[str, bytes], *, ext_override: dict | None = None,
+                      without: tuple = ()) -> dict:
     objs = [("urn:example:obj:agent-manifest", "agent-manifest", "input", "application/json", MANIFEST)]
-    objs += [(uri, kind, "input", ctype, data) for kind, (uri, ctype, data) in CONFIG.items()]
+    objs += [(uri, kind, "input", ctype, data) for kind, (uri, ctype, data) in CONFIG.items() if kind not in without]
     objs += [("urn:example:obj:registration", "registration-record", "input", "application/json", REGISTRATION)]
+    cfg = {k: v for k, v in CONFIG_BYTES.items() if k not in without}
     ext = {
         "recordType": "agent-identity", "stepType": "record:agent-identity", "agentId": AGENT_ID,
-        "agentVersion": AGENT_VERSION, "configSha256": CONFIG_SHA, "eventTime": "2026-10-01T08:00:00.000Z",
+        "agentVersion": AGENT_VERSION, "configSha256": config_digest(MANIFEST, cfg),
+        "eventTime": "2026-10-01T08:00:00.000Z",
     }
     ext.update(ext_override or {})
     env = envelope(1, "2026-10-01T08:00:00.000Z", "agent-identity", "agent_identity", None, None, objs, None, None, ext)
@@ -162,7 +167,7 @@ RUN = "urn:uuid:00000000-0000-4000-9000-000000000001"
 def build_run(steps: list[dict], policy, payloads: dict[str, bytes], *, finish: bool = True,
               config_override: dict[str, bytes] | None = None, start_type: str = "run_start",
               start_extra_objects: list | None = None, tweak=None, identity: dict | None = None,
-              ) -> tuple[dict, list[dict]]:
+              start_without: tuple = ()) -> tuple[dict, list[dict]]:
     """steps: [{type, minute, objects, consequential, stamp, ext}] after run_start.
     tweak(seq, envelope) edits an envelope before it is signed (producer-side non-conformance)."""
     identity = identity or identity_artifact(payloads)
@@ -174,7 +179,7 @@ def build_run(steps: list[dict], policy, payloads: dict[str, bytes], *, finish: 
     def seal(step_type: str, at: str, objs, ext: dict, stamp: bool, consequential: bool):
         nonlocal prev_sig, prev_id, n
         seq = len(artifacts)
-        ext = dict(ext)
+        ext = copy.deepcopy(ext)  # tweaks must never leak into shared step templates
         ext.update({"stepType": step_type, "agentVersion": AGENT_VERSION, "eventTime": at,
                     "consequential": consequential, "timestamp": "required" if stamp else "none"})
         env = envelope(n, at, "agent-execution", step_type, RUN, prev_id, objs, seq, prev_sig, ext)
@@ -192,8 +197,8 @@ def build_run(steps: list[dict], policy, payloads: dict[str, bytes], *, finish: 
     cfg = dict(CONFIG_BYTES)
     if config_override:
         cfg.update(config_override)
-    start_objs = [(CONFIG[k][0] + ":run", k, "input", CONFIG[k][1], cfg[k]) for k in CONFIG]
-    start_objs.append(("urn:example:obj:request", "user-request", "prompt", "text/plain", b"Ticket 4411: login fails after reset."))
+    start_objs = [(CONFIG[k][0] + ":run", k, "input", CONFIG[k][1], cfg[k]) for k in CONFIG if k not in start_without]
+    start_objs.append(("urn:example:obj:request", "user-turn", "prompt", "text/plain", b"Ticket 4411: login fails after reset."))
     start_objs += start_extra_objects or []
     profile = policy["profile"] if isinstance(policy, dict) else "throughput"
     seal(start_type, "2026-10-01T09:00:00.000Z", start_objs, {
@@ -217,12 +222,14 @@ THROUGHPUT = {"profile": "throughput", "everyEvents": 10, "everySeconds": 300, "
               "runEnd": True, "consequential": True}
 
 STEPS = [
-    {"type": "tool_call", "minute": 1, "ext": {"tool": "lookup_ticket"}, "stamp": False,
+    {"type": "tool_call", "minute": 1, "stamp": False,
+     "ext": {"tool": {"name": "lookup_ticket", "operation": "read"},
+             "authorization": {"decision": "allowed", "policyId": "support-tools-v1"}},
      "objects": [("tool-arguments", "input", "application/json", b'{"ticket":"4411"}')]},
-    {"type": "tool_result", "minute": 2, "ext": {"tool": "lookup_ticket"}, "stamp": False,
-     "objects": [("tool-result", "output", "application/json", b'{"status":"open","product":"web"}')]},
+    {"type": "tool_result", "minute": 2, "ext": {"tool": {"name": "lookup_ticket"}}, "stamp": False,
+     "objects": [("tool-result", "context", "application/json", b'{"status":"open","product":"web"}')]},
     {"type": "model_output", "minute": 3, "stamp": False,
-     "objects": [("model-output", "output", "text/plain", b"Reset the session cache and retry.")]},
+     "objects": [("assistant-reply", "output", "text/plain", b"Reset the session cache and retry.")]},
 ]
 
 
@@ -304,6 +311,8 @@ def main() -> None:
         "modelConfig": base64.b64encode(CONFIG_BYTES["model-config"]).decode(),
         "executionPolicy": base64.b64encode(CONFIG_BYTES["execution-policy"]).decode(),
         "expected": CONFIG_SHA,
+        "expectedWithoutModelConfig": config_digest(MANIFEST, {k: v for k, v in CONFIG_BYTES.items()
+                                                               if k != "model-config"}),
     })
 
     # 01 — finalized, digests only.
@@ -378,7 +387,9 @@ def main() -> None:
 
     # 10 — consequential step stamped, per policy.
     steps = copy.deepcopy(STEPS)
-    steps.insert(2, {"type": "tool_call", "minute": 2, "ext": {"tool": "close_ticket"}, "stamp": True,
+    steps.insert(2, {"type": "tool_call", "minute": 2, "stamp": True,
+                     "ext": {"tool": {"name": "close_ticket", "operation": "write"},
+                             "authorization": {"decision": "allowed", "policyId": "support-tools-v1"}},
                      "consequential": True,
                      "objects": [("tool-arguments", "input", "application/json", b'{"ticket":"4411"}')]})
     for s in steps[3:]:
@@ -520,7 +531,79 @@ def schema_scenarios() -> None:
              findings_contain=["no signed correlationId"])
 
 
+def step_block_scenarios() -> None:
+    """Optional model config, the tool/authorization/approval blocks (§3.4)
+    and a human approval flow."""
+
+    # 25 — no model-config on either side: allowed (§3.2, §3.6).
+    p: dict = {}
+    ident = identity_artifact(p, without=("model-config",))
+    ident, arts = build_run(STEPS, THROUGHPUT, p, identity=ident, start_without=("model-config",))
+    scenario("25-no-model-config", "The optional model-config is bound on neither side: finalized.",
+             bundle(ident, arts), "run_finalized", {"objects": "warn"})
+
+    # 26 — model-config on the identity record only.
+    p = {}
+    ident, arts = build_run(STEPS, THROUGHPUT, p, start_without=("model-config",))
+    scenario("26-model-config-one-side", "The identity record binds a model-config, run_start does not.",
+             bundle(ident, arts), "run_invalid", {"objects": "warn", "identity": "bad"},
+             findings_contain=["do not match the identity record"])
+
+    # 27 — tool block is a bare string.
+    def string_tool(seq, env):
+        if seq == 1:
+            env["extensions"][EXT]["tool"] = "lookup_ticket"
+    p = {}
+    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=string_tool)
+    scenario("27-invalid-tool-block", "tool_call's tool block is a string, not {name, operation}.",
+             bundle(ident, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
+             findings_contain=["tool must be an object with a non-empty string name"])
+
+    # 28 — authorization decision outside the vocabulary.
+    def odd_decision(seq, env):
+        if seq == 1:
+            env["extensions"][EXT]["authorization"]["decision"] = "maybe"
+    p = {}
+    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=odd_decision)
+    scenario("28-invalid-authorization", "tool_call's authorization decision is neither allowed nor denied.",
+             bundle(ident, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
+             findings_contain=["authorization.decision must be 'allowed' or 'denied'"])
+
+    # 29 — a write guarded by an authorization step and a human approval.
+    approval_steps = [
+        STEPS[0], STEPS[1],
+        {"type": "authorization", "minute": 3, "stamp": False,
+         "ext": {"tool": {"name": "close_ticket", "operation": "write"},
+                 "authorization": {"decision": "allowed", "policyId": "support-tools-v1",
+                                   "reason": "write requires approval"}}},
+        {"type": "human_approval", "minute": 4, "stamp": True, "consequential": True,
+         "ext": {"approval": {"decision": "approved", "approverRef": "urn:example:approver:42",
+                              "actionEvidenceId": uuid(102), "decidedAt": "2026-10-01T09:04:00Z"}},
+         "objects": [("approval-receipt", "input", "application/json", b'{"ticket":"4411","decision":"approved"}'),
+                     ("identity-assertion", "input", "application/jwt", b"eyJhbGciOiJFUzI1NiJ9.example.sig")]},
+        {"type": "tool_call", "minute": 5, "stamp": True, "consequential": True,
+         "ext": {"tool": {"name": "close_ticket", "operation": "write"},
+                 "authorization": {"decision": "allowed", "policyId": "support-tools-v1"}},
+         "objects": [("tool-arguments", "input", "application/json", b'{"ticket":"4411"}')]},
+        dict(STEPS[2], minute=6),
+    ]
+    p = {}
+    ident, arts = build_run(approval_steps, THROUGHPUT, p)
+    scenario("29-human-approval", "authorization → human_approval (receipt + identity assertion) → "
+             "consequential write: finalized.", bundle(ident, arts), "run_finalized", {"objects": "warn"})
+
+    # 30 — human_approval without a decision.
+    steps = copy.deepcopy(approval_steps)
+    steps[3]["ext"] = {"approval": {"approverRef": "urn:example:approver:42"}}
+    p = {}
+    ident, arts = build_run(steps, THROUGHPUT, p)
+    scenario("30-approval-without-decision", "A human_approval step whose approval block has no decision.",
+             bundle(ident, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
+             findings_contain=["approval must be an object with a non-empty string decision"])
+
+
 if __name__ == "__main__":
     main()
     hardening_scenarios()
     schema_scenarios()
+    step_block_scenarios()

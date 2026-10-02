@@ -194,7 +194,7 @@
                 "urn:example:obj:tool-manifest:run": "tool-manifest",
                 "urn:example:obj:model-config:run": "model-config",
                 "urn:example:obj:execution-policy:run": "execution-policy",
-                "urn:example:obj:request": "user-request",
+                "urn:example:obj:request": "user-turn",
                 "urn:example:obj:instruction-set:second": "instruction-set"
               }
             }
@@ -203,8 +203,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsidTlzeEVhSl83eUg1Ynl5Y1RZa2xMb3pRRWRSQUo1Y3Jjb3lFQnI3R3RMSSIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIiwiTTRtTDhnb1ExeFlfbWlzcU1iNXlRa1ZidkxEeTNpTk42UjVycWhqTlpYMCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6aW5zdHJ1Y3Rpb24tc2V0OnJ1biIsInVybjpleGFtcGxlOm9iajp0b29sLW1hbmlmZXN0OnJ1biIsInVybjpleGFtcGxlOm9iajptb2RlbC1jb25maWc6cnVuIiwidXJuOmV4YW1wbGU6b2JqOmV4ZWN1dGlvbi1wb2xpY3k6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnJlcXVlc3QiLCJ1cm46ZXhhbXBsZTpvYmo6aW5zdHJ1Y3Rpb24tc2V0OnNlY29uZCJdfX0",
-              "signature": "mCh-SDb3iYF9jnCEZhG8nSSktUrpx7AMA15IdIUIWBQ"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiY2pHY200WGVKUVBLQXVoUUhRWFpiVkxtcDlCV3RmYjdQbU83eFlrbC10MCIsIjJ3ZTN5RkVIUEJlV29DOWVfSEk1S25ORl9QZklMYkpZQ0dBYTlaaVBwUFUiLCJMSUpmMlhKWXl3Tmx2NWxfVElRWTB2bFd4dEZyaWtCaHc2R2R4S1lkYnBzIiwidWZZMXRGUjEtM0pxMGJQSmlZT0UwNmlMMWVJQmtZZmFIOGtGQ3pVY1ptNCIsImF1LXZlOThiX1F0N1llMmNQRmh4MVJrR1R1LUJrNGRycEZCOHZHQkY0ZE0iLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIiwiTTRtTDhnb1ExeFlfbWlzcU1iNXlRa1ZidkxEeTNpTk42UjVycWhqTlpYMCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6aW5zdHJ1Y3Rpb24tc2V0OnJ1biIsInVybjpleGFtcGxlOm9iajp0b29sLW1hbmlmZXN0OnJ1biIsInVybjpleGFtcGxlOm9iajptb2RlbC1jb25maWc6cnVuIiwidXJuOmV4YW1wbGU6b2JqOmV4ZWN1dGlvbi1wb2xpY3k6cnVuIiwidXJuOmV4YW1wbGU6b2JqOnJlcXVlc3QiLCJ1cm46ZXhhbXBsZTpvYmo6aW5zdHJ1Y3Rpb24tc2V0OnNlY29uZCJdfX0",
+              "signature": "jddwlxnGwH4NJo-Wv5hokF-zfkEwmXrGVH9DREuyb2Q"
             }
           ]
         },
@@ -251,11 +251,18 @@
           ],
           "chain": {
             "seq": 1,
-            "prevSignatureSha256": "018bc6d21ef30dd5bb519f5a757d9c5c25a40bd88d97fcd417b979cacb05561b"
+            "prevSignatureSha256": "bd56a40a7b01fc0eef297ef357687952671bd35a3db04372d96835c075da9e1e"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
-              "tool": "lookup_ticket",
+              "tool": {
+                "name": "lookup_ticket",
+                "operation": "read"
+              },
+              "authorization": {
+                "decision": "allowed",
+                "policyId": "support-tools-v1"
+              },
               "stepType": "tool_call",
               "agentVersion": "2.4.0",
               "eventTime": "2026-10-01T09:01:00.000Z",
@@ -270,8 +277,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiQ0NaWVdyYTZjd3NDVHdMX0h3UXM0YUdpREthLU14U01Fb2UtYWN6TXhvSSIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
-              "signature": "BQ1tquVjSyu8K9VEuPQLFMwHg_r8qefUWw9HNJLAtL0"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiWFpvZEFvbmk0dm1McHN0ckU1aDdXaGlERzhqZW8yck1CRFJEbGVnRENhWSIsImdlTjZ3RVlOc2NrMzVFVTcwZVdZSFRzcFY4bFRNMmV1ZWRpNHNYTXBfRWciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMC10b29sLWFyZ3VtZW50cyJdfX0",
+              "signature": "cejOTL4BNqNaxVGhPCU1e6xIGtv-Wj49fCDllRLYjMs"
             }
           ]
         },
@@ -306,18 +313,20 @@
           "objects": [
             {
               "uri": "urn:example:obj:step-1-tool-result",
-              "role": "output",
+              "role": "context",
               "contentType": "application/json",
               "sizeBytes": 33
             }
           ],
           "chain": {
             "seq": 2,
-            "prevSignatureSha256": "dd8fad7cad9f8b3fd080aecc950eaac1e6b52465678ed846e8880cd7f81808dd"
+            "prevSignatureSha256": "e254d201a48ddff855553084c98180db6763ec3a98d7cbdcfde975041fefb9f5"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
-              "tool": "lookup_ticket",
+              "tool": {
+                "name": "lookup_ticket"
+              },
               "stepType": "tool_result",
               "agentVersion": "2.4.0",
               "eventTime": "2026-10-01T09:02:00.000Z",
@@ -332,8 +341,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiNEhCY3lsQjZySFR1aFQ2elNPZ0R2X3BKZzgzdlg4S0pKM25sVm94QkhjNCIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
-              "signature": "eHIUHVowcOpPWjVaoFU6M2tpioqEQYiQQwxos_Tq_Ww"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiUm53a2EzWUJ2TnRJTlE4c1VjbXhyaXFsbjBMdGk3ZkhiaUtaMGo0aURCSSIsIkVLUFd0MnNVam52V2RmaXlLN0FJcDJONHhTVFptNzNEVzlwMmJRMEdVUVEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMS10b29sLXJlc3VsdCJdfX0",
+              "signature": "LCrt31ZaQZ8oZLFpagk_TUQWmhWtxW61h0jiCsHKr40"
             }
           ]
         },
@@ -367,7 +376,7 @@
           },
           "objects": [
             {
-              "uri": "urn:example:obj:step-2-model-output",
+              "uri": "urn:example:obj:step-2-assistant-reply",
               "role": "output",
               "contentType": "text/plain",
               "sizeBytes": 34
@@ -375,7 +384,7 @@
           ],
           "chain": {
             "seq": 3,
-            "prevSignatureSha256": "8caa9327792f9ed094be977046515324a3e7ac52a145f64a04524e1b6b82e695"
+            "prevSignatureSha256": "7d70d716794e410908c4d8629c9e8608fb90b8e98980e617a7a9e53545a84ec2"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
@@ -385,7 +394,7 @@
               "consequential": false,
               "timestamp": "none",
               "objectKinds": {
-                "urn:example:obj:step-2-model-output": "model-output"
+                "urn:example:obj:step-2-assistant-reply": "assistant-reply"
               }
             }
           }
@@ -393,13 +402,13 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiLTduSElIdjRGV3R1VGNDLWhiRmhaZmJTM3JvUE4yZGl3dC1PTU05bXAzMCIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1tb2RlbC1vdXRwdXQiXX19",
-              "signature": "vXa4JxQch2T69huJleNP6TdYpski9TgcBmzoAWZCvFA"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiQktJME80amZiT29xTGJXMnVxMGgwRERGck5pVDNNUDlrRDU2NkhYdlM0YyIsIi1EWVR2Q1oxLXFKTXVRNm9GbkVFR2pBZ3VKTEtPS2pQelRpNDVrd09EQWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOnN0ZXAtMi1hc3Npc3RhbnQtcmVwbHkiXX19",
+              "signature": "b2hrgkhId-LOS41mDL7NCt8IwjNVlDuuOAWmPbomdas"
             }
           ]
         },
         "objectDigests": {
-          "urn:example:obj:step-2-model-output": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
+          "urn:example:obj:step-2-assistant-reply": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
         }
       },
       {
@@ -429,12 +438,12 @@
           "objects": [],
           "chain": {
             "seq": 4,
-            "prevSignatureSha256": "a0a0bb2d9b8bf4e5174e1c55c8d1fce4fab14b52706099815b20befafe8fc556"
+            "prevSignatureSha256": "09c3ad61781e181a322dbe3e6912dfa82cedd7d895aa5ed40fec6c3547c6e80c"
           },
           "extensions": {
             "ai.sigill.agent-execution": {
               "finalSeq": 3,
-              "finalPrevSignatureSha256": "a0a0bb2d9b8bf4e5174e1c55c8d1fce4fab14b52706099815b20befafe8fc556",
+              "finalPrevSignatureSha256": "09c3ad61781e181a322dbe3e6912dfa82cedd7d895aa5ed40fec6c3547c6e80c",
               "runDisposition": "completed",
               "usage": {
                 "inputTokens": 900,
@@ -452,8 +461,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiY00wWlg5ZS1ra3l1RDNvTkJQb2FLWjJEbjNLejdlYmg2Y2FmMUEzN1BvRSJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
-              "signature": "pwXq8GrF0VeZk82-K45MM3YKPUBvMQJAxXI_QDt7c1k",
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiX0tlVXFRZXhNbU1HVXRja3lCZ3E1cGhVbDBoem1oNVU4QmctanhnMERjWSJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
+              "signature": "o101HgkuinjOciy3kmQCzfQufuWWV13OrNLN7xHZcEc",
               "header": {
                 "stubTimestamp": {
                   "genTime": "2026-10-01T09:04:00Z",
@@ -481,7 +490,7 @@
       "identity": "bad"
     },
     "missingSeqs": [],
-    "fingerprint": "63ce9e3dc480c3e99ea1d156cb15f0c56be63a64e3d946c8899519acde7f68f1",
+    "fingerprint": "d2e7a493ea2c7d4c25c844bf27af594e37b60d8ae1c975a9a476b1cc018da5fc",
     "findingsContain": [
       "more than one signed object of kind 'instruction-set'"
     ]
