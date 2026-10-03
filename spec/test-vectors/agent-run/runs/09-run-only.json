@@ -1,5 +1,5 @@
 {
-  "description": "No control basis supplied: the policy is unknown, only run_end is required; control and timestamps warn.",
+  "description": "The control basis run_start binds is left out: control is bad, so leaving it out cannot turn an invalid run into a finalized one. The policy is unknown; timestamps warn.",
   "bundle": {
     "format": "AgentRunBundle",
     "bundleVersion": "1",
@@ -248,7 +248,7 @@
     ]
   },
   "expected": {
-    "verdict": "run_finalized",
+    "verdict": "run_invalid",
     "checks": {
       "correlation": "ok",
       "sequence": "ok",
@@ -258,12 +258,18 @@
       "timestamps": "warn",
       "objects": "warn",
       "finalization": "ok",
-      "control": "warn"
+      "control": "bad"
     },
     "binding": "run_only",
     "missingSeqs": [],
     "fingerprint": "41b2603d89773a2f781df003d3983d28ae82c3e44f87fbf26dc9bfe64b3ddf7e",
-    "findingsContain": [],
+    "findingsContain": [
+      "which was not supplied"
+    ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

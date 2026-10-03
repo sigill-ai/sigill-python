@@ -40,7 +40,7 @@ of it stays with the producer; the artifact binds digests.
 | `agent.version` | yes | The agent configuration version that ran. |
 | `agent.identityRef` | no | Reference to an identity assertion held by the producer (AgentID, SPIFFE, …). |
 | `controlSet.id`, `controlSet.version` | yes | Identifies the control set; the content is the `control-set` object. |
-| `timestampPolicy` | yes | The run's signed timestamp policy (common rules §4). Locked here, before the run starts. |
+| `timestampPolicy` | producers MUST write it | The run's signed timestamp policy (common rules §4). Locked here, before the run starts. Optional in the schema: a Control Artifact without it is judged under the defaults, with a warning. |
 
 ## 3. Object roles
 
@@ -69,5 +69,6 @@ the configuration in force is fixed before the first event.
 
 The Control Artifact MUST be sealed before `run_start` is sealed. This is
 provable, not asserted: `run_start` carries `signatureSha256` of the Control
-Artifact, which exists only after sealing. `sigTst` on both artifacts gives
-the order in time. The Control Artifact is always timestamped.
+Artifact, which exists only after sealing. The Control Artifact is always
+timestamped; when `run_start` is timestamped too (not the default), the two
+`sigTst` values also give the order in time (`controlSealedBeforeRun`).

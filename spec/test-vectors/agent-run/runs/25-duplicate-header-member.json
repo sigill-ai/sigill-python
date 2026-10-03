@@ -355,6 +355,10 @@
     "findingsContain": [
       "no readable protected header"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

@@ -83,14 +83,6 @@ def _format_time(t: datetime) -> str:
     return t.strftime("%Y-%m-%dT%H:%M:%S.") + f"{t.microsecond // 1000:03d}Z"
 
 
-def _norm_id(v: Optional[str]) -> Optional[str]:
-    """§1: ``urn:uuid:`` and bare forms of the same UUID compare equal."""
-    if v is None:
-        return None
-    v = v[9:] if v.lower().startswith("urn:uuid:") else v
-    return v.lower()
-
-
 def _is_i_json(v: Any) -> bool:
     """No integers beyond ±2^53, no lone surrogates, no NaN or Infinity (§1)."""
     if v is None or isinstance(v, bool):

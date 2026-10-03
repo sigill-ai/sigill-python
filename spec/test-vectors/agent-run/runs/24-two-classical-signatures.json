@@ -359,6 +359,10 @@
     "findingsContain": [
       "exactly one classical signature"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

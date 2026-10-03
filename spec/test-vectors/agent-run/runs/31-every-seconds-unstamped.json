@@ -355,6 +355,10 @@
     "findingsContain": [
       "seq 3 (model_output): a timestamp is required"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

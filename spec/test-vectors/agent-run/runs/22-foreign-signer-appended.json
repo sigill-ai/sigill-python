@@ -354,6 +354,10 @@
     "findingsContain": [
       "signed by a different certificate than the run"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

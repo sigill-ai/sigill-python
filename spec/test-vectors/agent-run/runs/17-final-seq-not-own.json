@@ -355,6 +355,10 @@
     "findingsContain": [
       "finalSeq"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

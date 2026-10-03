@@ -358,6 +358,10 @@
     "findingsContain": [
       "binds another control artifact"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

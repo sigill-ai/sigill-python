@@ -45,10 +45,12 @@ from sigill_sdk._sign_objects import ENVELOPE_URI
 
 SCOPE = (
     "run_finalized means: the control basis was sealed before the first event, all recorded events are unchanged "
-    "and in the recorded order, and the run was closed under one signer; a Control Evaluation's result is the named "
-    "verifier's claim against the pre-sealed control set. It does not establish that every event was captured, that "
-    "producer-claimed event times are true, that no other run took place, that the verifier measured correctly, or — "
-    "unless expected signers were given — who produced the run."
+    "since run_end was timestamped and are in the recorded order, and the run was closed under one signer; a Control "
+    "Evaluation's result is the named verifier's claim against the pre-sealed control set. It does not establish "
+    "that every event was captured, that producer-claimed event times are true, that no other run took place, that "
+    "the verifier measured correctly, or — unless expected signers were given — who produced the run. Events without "
+    "a timestamp could have been rewritten by anyone able to seal with the run's certificate until run_end was "
+    "timestamped."
 )
 """What a verdict does and does not establish. Show it next to the verdict."""
 
@@ -695,9 +697,15 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     ctl_check: Optional[_ArtifactCheck] = None
     ctl_sig = signature_sha256(bundle.control_artifact.signature) if bundle.control_artifact is not None else None
     if bundle.control_artifact is None:
+        # run_start must bind a Control Artifact, so a bundle without one is incomplete. Leaving it out must
+        # not turn an invalid run into a finalized one (it may hide a stricter policy or a broken basis).
         binding = "run_only" if good else "unbound"
-        warnings.append("No Control Artifact supplied: the configuration and control set in force are not shown, and "
-                        "the timestamp policy is unknown.")
+        control_ok = False
+        if reference is not None and reference.binds is not None:
+            findings.append(f"{reference_label} binds Control Artifact {reference.binds}, which was not supplied.")
+        else:
+            findings.append("No Control Artifact supplied, and "
+                            f"{'no event' if reference is None else reference_label} binds none.")
         control = AgentControlVerdict()
     elif ctl is None:
         control_ok = env_ok = False
@@ -762,7 +770,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             well_formed=not ctl.conformance, bound=bound, control_set_id=_str(control_set.get("id")),
             control_set_version=_str(control_set.get("version")), agent_id=agent_id, agent_version=agent_version,
             certificate=ctl_check.certificate, objects=ctl_check.objects)
-    checks["control"] = "bad" if not control_ok else "warn" if bundle.control_artifact is None else "ok"
+    checks["control"] = "ok" if control_ok else "bad"
 
     sealed_before_run: Optional[bool] = None
     ctl_at = _time(ctl_check.gen_time) if ctl_check is not None and ctl_check.timestamp_ok else None

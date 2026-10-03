@@ -405,6 +405,10 @@
     "findingsContain": [
       "seq 3 (tool_call): a timestamp is required"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

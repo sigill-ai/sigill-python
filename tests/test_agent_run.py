@@ -141,7 +141,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 39
+    assert len(RUN_VECTORS) == 54
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -166,6 +166,11 @@ def test_run_vector_reproduces_expected_verdict(name: str) -> None:
         assert any(f in x for x in result.findings), (f, result.findings)
     if result.verdict != "run_invalid":
         assert result.findings == []
+    for w in expected["warningsContain"]:
+        assert any(w in x for x in result.warnings), (w, result.warnings)
+    assert len(result.warnings) == expected["warningCount"], result.warnings
+    assert result.control_sealed_before_run == expected["controlSealedBeforeRun"]
+    assert result.event_times_plausible == expected["eventTimesPlausible"]
     assert len(result.evaluations) == len(expected["evaluations"])
     for e, r in zip(expected["evaluations"], result.evaluations):
         assert r.subject_bound == e["subjectBound"], r.findings
@@ -355,9 +360,10 @@ def _gen_time_of(der: bytes):
 
 
 def digests_only_verify(signature: dict, digests) -> BlindObjectsVerdict:
-    """Offline: checks every hashV against the supplied digests and reads the
-    timestamp's genTime, but cannot check the signature value itself — that
-    needs the platform or a TS 119 182-1 validator."""
+    """Offline and NOT cryptographic: checks every hashV against the supplied
+    digests and reads the timestamp's genTime, but treats signature values and
+    timestamp tokens as valid without checking them — that needs the blind
+    endpoint (:func:`remote_verifier`) or a TS 119 182-1 validator."""
     entry = _classical_entry(signature)
     objects, missing, unreferenced = _match_digests(_lenient_header(entry), digests)
     ts = None
@@ -372,7 +378,7 @@ def digests_only_verify(signature: dict, digests) -> BlindObjectsVerdict:
         certificate=SignerCertificateInfo("CN=test tenant", "CN=CA", "2030-01-01T00:00:00Z", "trusted_chain"))
 
 
-def test_vector10_real_sealed_run_verifies_offline() -> None:
+def test_vector10_real_sealed_run_profile_layer_holds_offline_signatures_assumed() -> None:
     def load(f: Path) -> AgentRunArtifact:
         a = json.loads(f.read_text(encoding="utf-8"))
         return AgentRunArtifact(a["envelope"], a["signature"], {})

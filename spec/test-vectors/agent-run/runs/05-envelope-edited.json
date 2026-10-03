@@ -355,6 +355,10 @@
     "findingsContain": [
       "the signature does not cover this envelope"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

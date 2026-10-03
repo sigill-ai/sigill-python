@@ -373,6 +373,10 @@
     "findingsContain": [
       "seq 2 (tool_result): a timestamp"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": true,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

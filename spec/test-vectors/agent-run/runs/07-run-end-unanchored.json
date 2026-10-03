@@ -349,6 +349,10 @@
     "findingsContain": [
       "(run_end): a timestamp is required"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": null,
     "evaluations": []
   }
 }

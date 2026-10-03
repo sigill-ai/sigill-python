@@ -6,7 +6,7 @@ Every SDK consumes them and must reproduce the expected values exactly.
 | File | Asserts |
 |---|---|
 | `signature-sha256.json` | The binding digest (common rules §2) over General, hybrid (ML-DSA entry first), flattened and non-base64url JWS inputs. |
-| `runs/*.json` with `bundle` | A complete bundle (§7) and its expected run verdict, the nine check states, the binding state, the listed missing `seq` values, the §8.2 fingerprint, the per-evaluation outcomes, and substrings that must appear among the findings. |
+| `runs/*.json` with `bundle` | A complete bundle (§7) and its expected run verdict, the nine check states, the binding state, the listed missing `seq` values, the §8.2 fingerprint, the per-evaluation outcomes, `controlSealedBeforeRun` and `eventTimesPlausible` (`null` when not comparable), substrings that must appear among the findings, and substrings that must appear among the warnings together with the exact number of warnings. |
 | `runs/*.json` with `bundleText` | A container that must not parse at all; `expected.parseError` must appear among the parse errors. |
 
 The reference run is three timestamps for the whole run — the Control

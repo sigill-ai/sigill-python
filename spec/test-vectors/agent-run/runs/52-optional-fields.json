@@ -1,5 +1,5 @@
 {
-  "description": "No event carries a non-empty correlationId.",
+  "description": "Every optional field the schemas allow is present and valid.",
   "bundle": {
     "format": "AgentRunBundle",
     "bundleVersion": "1",
@@ -12,7 +12,8 @@
         "createdAt": "2026-10-01T08:59:00.000Z",
         "actor": {
           "type": "system",
-          "id": "urn:example:harness:prod"
+          "id": "urn:example:harness:prod",
+          "displayHint": "Production harness"
         },
         "activity": {
           "name": "support-ticket-close",
@@ -20,7 +21,8 @@
         },
         "agent": {
           "id": "urn:example:agent:support-triage",
-          "version": "2.4.0"
+          "version": "2.4.0",
+          "identityRef": "urn:example:identity:support-triage"
         },
         "controlSet": {
           "id": "ticket-close-v2",
@@ -31,7 +33,11 @@
             "uri": "urn:example:obj:instruction-set",
             "role": "instruction-set",
             "contentType": "text/plain",
-            "sizeBytes": 53
+            "sizeBytes": 53,
+            "encoding": "utf-8",
+            "metadata": {
+              "lines": 1
+            }
           },
           {
             "uri": "urn:example:obj:tool-manifest",
@@ -74,8 +80,8 @@
       "signature": {
         "signatures": [
           {
-            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiJdLCJoYXNoViI6WyIwTG85dHZoa2JSdXFsbmJuLURhdWIydml3MVpCaW1jMzgycmRaY0o3cERBIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-            "signature": "tZFzybpWOj7MRW6fi2iYSsIGXtyq-ekj86qX3CoA-jE",
+            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiJdLCJoYXNoViI6WyJ1WTdWb283MkdwT3FuTnItVldPVmR0WjROOWFWV0RZZ21CMkhhWjVIYjFvIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+            "signature": "oN0NC2fAgl6QgrAydQ1graPK6K3gxDzUdRFMNcyTakA",
             "header": {
               "stubTimestamp": {
                 "genTime": "2026-10-01T08:59:01Z",
@@ -108,7 +114,7 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 0
@@ -124,18 +130,24 @@
               "uri": "urn:example:obj:s0-model-input",
               "role": "model-input",
               "contentType": "text/plain",
-              "sizeBytes": 37
+              "sizeBytes": 37,
+              "encoding": "binary",
+              "metadata": {
+                "producer": {
+                  "version": 1
+                }
+              }
             }
           ],
           "binds": {
-            "controlArtifactSignatureSha256": "11960a3d4b522f50c59ccee0dd93f572ac501aca3bcfd85ef7a15b3fd02be0c6"
+            "controlArtifactSignatureSha256": "3410766b0351a99e852cfaf7e84178da9513b7b31663b77a05f22c5e42931c9c"
           }
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIklMVVg2czNxN1VtU0dLYk9qQVNSWGsyLWpING5KYV9yQm5BRXF1aU5ZclUiLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-              "signature": "ku6aNpFVjbpb7y25QCZs9sDK0J9iMs6V2MG4YgDcTDM"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIm1vNE9Hb0UybWNwRkRiR2RyX0FST3hNa3RkemZ6aWN6Vk5fRkRHNTVKd1EiLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "RtkkYOSIg5ddCIHy17mYtJufUlQN2o7oEP3Dwkjdh-I"
             }
           ]
         },
@@ -156,11 +168,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 1,
-            "prevSignatureSha256": "3bff0ea5e2e024e663fd7e3af418fd82cb8e3618dab9049a96c026904fd688dc"
+            "prevSignatureSha256": "3cbb89e93f17762d621fb910daec02e159582c551f80d860ae871290ed19472e"
           },
           "step": {
             "type": "tool_call",
@@ -177,15 +189,21 @@
               "uri": "urn:example:obj:s1-tool-arguments",
               "role": "tool-arguments",
               "contentType": "application/json",
-              "sizeBytes": 17
+              "sizeBytes": 17,
+              "encoding": "binary",
+              "metadata": {
+                "producer": {
+                  "version": 1
+                }
+              }
             }
           ]
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjhkemp5dHJ3c2huX0xfU01VbDN4UEhKVXAtUU1XODcwb3pUS1FOUGF0RTAiLCJnZU42d0VZTnNjazM1RVU3MGVXWUhUc3BWOGxUTTJldWVkaTRzWE1wX0VnIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMS10b29sLWFyZ3VtZW50cyJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-              "signature": "mdDxWbzv6JdmtaeTaGAGR82Sz_XF_bjaiT2dCNN9qCc"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIldnbVdLMGtZLWJHelpYWjZuLW40SkdqWDNiVWFOODBhZUh4ZHZLRHJXOUkiLCJnZU42d0VZTnNjazM1RVU3MGVXWUhUc3BWOGxUTTJldWVkaTRzWE1wX0VnIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMS10b29sLWFyZ3VtZW50cyJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "UuCNl-Zk5UPyJy_AQquy3EiE6qvCWJnx3lZuwTVj7jU"
             }
           ]
         },
@@ -206,11 +224,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 2,
-            "prevSignatureSha256": "4f3a5cae94a2e667dede837580ec3f5fff038e37b700c8bcbcf0d20e67c903b6"
+            "prevSignatureSha256": "f06af8644013aae1fb9dbf17bde824f9d1337800163be45fb39c7b087fff308b"
           },
           "step": {
             "type": "tool_result",
@@ -226,15 +244,21 @@
               "uri": "urn:example:obj:s2-tool-result",
               "role": "tool-result",
               "contentType": "application/json",
-              "sizeBytes": 17
+              "sizeBytes": 17,
+              "encoding": "binary",
+              "metadata": {
+                "producer": {
+                  "version": 1
+                }
+              }
             }
           ]
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIlpWTm96UlRGR3kyT0pkcU5Vb0xjVVNEQnJ0QVlhMHdXaXhuUmsyNFkyTmMiLCJ2SmtHYW91QlBuWXlBY0VVMUgzWk1BY1F1Z3JQSEU1U0t1ZU9MRnhITzRjIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMi10b29sLXJlc3VsdCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-              "signature": "Ebqd8vZCKYUYfpCcq_5tuYjvbJgwTki7lllW2M686ho"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIlhSR0p6Sm1seVlfdWdaWWFEeVM2VFlxSEpSSUY2SEhYV2tTRmdERVdCNnMiLCJ2SmtHYW91QlBuWXlBY0VVMUgzWk1BY1F1Z3JQSEU1U0t1ZU9MRnhITzRjIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMi10b29sLXJlc3VsdCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "hMArMHH8Cz57X9wp6Zw2D21U6-N8raTK5I0UraMf5-c"
             }
           ]
         },
@@ -255,11 +279,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 3,
-            "prevSignatureSha256": "6788e3876fb40ee7d59f8d1c1fef1b6fcaf4af81b2b4c19692dadb077c0f3393"
+            "prevSignatureSha256": "67e701d51bca7abfff52d376c904ef24bf7a4d63a81e22825683f24b8a189b70"
           },
           "step": {
             "type": "model_output",
@@ -272,15 +296,21 @@
               "uri": "urn:example:obj:s3-model-output",
               "role": "model-output",
               "contentType": "text/plain",
-              "sizeBytes": 34
+              "sizeBytes": 34,
+              "encoding": "binary",
+              "metadata": {
+                "producer": {
+                  "version": 1
+                }
+              }
             }
           ]
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjNabkFCTk5UeTVkdEtCMFNfMk1IdlA4NE9Ec25zRnRMYWxETVpQRVczTDgiLCItRFlUdkNaMS1xSk11UTZvRm5FRUdqQWd1SkxLT0tqUHpUaTQ1a3dPREFrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMy1tb2RlbC1vdXRwdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
-              "signature": "Kwyuk114NNBpNOUvlWw_4HV_dbXhff5RmAsSjQmQaBc"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbImU2enVBZkUtVFhNdHlVUFROWlRCdEFTU0JOTF9jVTdIMWRPU2ZjTUg0dEUiLCItRFlUdkNaMS1xSk11UTZvRm5FRUdqQWd1SkxLT0tqUHpUaTQ1a3dPREFrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMy1tb2RlbC1vdXRwdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "yrrW6M_lHz91HN-BP-Ql_ChnleW7o7Hhrim2vFHMC4s"
             }
           ]
         },
@@ -301,11 +331,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 4,
-            "prevSignatureSha256": "d5d04fa355b4a450f056afbe58c87c78931badf92f66b12a3ded8c52d6884c8f"
+            "prevSignatureSha256": "9e91920deebd267cb9ae8ec674b95ba877d7f97f5a31360efd206805d9ffd2a6"
           },
           "step": {
             "type": "run_end",
@@ -314,15 +344,15 @@
             "timestamp": "required",
             "runDisposition": "completed",
             "finalSeq": 4,
-            "finalPrevSignatureSha256": "d5d04fa355b4a450f056afbe58c87c78931badf92f66b12a3ded8c52d6884c8f"
+            "finalPrevSignatureSha256": "9e91920deebd267cb9ae8ec674b95ba877d7f97f5a31360efd206805d9ffd2a6"
           },
           "objects": []
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIk1kME1NM2lSQVZTcGtkTDBoanNrUW9pcDBwSUtzSnhjWGtYOVdrckhkc28iXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
-              "signature": "vA_eqduUAxjbiesTZYci7W5pQIBCwe5E_35s5TCAZeM",
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbImx2VjhTaWpxcHM1RUFXWUczUFNuVC02amVJb0pwMjAxTEZkOGxsOVNBdHciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+              "signature": "5nGOwbJxBHRpgK-hDKTGyEYz_61h7uQfUWwgCHtTolM",
               "header": {
                 "stubTimestamp": {
                   "genTime": "2026-10-01T09:04:00Z",
@@ -334,27 +364,37 @@
         },
         "objectDigests": {}
       }
-    ]
+    ],
+    "payloads": {
+      "urn:example:obj:baseline-state": "eyJ0aWNrZXQiOiI0NDExIiwic3RhdHVzIjoib3BlbiIsIm93bmVyIjoidGVhbS1hIn0=",
+      "urn:example:obj:control-set": "eyJjb250cm9scyI6WyJ0aWNrZXQtY2xvc2VkIiwib3duZXItdW5jaGFuZ2VkIl19",
+      "urn:example:obj:execution-policy": "eyJhbGxvdyI6WyJsb29rdXBfdGlja2V0IiwiY2xvc2VfdGlja2V0Il19",
+      "urn:example:obj:instruction-set": "WW91IHRyaWFnZSBzdXBwb3J0IHRpY2tldHMuIENsb3NlIG9ubHkgd2l0aCBhcHByb3ZhbC4=",
+      "urn:example:obj:model-config": "eyJ0ZW1wZXJhdHVyZSI6MH0=",
+      "urn:example:obj:s0-model-input": "VGlja2V0IDQ0MTE6IGxvZ2luIGZhaWxzIGFmdGVyIHJlc2V0Lg==",
+      "urn:example:obj:s1-tool-arguments": "eyJ0aWNrZXQiOiI0NDExIn0=",
+      "urn:example:obj:s2-tool-result": "eyJzdGF0dXMiOiJvcGVuIn0=",
+      "urn:example:obj:s3-model-output": "UmVzZXQgdGhlIHNlc3Npb24gY2FjaGUgYW5kIHJldHJ5Lg==",
+      "urn:example:obj:tool-manifest": "eyJ0b29scyI6WyJsb29rdXBfdGlja2V0IiwiY2xvc2VfdGlja2V0Il19"
+    }
   },
   "expected": {
-    "verdict": "run_invalid",
+    "verdict": "run_finalized",
     "checks": {
-      "correlation": "bad",
+      "correlation": "ok",
       "sequence": "ok",
       "chain": "ok",
-      "envelope": "bad",
+      "envelope": "ok",
       "signatures": "ok",
       "timestamps": "ok",
-      "objects": "warn",
+      "objects": "ok",
       "finalization": "ok",
       "control": "ok"
     },
     "binding": "bound",
     "missingSeqs": [],
-    "fingerprint": "7ab24fd40341ee030f0066349b03ef409e88f01cfe6b3d0efa9d56bf69a1d0b7",
-    "findingsContain": [
-      "no signed correlationId"
-    ],
+    "fingerprint": "1e26b992fc2f1bc58d4f9b9e7b6ab815c68786eb92938bd1a6e70d7a508b53d3",
+    "findingsContain": [],
     "warningsContain": [],
     "warningCount": 0,
     "controlSealedBeforeRun": null,

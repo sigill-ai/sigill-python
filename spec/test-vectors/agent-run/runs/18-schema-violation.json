@@ -352,6 +352,10 @@
     "findingsContain": [
       "step.tool must be of type object"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

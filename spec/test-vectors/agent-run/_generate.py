@@ -125,7 +125,8 @@ CONTROL_OBJS = [
 ]
 
 
-def control_artifact(payloads: dict, *, policy=POLICY, cert: bytes = CERT_A, n: int = 1, tweak=None) -> dict:
+def control_artifact(payloads: dict, *, policy=POLICY, cert: bytes = CERT_A, n: int = 1, tweak=None,
+                     stamp_at: str | None = "2026-10-01T08:59:01Z", cty: str = CTY["control"]) -> dict:
     env = {
         "schemaName": "AgentControlArtifact", "schemaVersion": "1", "evidenceId": uuid(n),
         "createdAt": "2026-10-01T08:59:00.000Z",
@@ -141,7 +142,7 @@ def control_artifact(payloads: dict, *, policy=POLICY, cert: bytes = CERT_A, n: 
         tweak(env)
     for uri, _, _, data in CONTROL_OBJS:
         payloads[uri] = data
-    return artifact(env, CONTROL_OBJS, CTY["control"], stamp_at="2026-10-01T08:59:01Z", cert=cert)
+    return artifact(env, CONTROL_OBJS, cty, stamp_at=stamp_at, cert=cert)
 
 
 def at(minute: int) -> str:
@@ -159,12 +160,14 @@ STEPS = [
 
 
 def build_run(steps: list, payloads: dict, *, control: dict | None, finish: bool = True, start_type: str = "run_start",
-              tweak=None, end_cert: bytes = CERT_A, end_stamp: bool = True, start_stamp: bool = False) -> list:
+              tweak=None, end_cert: bytes = CERT_A, end_stamp: bool = True, start_stamp: bool = False,
+              end_stamp_at: str | None = None) -> list:
     """steps: [{type, minute, step:{…}, objects:[(role, ctype, bytes)], stamp, consequential, cert, dupAlg}]."""
     arts: list = []
     bind_value = signature_sha256(control["signature"]) if control else None
 
-    def seal(step_type, minute, step_fields, objs, stamp, consequential, cert, dup_alg=False):
+    def seal(step_type, minute, step_fields, objs, stamp, consequential, cert, dup_alg=False, stamp_at=None,
+             cty=CTY["event"]):
         seq = len(arts)
         uris = [(f"urn:example:obj:s{seq}-{role}", role, ctype, data) for role, ctype, data in objs]
         step = {"type": step_type, "eventTime": at(minute), "consequential": consequential,
@@ -190,16 +193,17 @@ def build_run(steps: list, payloads: dict, *, control: dict | None, finish: bool
             tweak(seq, env)
         for uri, _, _, data in uris:
             payloads[uri] = data
-        arts.append(artifact(env, uris, CTY["event"], stamp_at=at(minute).replace(".000", "") if stamp else None,
-                             cert=cert, dup_alg=dup_alg))
+        stamp_time = (stamp_at or at(minute).replace(".000", "")) if stamp else None
+        arts.append(artifact(env, uris, cty, stamp_at=stamp_time, cert=cert, dup_alg=dup_alg))
 
     seal(start_type, 0, {}, [("model-input", "text/plain", b"Ticket 4411: login fails after reset.")],
          start_stamp, False, CERT_A)
     for s in steps:
         seal(s["type"], s["minute"], s.get("step", {}), s.get("objects", []), s.get("stamp", False),
-             s.get("consequential", False), s.get("cert", CERT_A), s.get("dupAlg", False))
+             s.get("consequential", False), s.get("cert", CERT_A), s.get("dupAlg", False), cty=s.get("cty", CTY["event"]))
     if finish:
-        seal("run_end", steps[-1]["minute"] + 1, {"runDisposition": "completed"}, [], end_stamp, False, end_cert)
+        seal("run_end", steps[-1]["minute"] + 1, {"runDisposition": "completed"}, [], end_stamp, False, end_cert,
+             stamp_at=end_stamp_at)
     return arts
 
 
@@ -214,7 +218,8 @@ def rechain(arts: list, from_seq: int) -> None:
 
 
 def evaluation(payloads: dict, control: dict, run_end: dict, *, tweak=None,
-               control_set_bytes: bytes | None = None, baseline_bytes: bytes | None = None) -> dict:
+               control_set_bytes: bytes | None = None, baseline_bytes: bytes | None = None,
+               cert: bytes = CERT_V) -> dict:
     cs = next(o for o in CONTROL_OBJS if o[1] == "control-set")
     bl = next(o for o in CONTROL_OBJS if o[1] == "baseline-state")
     objs = [
@@ -239,7 +244,7 @@ def evaluation(payloads: dict, control: dict, run_end: dict, *, tweak=None,
     if tweak:
         tweak(env)
     payloads["urn:example:obj:observed-state"] = objs[0][3]
-    return artifact(env, objs, CTY["evaluation"], stamp_at="2026-10-01T09:30:01Z", cert=CERT_V)
+    return artifact(env, objs, CTY["evaluation"], stamp_at="2026-10-01T09:30:01Z", cert=cert)
 
 
 def bundle(control, arts, evaluations=(), payloads=None) -> dict:
@@ -297,7 +302,9 @@ EVAL_OK = {"subjectBound": True, "controlSetDigestMatches": True, "baselineDiges
 
 
 def scenario(name, description, b, verdict, checks, *, binding="bound", missing=None, findings=None,
-             evaluations=None, ascii_only=False) -> None:
+             evaluations=None, ascii_only=False, warnings=None, before=None, plausible=True) -> None:
+    """warnings: substrings, and their exact number. before / plausible: controlSealedBeforeRun and
+    eventTimesPlausible (null when nothing is comparable: run_start unstamped / no event stamped)."""
     exp = dict(ALL_OK)
     exp.update(checks)
     write(f"runs/{name}.json", {
@@ -305,6 +312,8 @@ def scenario(name, description, b, verdict, checks, *, binding="bound", missing=
         "expected": {
             "verdict": verdict, "checks": exp, "binding": binding, "missingSeqs": missing or [],
             "fingerprint": fingerprint(b), "findingsContain": findings or [],
+            "warningsContain": warnings or [], "warningCount": len(warnings or []),
+            "controlSealedBeforeRun": before, "eventTimesPlausible": plausible,
             "evaluations": evaluations if evaluations is not None else [EVAL_OK] * len(b.get("evaluations", [])),
         },
     }, ascii_only=ascii_only)
@@ -347,7 +356,7 @@ def main() -> None:
 
     p, control, arts = standard(finish=False)
     scenario("03-open", "No run_end yet: run_open; finalization and timestamps warn.", bundle(control, arts),
-             "run_open", {"objects": "warn", "finalization": "warn", "timestamps": "warn"})
+             "run_open", {"objects": "warn", "finalization": "warn", "timestamps": "warn"}, plausible=None)
 
     p, control, arts = standard()
     del arts[2]
@@ -371,7 +380,7 @@ def main() -> None:
     p, control, arts = standard(end_stamp=False)
     scenario("07-run-end-unanchored", "run_end carries no timestamp: nothing anchors the chain.",
              bundle(control, arts), "run_invalid", {"objects": "warn", "timestamps": "bad", "finalization": "bad"},
-             findings=["(run_end): a timestamp is required"])
+             findings=["(run_end): a timestamp is required"], plausible=None)
 
     p, control, arts = standard(policy=dict(POLICY, everyEvents=2))
     scenario("08-cadence-violated", "The control basis signs everyEvents=2; seq 1 carries no timestamp.",
@@ -379,9 +388,14 @@ def main() -> None:
              findings=["seq 1 (tool_call): a timestamp is required"])
 
     p, control, arts = standard()
-    scenario("09-run-only", "No control basis supplied: the policy is unknown, only run_end is required; control "
-             "and timestamps warn.", bundle(None, arts), "run_finalized",
-             {"objects": "warn", "control": "warn", "timestamps": "warn"}, binding="run_only")
+    scenario("09-run-only", "The control basis run_start binds is left out: control is bad, so leaving it out "
+             "cannot turn an invalid run into a finalized one. The policy is unknown; timestamps warn.",
+             bundle(None, arts), "run_invalid", {"objects": "warn", "control": "bad", "timestamps": "warn"},
+             binding="run_only", findings=["which was not supplied"])
+    p, control, arts = standard(policy=dict(POLICY, everyEvents=2))
+    scenario("09b-run-only-hides-cadence", "08-cadence-violated without its control basis: still invalid.",
+             bundle(None, arts), "run_invalid", {"objects": "warn", "control": "bad", "timestamps": "warn"},
+             binding="run_only", findings=["which was not supplied"])
 
     p, control, arts = standard()
     other = control_artifact({}, n=2, tweak=lambda e: e["controlSet"].update(version="3"))
@@ -486,11 +500,12 @@ def main() -> None:
     per_event = dict(POLICY, profile="per-event")
     p, control, arts = standard(policy=per_event, steps=stamped, start_stamp=True)
     scenario("26-per-event", "per-event: every event timestamped.", bundle(control, arts), "run_finalized",
-             {"objects": "warn"})
+             {"objects": "warn"}, before=True)
     p, control, arts = standard(policy=per_event, steps=[stamped[0], dict(stamped[1], stamp=False), stamped[2]],
                                 start_stamp=True)
     scenario("27-per-event-missing", "per-event, but seq 2 carries no timestamp.", bundle(control, arts),
-             "run_invalid", {"objects": "warn", "timestamps": "bad"}, findings=["seq 2 (tool_result): a timestamp"])
+             "run_invalid", {"objects": "warn", "timestamps": "bad"}, findings=["seq 2 (tool_result): a timestamp"],
+             before=True)
 
     checkpoint = {"type": "checkpoint", "minute": 3, "stamp": True, "step": {"detail": "idle"}}
     p, control, arts = standard(steps=STEPS[:2] + [checkpoint, tail])
@@ -527,7 +542,8 @@ def main() -> None:
     control = control_artifact(p, policy=None)
     arts = build_run(STEPS, p, control=control)
     scenario("33-control-without-policy", "The control basis signs no timestampPolicy: the defaults apply, with a "
-             "warning.", bundle(control, arts), "run_finalized", {"objects": "warn"})
+             "warning.", bundle(control, arts), "run_finalized", {"objects": "warn"},
+             warnings=["signs no timestampPolicy"])
 
     p, control, arts = standard(tweak=lambda seq, e: e.update(evidenceId="urn:uuid:" + e["evidenceId"]))
     scenario("34-urn-uuid-accepted", "Events use the urn:uuid: form of evidenceId: accepted.",
@@ -555,6 +571,105 @@ def main() -> None:
     scenario("38-evaluation-fail-reported", "A FAIL evaluation is reported unchanged; the run itself finalizes.",
              bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
              evaluations=[dict(EVAL_OK, overall="FAIL")])
+
+    p = {}
+    control = control_artifact(p, stamp_at=None)
+    arts = build_run(STEPS, p, control=control)
+    scenario("40-control-unstamped", "The control basis carries no timestamp.", bundle(control, arts), "run_invalid",
+             {"objects": "warn", "control": "bad"}, findings=["control artifact: a timestamp is required"])
+
+    p = {}
+    control = control_artifact(p, tweak=lambda e: e["activity"].update(
+        correlationId="urn:uuid:00000000-0000-4000-9000-000000000002"))
+    arts = build_run(STEPS, p, control=control)
+    scenario("41-control-other-correlation", "The control basis belongs to another run.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "control": "bad"}, findings=["its signed correlationId is not the run's"])
+
+    p = {}
+    control = control_artifact(p, tweak=lambda e: e["agent"].update(id="urn:example:agent:other"))
+    arts = build_run(STEPS, p, control=control)
+    scenario("42-control-other-agent", "The control basis names another agent than the run's actor.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "control": "bad"},
+             findings=["is not the run's actor"])
+
+    p, control, arts = standard(policy=dict(POLICY, profile="fast"))
+    scenario("43-malformed-policy", "The signed timestampPolicy names an unknown profile.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "envelope": "bad", "timestamps": "bad"},
+             findings=["timestampPolicy.profile must be one of", "the signed timestampPolicy is malformed"])
+
+    p, control, arts = standard(steps=[STEPS[0], dict(STEPS[1], cty=CTY["control"]), STEPS[2]])
+    scenario("44-wrong-content-type", "seq 2 is signed under the Control Artifact's content type: one profile "
+             "presented as another.", bundle(control, arts), "run_invalid", {"objects": "warn", "signatures": "bad"},
+             findings=["seq 2: its signed content type (sigD.ctys[0]) is 'application/vnd.sigill.agent-control+json'"])
+
+    def other_version(seq, e):
+        if seq == 2:
+            e["actor"]["version"] = "2.5.0"
+    p, control, arts = standard(tweak=other_version)
+    scenario("45-actor-mismatch", "seq 2 is signed under another agent version than run_start.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
+             findings=["seq 2: signed actor/version"])
+
+    steps = [STEPS[0], {"type": "run_end", "minute": 2, "stamp": True, "step": {"runDisposition": "completed"}},
+             dict(STEPS[1], minute=3), dict(STEPS[2], minute=4)]
+    p, control, arts = standard(steps=steps, finish=False)
+    scenario("46-run-end-not-last", "Events follow the only run_end.", bundle(control, arts), "run_invalid",
+             {"objects": "warn", "finalization": "bad"}, findings=["run_end is not the last artifact"])
+
+    def paused(seq, e):
+        if e["step"]["type"] == "run_end":
+            e["step"]["runDisposition"] = "paused"
+    p, control, arts = standard(tweak=paused)
+    scenario("47-bad-disposition", "run_end's runDisposition is not completed, aborted or failed.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "envelope": "bad", "finalization": "bad"},
+             findings=["carries no valid runDisposition"])
+
+    def wrong_prev(seq, e):
+        if e["step"]["type"] == "run_end":
+            e["step"]["finalPrevSignatureSha256"] = "0" * 64
+    p, control, arts = standard(tweak=wrong_prev)
+    scenario("48-final-prev-not-own", "run_end's finalPrevSignatureSha256 is not its own chain link.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "finalization": "bad"},
+             findings=["finalPrevSignatureSha256 is not its own"])
+
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1], cert=CERT_A)
+    scenario("49-evaluation-by-the-run-signer", "The run evaluates itself: a warning, never a failure.",
+             bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
+             warnings=["is signed by the run's own certificate"])
+
+    p = {}
+    control = control_artifact(p, policy=per_event, stamp_at="2026-10-01T09:10:00Z")
+    arts = build_run([dict(s, stamp=True) for s in STEPS], p, control=control, start_stamp=True)
+    scenario("50-control-sealed-after-run", "The control basis was timestamped after run_start: a warning.",
+             bundle(control, arts), "run_finalized", {"objects": "warn"}, before=False,
+             warnings=["later than run_start's"])
+
+    p, control, arts = standard(end_stamp_at="2026-10-01T09:03:00Z")
+    scenario("51-event-time-implausible", "run_end claims an eventTime a minute after its own seal time: a warning.",
+             bundle(control, arts), "run_finalized", {"objects": "warn"}, plausible=False,
+             warnings=["is later than its own seal time"])
+
+    def optional_control(e):
+        e["agent"]["identityRef"] = "urn:example:identity:support-triage"
+        e["actor"]["displayHint"] = "Production harness"
+        e["objects"][0]["encoding"] = "utf-8"
+        e["objects"][0]["metadata"] = {"lines": 1}
+
+    def optional_event(seq, e):
+        if e["objects"]:
+            e["objects"][0]["encoding"] = "binary"
+            e["objects"][0]["metadata"] = {"producer": {"version": 1}}
+    p = {}
+    control = control_artifact(p, tweak=optional_control)
+    arts = build_run(STEPS, p, control=control, tweak=optional_event)
+    scenario("52-optional-fields", "Every optional field the schemas allow is present and valid.",
+             bundle(control, arts, (), p), "run_finalized", {})
+
+    p, control, arts = standard()
+    scenario("53-control-only", "A control basis whose run has not started: control_only, run_open.",
+             bundle(control, []), "run_open", {"objects": "warn", "timestamps": "warn", "finalization": "warn"},
+             binding="control_only", plausible=None)
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))

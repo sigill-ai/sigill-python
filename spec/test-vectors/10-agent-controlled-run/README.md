@@ -43,9 +43,13 @@ timestamped. It verifies as `run_finalized`, `bound`. The sabotage cases
 basis, wrong evaluation subject, swapped control set, and the rest) are
 pinned with the stub signer in [`../agent-run/`](../agent-run/README.md).
 
-The SDK tests check the canonical bytes offline and, when the platform is
-reachable, verify the whole set against the live blind `POST
-/seal/verify-objects`. The set is frozen: refreshing it means sealing a new
+The SDK tests check the canonical bytes and run the profile layer offline
+with a digests-only verifier: it compares every `hashV` with the supplied
+digests and reads `genTime` from each timestamp token, but treats signature
+values and timestamp tokens as valid without checking them. To verify the
+signatures, submit the artifacts to the blind `POST /seal/verify-objects`
+(`AgentRunVerifier.Remote`). CI regenerates `canonical/` and runs
+`_validate.py`. The set is frozen: refreshing it means sealing a new
 run with the SDK against the Sigill test tenant and replacing the directory.
 
 The nine seals were issued by six different TSAs in the platform pool

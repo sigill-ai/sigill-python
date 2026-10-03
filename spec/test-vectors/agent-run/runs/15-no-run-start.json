@@ -355,6 +355,10 @@
     "findingsContain": [
       "The run has no run_start"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

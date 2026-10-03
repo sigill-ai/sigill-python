@@ -377,6 +377,10 @@
     "missingSeqs": [],
     "fingerprint": "4d1bde5682dc517cc88b6071968a7a5beac726af09054a8c95e5c9d53159374e",
     "findingsContain": [],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": true,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

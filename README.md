@@ -436,6 +436,13 @@ What to know:
   `client.verify_agent_run(bundle, expected_signers=[thumbprint])`
   (`result.signer` shows the run's), and the verifier's with
   `expected_evaluation_signers`.
+- **Keep the Control Artifact with the run.** `run_start` binds it, so a
+  bundle without it fails the `control` check: leaving it out must not hide a
+  stricter policy or a broken control basis.
+- **What the default does not prove.** Events without a timestamp could be
+  rewritten by anyone able to seal with the run's certificate until `run_end`
+  is timestamped; `result.scope` says so. Timestamp consequential events to
+  narrow that window.
 - **Evaluations never change the run verdict.** They are reported on their
   own, and the SDK never evaluates controls: `overall` is the named
   verifier's claim, bound to this run's `run_end`, Control Artifact and

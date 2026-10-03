@@ -1,5 +1,5 @@
 {
-  "description": "No event carries a non-empty correlationId.",
+  "description": "The control basis belongs to another run.",
   "bundle": {
     "format": "AgentRunBundle",
     "bundleVersion": "1",
@@ -16,7 +16,7 @@
         },
         "activity": {
           "name": "support-ticket-close",
-          "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000002"
         },
         "agent": {
           "id": "urn:example:agent:support-triage",
@@ -74,8 +74,8 @@
       "signature": {
         "signatures": [
           {
-            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiJdLCJoYXNoViI6WyIwTG85dHZoa2JSdXFsbmJuLURhdWIydml3MVpCaW1jMzgycmRaY0o3cERBIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-            "signature": "tZFzybpWOj7MRW6fi2iYSsIGXtyq-ekj86qX3CoA-jE",
+            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiJdLCJoYXNoViI6WyJ5QzlTdTZSWmRtajQxdWJVMU9EMlVabFh0N19lNjNNVHNoeXVRX2YtTnhvIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+            "signature": "61XZFoAT7Ezanz8D5TYXsbHACFeaauVsG_NtbQWILw4",
             "header": {
               "stubTimestamp": {
                 "genTime": "2026-10-01T08:59:01Z",
@@ -108,7 +108,7 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 0
@@ -128,14 +128,14 @@
             }
           ],
           "binds": {
-            "controlArtifactSignatureSha256": "11960a3d4b522f50c59ccee0dd93f572ac501aca3bcfd85ef7a15b3fd02be0c6"
+            "controlArtifactSignatureSha256": "e13fc8d500328539aac18abdfc1f3153b46956675cdd64d074c4732cfda144ca"
           }
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIklMVVg2czNxN1VtU0dLYk9qQVNSWGsyLWpING5KYV9yQm5BRXF1aU5ZclUiLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-              "signature": "ku6aNpFVjbpb7y25QCZs9sDK0J9iMs6V2MG4YgDcTDM"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIm5nRkhWT1pManpKWVJNSEp2b0VhaWhmVWktSEdta3dUVm81NTNJTXVaSVUiLCJUaG5mZGl1X3RmR1RnOUxqZjdFc0Z1ZjhPeUROdkZaeldENl9LZ0VndkowIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "Nny16J4V7Mqc90wOihm4mgzg_ObH34-wW-qBLnKS7Xg"
             }
           ]
         },
@@ -156,11 +156,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 1,
-            "prevSignatureSha256": "3bff0ea5e2e024e663fd7e3af418fd82cb8e3618dab9049a96c026904fd688dc"
+            "prevSignatureSha256": "90791a7c5497abb917ac02665686a501fd14a9a5126fe2769b417777ee09545d"
           },
           "step": {
             "type": "tool_call",
@@ -184,8 +184,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjhkemp5dHJ3c2huX0xfU01VbDN4UEhKVXAtUU1XODcwb3pUS1FOUGF0RTAiLCJnZU42d0VZTnNjazM1RVU3MGVXWUhUc3BWOGxUTTJldWVkaTRzWE1wX0VnIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMS10b29sLWFyZ3VtZW50cyJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-              "signature": "mdDxWbzv6JdmtaeTaGAGR82Sz_XF_bjaiT2dCNN9qCc"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbImpnMF9rZDFQR2FqcGxWUjc4S2Z2dmM5S2dvbEwyZHc4RWo5eS1nVERXVW8iLCJnZU42d0VZTnNjazM1RVU3MGVXWUhUc3BWOGxUTTJldWVkaTRzWE1wX0VnIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMS10b29sLWFyZ3VtZW50cyJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "IHyGnkythwmXbENfg73R3tcNHQrwtU9EhZOvTXMCRvA"
             }
           ]
         },
@@ -206,11 +206,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 2,
-            "prevSignatureSha256": "4f3a5cae94a2e667dede837580ec3f5fff038e37b700c8bcbcf0d20e67c903b6"
+            "prevSignatureSha256": "752259177cc5d883709363c331969fc57928c0a762f86f7d8448fca13dabfefe"
           },
           "step": {
             "type": "tool_result",
@@ -233,8 +233,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIlpWTm96UlRGR3kyT0pkcU5Vb0xjVVNEQnJ0QVlhMHdXaXhuUmsyNFkyTmMiLCJ2SmtHYW91QlBuWXlBY0VVMUgzWk1BY1F1Z3JQSEU1U0t1ZU9MRnhITzRjIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMi10b29sLXJlc3VsdCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-              "signature": "Ebqd8vZCKYUYfpCcq_5tuYjvbJgwTki7lllW2M686ho"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIk5kdzY3U2RpZVUwMEUtQjBVZTY0b2hOdTZ2SUxnSnRJWXpuQ3JTM2lrb2siLCJ2SmtHYW91QlBuWXlBY0VVMUgzWk1BY1F1Z3JQSEU1U0t1ZU9MRnhITzRjIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMi10b29sLXJlc3VsdCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "iB4PWm-DCOyn05AsxDO2h0oLwMSLRlpX0y6kGdAvl8w"
             }
           ]
         },
@@ -255,11 +255,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 3,
-            "prevSignatureSha256": "6788e3876fb40ee7d59f8d1c1fef1b6fcaf4af81b2b4c19692dadb077c0f3393"
+            "prevSignatureSha256": "2504ea2b6ec3d29e33679f766bedbd8385c765f9c936b18b985392cf59cc57c8"
           },
           "step": {
             "type": "model_output",
@@ -279,8 +279,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjNabkFCTk5UeTVkdEtCMFNfMk1IdlA4NE9Ec25zRnRMYWxETVpQRVczTDgiLCItRFlUdkNaMS1xSk11UTZvRm5FRUdqQWd1SkxLT0tqUHpUaTQ1a3dPREFrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMy1tb2RlbC1vdXRwdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
-              "signature": "Kwyuk114NNBpNOUvlWw_4HV_dbXhff5RmAsSjQmQaBc"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbInJBYU5TOFZOQ1FVbkg3MXMtZlZ4dXU4MS1rX2l6T2NMN2R6MC1XR1gwMEUiLCItRFlUdkNaMS1xSk11UTZvRm5FRUdqQWd1SkxLT0tqUHpUaTQ1a3dPREFrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMy1tb2RlbC1vdXRwdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "c4FPN_FNS4dQtp90F9Ks-b1SvCRuNRZDrQ8DGwzMETI"
             }
           ]
         },
@@ -301,11 +301,11 @@
           },
           "activity": {
             "name": "support-ticket-close",
-            "correlationId": ""
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
           },
           "chain": {
             "seq": 4,
-            "prevSignatureSha256": "d5d04fa355b4a450f056afbe58c87c78931badf92f66b12a3ded8c52d6884c8f"
+            "prevSignatureSha256": "274015bd5c44f6e8cd73cf69b78e4d393841dd16777979bf91ac2c7bfbb9a17c"
           },
           "step": {
             "type": "run_end",
@@ -314,15 +314,15 @@
             "timestamp": "required",
             "runDisposition": "completed",
             "finalSeq": 4,
-            "finalPrevSignatureSha256": "d5d04fa355b4a450f056afbe58c87c78931badf92f66b12a3ded8c52d6884c8f"
+            "finalPrevSignatureSha256": "274015bd5c44f6e8cd73cf69b78e4d393841dd16777979bf91ac2c7bfbb9a17c"
           },
           "objects": []
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIk1kME1NM2lSQVZTcGtkTDBoanNrUW9pcDBwSUtzSnhjWGtYOVdrckhkc28iXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
-              "signature": "vA_eqduUAxjbiesTZYci7W5pQIBCwe5E_35s5TCAZeM",
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjdyZEg5Zy1MNkx0XzVnTDlwWnp6T2FMR3J5azliRDE3c1BTSFlUZVVGc1UiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+              "signature": "8o57O93zhvZLUgIZ0nswbHqgNIAJas7um45zoudkSzA",
               "header": {
                 "stubTimestamp": {
                   "genTime": "2026-10-01T09:04:00Z",
@@ -339,21 +339,21 @@
   "expected": {
     "verdict": "run_invalid",
     "checks": {
-      "correlation": "bad",
+      "correlation": "ok",
       "sequence": "ok",
       "chain": "ok",
-      "envelope": "bad",
+      "envelope": "ok",
       "signatures": "ok",
       "timestamps": "ok",
       "objects": "warn",
       "finalization": "ok",
-      "control": "ok"
+      "control": "bad"
     },
     "binding": "bound",
     "missingSeqs": [],
-    "fingerprint": "7ab24fd40341ee030f0066349b03ef409e88f01cfe6b3d0efa9d56bf69a1d0b7",
+    "fingerprint": "4b6a3dde2ac17eb7c51e6bbfa592356128e028c16271a6ce7a81adeeeeb1b5cf",
     "findingsContain": [
-      "no signed correlationId"
+      "its signed correlationId is not the run's"
     ],
     "warningsContain": [],
     "warningCount": 0,

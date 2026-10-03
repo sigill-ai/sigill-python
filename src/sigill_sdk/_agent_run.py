@@ -188,7 +188,10 @@ class AgentRun:
             them. Off by default: a digests-only bundle reveals no content.
         :param on_artifact_sealed: called after each artifact is sealed — the Control Artifact
             first, then every event strictly in chain order. Persist it here so a crash leaves a
-            shorter prefix, never a hole. An exception propagates; the run itself stays usable.
+            shorter prefix, never a hole. It may call back into the run; an event recorded from
+            inside the callback is delivered at once (waiting would deadlock), so it can arrive
+            ahead of an event another thread sealed meanwhile. An exception propagates; the run
+            itself stays usable.
         """
         if control_set is None:
             raise ValueError("control_set is required.")

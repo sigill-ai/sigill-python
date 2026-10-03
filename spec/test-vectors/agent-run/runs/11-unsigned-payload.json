@@ -368,6 +368,10 @@
     "findingsContain": [
       "is not a signed object of any artifact"
     ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

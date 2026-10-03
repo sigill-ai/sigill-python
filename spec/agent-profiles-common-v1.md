@@ -147,17 +147,21 @@ for each event in seq order:
 exactly that truncated value, so producer and verifier always agree.
 
 Without the Control Artifact (`run_only`) the policy is unknown: the verifier
-requires only `run_end` and declared events and reports `timestamps: warn`.
-A Control Artifact without `timestampPolicy` is judged under the defaults
-above, with a warning.
+requires only `run_end` and declared events and reports `timestamps: warn`
+(the run is invalid anyway, §8: `control`). A Control Artifact without
+`timestampPolicy` is judged under the defaults above, with a warning.
 
-**What this proves.** The order of events is proven by the chain. The time of
-an unstamped event is bounded between the Control Artifact's timestamp and the
-next timestamped artifact; the exact time is the producer's claim. Anyone who
-can seal with the run's certificate — Sigill's key store, used through the
-tenant's API credentials — could in principle rewrite unstamped events within
-that window. Timestamping consequential events narrows the window at the
-cost of one timestamp each.
+**What this proves.** The order of events is proven by the chain. An
+unstamped event's time is bounded above by the next timestamped artifact's
+`sigTst` (the chain makes every earlier signature exist before it) and below
+only by the order of the chain: it was sealed after the Control Artifact's
+signature existed, because it commits to it. A timestamp is an upper bound on
+when a signature existed, never a lower one, and it sits in the unprotected
+header, so it can be added later. The exact time is the producer's claim.
+Anyone who can seal with the run's certificate — Sigill's key store, used
+through the tenant's API credentials — could in principle rewrite the
+unstamped events of a run until `run_end` is timestamped. Timestamping
+consequential events narrows that window at the cost of one timestamp each.
 
 ## 5. Detached objects
 
@@ -228,7 +232,7 @@ Later checks run even when earlier ones fail, so the report is complete.
 | `timestamps` | An artifact required by §4 lacks a valid timestamp, a present timestamp is invalid, or the signed policy is malformed. `warn` while no valid `run_end` anchor exists, or without the Control Artifact. |
 | `objects` | A signed object was not supplied, no longer matches, a supplied payload contradicts its supplied digest, the signature and envelope disagree on the object list, or unsigned data was supplied. `warn` when every object matched by digest but some payloads were not supplied. |
 | `finalization` | More than one `run_end`; `run_end` is not last; it has no valid `runDisposition`; its `finalSeq` is not its own `seq`, or its `finalPrevSignatureSha256` is not its own `chain.prevSignatureSha256`; or it lacks a valid timestamp. `warn` when there is no `run_end`. |
-| `control` | `run_start`'s `binds.controlArtifactSignatureSha256` is not `signatureSha256` of the supplied Control Artifact, or a later event binds another; the Control Artifact fails its own signature, objects or timestamp. `warn` when the Control Artifact is not supplied (`run_only`). |
+| `control` | The Control Artifact the run binds is not supplied (`run_only`): `run_start` must bind one, so a bundle without it is always incomplete, and omitting it would otherwise hide a broken control basis or a stricter policy; `run_start`'s `binds.controlArtifactSignatureSha256` is not `signatureSha256` of the supplied Control Artifact, or a later event binds another; the Control Artifact fails its own signature, objects or timestamp, its `correlationId` is not the run's, or its `agent` is not the run's actor. |
 
 **Run verdict:** any `bad` → `run_invalid`; no `run_end` → `run_open`;
 otherwise `run_finalized`. Malformed evidence is a verdict, never an error: a
@@ -237,11 +241,13 @@ verifier never raises on it.
 **Binding state:** `bound` (run and its Control Artifact), `run_only`,
 `control_only` (a Control Artifact without events), `unbound`.
 
-**Seal time, as defence in depth** (reported, never fatal): the Control
-Artifact's `sigTst` genTime is not later than `run_start`'s
-(`controlSealedBeforeRun`, `null` when `run_start` has no timestamp), and no
-event claims an `eventTime` later than its own seal time plus the TSA's
-stated accuracy and a five-second skew allowance (`eventTimesPlausible`).
+**Seal time, as defence in depth** (reported as warnings, never fatal): the
+Control Artifact's `sigTst` genTime is not later than `run_start`'s plus one
+second for TSA accuracy (`controlSealedBeforeRun`; `null` when `run_start` has
+no timestamp, which is the default policy), and no timestamped event claims an
+`eventTime` later than its own `sigTst` genTime plus six seconds — five
+seconds of clock skew and one of TSA accuracy (`eventTimesPlausible`; `null`
+when no event is timestamped).
 Seal times are never compared along the chain: `prevSignatureSha256` proves
 that order already.
 
@@ -259,13 +265,15 @@ blind `POST /seal/verify-objects`; either way only digests leave the
 verifier.
 
 **Scope.** `run_finalized` with `overall: PASS` means: the control basis was
-sealed before the first event, all recorded events are unchanged and in the
-recorded order, the run was closed under one signer, and the named verifier
-reported PASS against the pre-sealed control set. It does not establish that
-every event was captured, that `eventTime` is true, that no other run took
-place, that the verifier measured correctly, or — unless the verifier was
-given expected signers — who produced the run. Verifiers SHOULD show this
-scope next to the verdict.
+sealed before the first event, all recorded events are unchanged since
+`run_end` was timestamped and are in the recorded order, the run was closed
+under one signer, and the named verifier reported PASS against the
+pre-sealed control set. It does not establish that every event was captured,
+that `eventTime` is true, that no other run took place, that the verifier
+measured correctly, or — unless the verifier was given expected signers — who
+produced the run. Unstamped events could have been rewritten by anyone able
+to seal with the run's certificate until `run_end` was timestamped (§4).
+Verifiers SHOULD show this scope next to the verdict.
 
 ### 8.1 What verification cannot see
 
@@ -305,8 +313,8 @@ verification by digest needs only their hashes.
   cross-language vectors — binding digests, and complete bundles with their
   expected verdicts under a deterministic stub signer.
 - [`test-vectors/10-agent-controlled-run/`](./test-vectors/10-agent-controlled-run/README.md):
-  one run sealed for real by the Sigill test tenant (canonical bytes, and a
-  live verification against the platform).
+  one run sealed for real by the Sigill test tenant (canonical bytes, and the
+  profile layer checked offline; signature validity needs the platform).
 
 ## 11. Design decisions (record)
 
@@ -319,6 +327,16 @@ verification by digest needs only their hashes.
   run, not one per event. Deliberately deviates from the agent-execution MVP
   proposal's mandatory checkpoint after every consequential event; that is a
   policy option (`consequential: true`) instead.
+- **The rewrite window is accepted** (2026-10-03): with the default policy,
+  unstamped events can be rewritten by anyone able to seal with the run's
+  certificate until `run_end` is timestamped (§4). Shown in the scope text;
+  `consequential: true` or a cadence narrows it.
+- **A missing Control Artifact fails the run** (2026-10-03): `run_start` must
+  bind one, so `run_only` means it was left out, and leaving it out must not
+  turn an invalid run into a finalized one.
 - **`finalSeq` is `run_end`'s own `seq`**, duplicated in its step block, so
   closure is checkable without trusting the same artifact's chain fields.
-- **Bare UUID `evidenceId`**, as the v2 family core requires.
+- **Bare UUID `evidenceId`**, as the v2 family core requires. The `urn:uuid:`
+  form is accepted by the SDK verifiers (their validator's `format: uuid`
+  allows it); a general JSON Schema validator that enforces formats rejects
+  it.
