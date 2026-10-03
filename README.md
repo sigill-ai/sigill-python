@@ -409,8 +409,9 @@ result = client.verify_agent_run(AgentRunBundle.parse(open("run.json").read()))
 #                       timestamps, objects, finalization, control: ok | warn | bad
 # result.binding     -> "bound" | "run_only" | "control_only" | "unbound"
 # result.findings    -> exactly what failed, e.g. "Sequence gap: no artifact for seq 2 (deleted or withheld)."
-# result.evaluations -> per evaluation: subject_bound, control_set_digest_matches, baseline_digest_matches,
-#                       signature_valid, timestamp_valid, and overall exactly as the verifier claimed it
+# result.evaluations -> per evaluation: valid (read this one), the parts it is made of — subject_bound,
+#                       control_set_digest_matches, baseline_digest_matches, signature_valid, timestamp_valid,
+#                       objects_complete — and overall exactly as the verifier claimed it
 print(result.scope)  # what a verdict does — and does not — establish
 ```
 
@@ -448,8 +449,9 @@ What to know:
   the result carries a "TSA trust not established" warning.
 - **Evaluations never change the run verdict.** They are reported on their
   own, and the SDK never evaluates controls: `overall` is the named
-  verifier's claim, bound to this run's `run_end`, Control Artifact and
-  pre-sealed control set.
+  verifier's claim. Read it only when `valid` is true — the evaluation is then
+  signed over its own envelope, timestamped, intact, and bound to this run's
+  `run_end`, Control Artifact and pre-sealed control set.
 - **Persist as you go.** `on_artifact_sealed` runs after each artifact is
   sealed, in order. A sealing failure stops the chain; the partial bundle
   (`run.to_bundle()`) verifies as open or invalid, never as finalized.
@@ -496,6 +498,10 @@ and assert that their canonical output matches the committed reference bytes. Th
 in this repo is a vendored copy; the canonical source lives under `spec/` in
 [sigill-dotnet](https://github.com/sigill-ai/sigill-dotnet) too, and the bytes are
 byte-identical between the two.
+
+The same holds for agent runs: both verifiers reproduce every shared
+agent-run vector — verdict, checks, binding, findings and warnings — so a run
+recorded with either SDK verifies identically with the other.
 
 ## Pinning a specific TSA
 
