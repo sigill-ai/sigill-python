@@ -97,7 +97,7 @@
         "parentEvidenceId": {
           "type": "string",
           "format": "uuid",
-          "description": "Optional semantic link to a prior envelope this one continues from. Distinct from 'chain', which is a cryptographic sequence; see spec §5.4."
+          "description": "Optional semantic link to a prior envelope this one continues from. Distinct from 'chain', which is a cryptographic sequence; see spec §3.3."
         }
       }
     },
@@ -238,7 +238,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["seq"],
-      "description": "RESERVED (mechanism defined, semantics deliberately open in v2.0): cryptographic sequencing for multi-step agent runs. What constitutes a 'step' (turn / tool call / run) is out of scope for v2.0. See spec §3.4.",
+      "description": "Cryptographic sequencing for multi-step agent runs. The mechanism and preimage are defined in spec §3.4; step semantics belong to the profile that emits it (the Agent Evidence Profiles v1).",
       "properties": {
         "seq": {
           "type": "integer",
@@ -248,7 +248,7 @@
         "prevSignatureSha256": {
           "type": "string",
           "pattern": "^[0-9a-f]{64}$",
-          "description": "Lowercase SHA-256 hex over the previous step's signature. RECOMMENDED preimage: the base64url-decoded JWS Signature Value of the previous artifact's classical signature; the exact preimage is among the open v2.0 semantics. Absent for the first step (seq 0)."
+          "description": "Lowercase SHA-256 hex over the previous step's signature. Preimage (normative): the base64url-decoded JWS Signature Value of the previous artifact's classical signature (first signatures[] entry whose alg is not ML-DSA). Absent for the first step (seq 0)."
         }
       }
     },

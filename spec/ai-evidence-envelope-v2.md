@@ -99,7 +99,7 @@ groupings:
 | Context | `purpose`, `actor`, `activity` | Why the call happened, who or what triggered it. `actor.type` gains `"agent"` in v2. |
 | AI call | `model`, `objects[]`, `sourceTrace` | What was sent and produced (by reference), and retrieval provenance. |
 | Operational | `processingMetadata`, `policyMetadata` | Token usage, durations, redactions, consent. |
-| Sequencing | `chain` (reserved) | Cryptographic chaining for multi-step agent runs (§5.4). |
+| Sequencing | `chain` | Cryptographic chaining for multi-step agent runs (§3.4). |
 | Extension | `extensions` | Named extension point (§2). |
 
 Required: `schemaName`, `schemaVersion`, `evidenceId`, `createdAt`, `purpose`,
@@ -174,26 +174,28 @@ Two linking mechanisms, deliberately distinct:
 
 - **`activity.parentEvidenceId`** is a *semantic* link — "this evidence
   continues from that one". No cryptographic claim; it survives re-issuance.
-- **`chain`** (§5.4) is a *cryptographic* sequence — each step commits to the
+- **`chain`** (§3.4) is a *cryptographic* sequence — each step commits to the
   previous step's signature bytes. Tampering with any step breaks every
   subsequent link.
 
 A multi-step record MAY use both; a verifier MUST NOT treat
 `parentEvidenceId` as integrity evidence.
 
-### 3.4 `chain` — reserved
+### 3.4 `chain`
 
 ```json
 "chain": { "seq": 3, "prevSignatureSha256": "hex…" }
 ```
 
-The mechanism is defined (zero-based `seq`; lowercase SHA-256 hex over the
-previous step's signature; `prevSignatureSha256` absent at `seq: 0`), the
-semantics are **deliberately open in v2.0**: what constitutes a "step"
-(turn / tool call / run), and the exact preimage of `prevSignatureSha256`
-(RECOMMENDED: the base64url-decoded JWS Signature Value of the previous
-artifact's classical signature), are fixed only when a real agent case
-exists. Producers other than experiments SHOULD omit `chain` until then.
+Zero-based `seq`; lowercase SHA-256 hex over the previous step's signature;
+`prevSignatureSha256` absent at `seq: 0`. The preimage is normative: the
+base64url-decoded JWS Signature Value of the previous artifact's classical
+signature (the first `signatures[]` entry whose `alg` is not ML-DSA).
+
+What constitutes a step, and the rest of the run semantics (step types,
+timestamp policy, finalization, the binding to the control basis), are defined by
+the [Agent Evidence Profiles](agent-profiles-common-v1.md) (§2 binding rule). Producers SHOULD
+NOT emit `chain` outside a profile that defines it.
 
 ## 4. Canonicalization
 
@@ -495,4 +497,6 @@ revisit them deliberately:
   gives stronger privacy but worse UX for the producer's own audit, and the
   actor id never reaches Sigill either way.
 - **`chain`**: reserved with open semantics (§3.4) rather than omitted, so
-  the field name and shape are stable before multi-step producers exist.
+  the field name and shape were stable before multi-step producers existed.
+  Closed by the Agent Evidence Profiles v1: the classical-signature preimage is
+  normative, and step semantics belong to the agent profiles, not the family core.

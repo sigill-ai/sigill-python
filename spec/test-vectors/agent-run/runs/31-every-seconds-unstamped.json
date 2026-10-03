@@ -1,0 +1,364 @@
+{
+  "description": "everySeconds=300; seq 3 is 300 s later but unstamped.",
+  "bundle": {
+    "format": "AgentRunBundle",
+    "bundleVersion": "1",
+    "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+    "controlArtifact": {
+      "envelope": {
+        "schemaName": "AgentControlArtifact",
+        "schemaVersion": "1",
+        "evidenceId": "00000000-0000-4000-8000-000000000001",
+        "createdAt": "2026-10-01T08:59:00.000Z",
+        "actor": {
+          "type": "system",
+          "id": "urn:example:harness:prod"
+        },
+        "activity": {
+          "name": "support-ticket-close",
+          "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+        },
+        "agent": {
+          "id": "urn:example:agent:support-triage",
+          "version": "2.4.0"
+        },
+        "controlSet": {
+          "id": "ticket-close-v2",
+          "version": "2"
+        },
+        "objects": [
+          {
+            "uri": "urn:example:obj:instruction-set",
+            "role": "instruction-set",
+            "contentType": "text/plain",
+            "sizeBytes": 53
+          },
+          {
+            "uri": "urn:example:obj:tool-manifest",
+            "role": "tool-manifest",
+            "contentType": "application/json",
+            "sizeBytes": 42
+          },
+          {
+            "uri": "urn:example:obj:execution-policy",
+            "role": "execution-policy",
+            "contentType": "application/json",
+            "sizeBytes": 42
+          },
+          {
+            "uri": "urn:example:obj:model-config",
+            "role": "model-config",
+            "contentType": "application/json",
+            "sizeBytes": 17
+          },
+          {
+            "uri": "urn:example:obj:control-set",
+            "role": "control-set",
+            "contentType": "application/json",
+            "sizeBytes": 48
+          },
+          {
+            "uri": "urn:example:obj:baseline-state",
+            "role": "baseline-state",
+            "contentType": "application/json",
+            "sizeBytes": 50
+          }
+        ],
+        "timestampPolicy": {
+          "profile": "throughput",
+          "everyEvents": 0,
+          "everySeconds": 300,
+          "consequential": false
+        }
+      },
+      "signature": {
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiIsInRleHQvcGxhaW4iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiIsImFwcGxpY2F0aW9uL2pzb24iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJKWklsYmNpUU9VV09od09IMTBQV0F2NXlhbFZMakpHSVgxMHpkN25XeGo4IiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+            "signature": "Lh-jRE1aIgSdPO_LGW5ewPbjhi3to82ZrR7TqWB6SkQ",
+            "header": {
+              "stubTimestamp": {
+                "genTime": "2026-10-01T08:59:01Z",
+                "valid": true
+              }
+            }
+          }
+        ]
+      },
+      "objectDigests": {
+        "urn:example:obj:instruction-set": "86a329816f52232dfc967cc7b43f7a199b29bd814ff5a75db02e142531e5a338",
+        "urn:example:obj:tool-manifest": "0c4c5f0858b9d362924871c472b5e669a2e95618e8e84ad4b9cb1f7ab7dff2b6",
+        "urn:example:obj:execution-policy": "8972eb028b30e18769146462347eecbb05184148aae60d484f0853ebf4698176",
+        "urn:example:obj:model-config": "e4ff491169b8a9ea78518a7972422b5a24d5e3790e0d9a9e5cbfb384d9b621e0",
+        "urn:example:obj:control-set": "19dbfc8d0ed9849ec049ca26d6af1d2519f07e3a68625207d6252e548eb9ae81",
+        "urn:example:obj:baseline-state": "7fed9229fef0023292c2d1308f41eda2f4e2cadecea2e3750f62f605cf593b79"
+      }
+    },
+    "artifacts": [
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000100",
+          "createdAt": "2026-10-01T09:00:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 0
+          },
+          "step": {
+            "type": "run_start",
+            "eventTime": "2026-10-01T09:00:00.000Z",
+            "consequential": false,
+            "timestamp": "none"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:s0-model-input",
+              "role": "model-input",
+              "contentType": "text/plain",
+              "sizeBytes": 37
+            }
+          ],
+          "binds": {
+            "controlArtifactSignatureSha256": "fa5901ace59c400e999c02e969e58928636fe5f9f7db67b5436ce376c1693df0"
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJiVkdIZ0JHZXVDdWl6bFE3QlREd0tTY2ZnWHN5ODExd0oxdGM3Q1lSSms4IiwiVGhuZmRpdV90ZkdUZzlMamY3RXNGdWY4T3lETnZGWnpXRDZfS2dFZ3ZKMCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czAtbW9kZWwtaW5wdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "pqogfsqZDQK8fCtvDl0-_yQTBJAGlPmkHLBTjED0_Z8"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:s0-model-input": "4e19df762bbfb5f19383d2e37fb12c16e7fc3b20cdbc5673583ebf2a0120bc9d"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000101",
+          "createdAt": "2026-10-01T09:01:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 1,
+            "prevSignatureSha256": "226b318f8ff88a48ffbfe880d5c2ad5e08034ff4d5e50c91c56163d6545701d8"
+          },
+          "step": {
+            "type": "tool_call",
+            "eventTime": "2026-10-01T09:01:00.000Z",
+            "consequential": false,
+            "timestamp": "none",
+            "tool": {
+              "name": "lookup_ticket",
+              "operation": "read"
+            }
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:s1-tool-arguments",
+              "role": "tool-arguments",
+              "contentType": "application/json",
+              "sizeBytes": 17
+            }
+          ]
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJVQ0FESGU0WHYteUdSRVIxY3BsamRzTEE3NHZyal8zRklWaXA4ZmFGOGlJIiwiZ2VONndFWU5zY2szNUVVNzBlV1lIVHNwVjhsVE0yZXVlZGk0c1hNcF9FZyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czEtdG9vbC1hcmd1bWVudHMiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "ulEZny2ooTPdFjCVOLSX9-NUpjDef6K3mW672ESAZyQ"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:s1-tool-arguments": "81e37ac0460db1c937e4453bd1e5981d3b2957c9533367ae79d8b8b17329fc48"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000102",
+          "createdAt": "2026-10-01T09:02:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 2,
+            "prevSignatureSha256": "2e44edef70454c37caf61dba2ba0b7ce58b4e070bb5959cf1bd3e3d6eaf32722"
+          },
+          "step": {
+            "type": "tool_result",
+            "eventTime": "2026-10-01T09:02:00.000Z",
+            "consequential": false,
+            "timestamp": "none",
+            "tool": {
+              "name": "lookup_ticket"
+            }
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:s2-tool-result",
+              "role": "tool-result",
+              "contentType": "application/json",
+              "sizeBytes": 17
+            }
+          ]
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJPclNfbW83SXhDR3NOazNzYTV3NGZkeHphaElJNVEyUGc2WWZRNWFBNldVIiwidkprR2FvdUJQbll5QWNFVTFIM1pNQWNRdWdyUEhFNVNLdWVPTEZ4SE80YyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czItdG9vbC1yZXN1bHQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "_Fq3lRVjnA_QWELNzC0MN0QvLcuipnQN2MnNVZcX0GY"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:s2-tool-result": "bc99066a8b813e763201c114d47dd9300710ba0acf1c4e522ae78e2c5c473b87"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000103",
+          "createdAt": "2026-10-01T09:05:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 3,
+            "prevSignatureSha256": "1a8092054224a514387afee10a5d0b2505adff0d7e8dbfd607660397fea1f7a8"
+          },
+          "step": {
+            "type": "model_output",
+            "eventTime": "2026-10-01T09:05:00.000Z",
+            "consequential": false,
+            "timestamp": "none"
+          },
+          "objects": [
+            {
+              "uri": "urn:example:obj:s3-model-output",
+              "role": "model-output",
+              "contentType": "text/plain",
+              "sizeBytes": 34
+            }
+          ]
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyI1Nkt1QmpuMVpCS00wMXhUM1JwVWJTLWcyV2dRRWxCclVMQ281YTJldGNFIiwiLURZVHZDWjEtcUpNdVE2b0ZuRUVHakFndUpMS09LalB6VGk0NWt3T0RBayJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czMtbW9kZWwtb3V0cHV0Il19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+              "signature": "VHOfpCl33l8YwploADN4tOBGbrvPUC-nOil7Lr_T2YU"
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:s3-model-output": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000104",
+          "createdAt": "2026-10-01T09:06:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 4,
+            "prevSignatureSha256": "d6326fd897ce77199e22bf59654ddc59ead494976cbafd8910dc4a3e14f84fe7"
+          },
+          "step": {
+            "type": "run_end",
+            "eventTime": "2026-10-01T09:06:00.000Z",
+            "consequential": false,
+            "timestamp": "required",
+            "runDisposition": "completed",
+            "finalSeq": 4,
+            "finalPrevSignatureSha256": "d6326fd897ce77199e22bf59654ddc59ead494976cbafd8910dc4a3e14f84fe7"
+          },
+          "objects": []
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIlAwS0ZOaVo3S0c3MHJ5V3JSMlRnZUVFbHpEOXFDWU9PMnZLald4Rzd3QjgiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+              "signature": "XyP4wqdhQFtiABgeVy0K8P0DMCoxK1aoVc6KswdQ3uY",
+              "header": {
+                "stubTimestamp": {
+                  "genTime": "2026-10-01T09:06:00Z",
+                  "valid": true
+                }
+              }
+            }
+          ]
+        },
+        "objectDigests": {}
+      }
+    ]
+  },
+  "expected": {
+    "verdict": "run_invalid",
+    "checks": {
+      "correlation": "ok",
+      "sequence": "ok",
+      "chain": "ok",
+      "envelope": "ok",
+      "signatures": "ok",
+      "timestamps": "bad",
+      "objects": "warn",
+      "finalization": "ok",
+      "control": "ok"
+    },
+    "binding": "bound",
+    "missingSeqs": [],
+    "fingerprint": "708943300c21e4cecc03c50aa268ee1a5abf50757330666efde3946141c025fb",
+    "findingsContain": [
+      "seq 3 (model_output): a timestamp is required"
+    ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": true,
+    "eventTimesPlausible": true,
+    "evaluations": []
+  }
+}

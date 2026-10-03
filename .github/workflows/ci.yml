@@ -46,16 +46,19 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install jcs reference
-        run: pip install jcs
+      - name: Install jcs and jsonschema references
+        run: pip install jcs jsonschema
       - name: Verify committed canonical bytes match regeneration
         run: |
           set -euo pipefail
-          for vec in spec/test-vectors/01-complete-ai-call spec/test-vectors/02-pii-redacted; do
+          for vec in spec/test-vectors/01-complete-ai-call spec/test-vectors/02-pii-redacted spec/test-vectors/10-agent-controlled-run spec/test-vectors/agent-run; do
             python "$vec/_generate.py"
           done
-          if ! git diff --quiet -- spec/test-vectors; then
-            echo "::error::Test vector bytes drifted from committed values:"
+          python spec/test-vectors/10-agent-controlled-run/_validate.py
+          # status, not diff: also catches vectors the generator adds or no longer produces.
+          if [ -n "$(git status --porcelain -- spec/test-vectors)" ]; then
+            echo "::error::Test vectors drifted from committed values:"
+            git status --porcelain -- spec/test-vectors
             git diff -- spec/test-vectors
             exit 1
           fi

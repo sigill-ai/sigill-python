@@ -1,0 +1,327 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sigill.ai/agent-control-artifact/v1.json",
+  "title": "AgentControlArtifact",
+  "description": "Sibling profile of AiEvidenceEnvelopeV2: the control basis sealed before an agent run. See agent-control-artifact-v1.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "evidenceId",
+    "createdAt",
+    "actor",
+    "activity",
+    "agent",
+    "controlSet",
+    "objects"
+  ],
+  "properties": {
+    "schemaName": {
+      "type": "string",
+      "const": "AgentControlArtifact"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "1"
+    },
+    "evidenceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "A bare UUID, as the v2 family core requires. Verifiers also accept the urn:uuid: form (common rules §1)."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Producer's clock, RFC 3339 UTC. Seal time is proven by sigTst."
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "service",
+            "system",
+            "agent"
+          ],
+          "description": "Who produced this artifact."
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier. Not a display name, not PII."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the producing component."
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "displayHint": {
+          "type": "string"
+        }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "correlationId"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The run identifier; identical in every artifact of one run."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "description": "Producer-private data, as AiEvidenceEnvelopeV2 §2."
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "identityRef": {
+          "type": "string"
+        }
+      }
+    },
+    "controlSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "description": "Exactly one control-set; each other role at most once; never empty.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri",
+          "role"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque, byte-exact match with sigD.pars; never 'urn:sigill:envelope'."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "instruction-set",
+              "tool-manifest",
+              "execution-policy",
+              "model-config",
+              "control-set",
+              "authority",
+              "baseline-state"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf-8",
+              "binary"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "minItems": 1,
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "control-set"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "instruction-set"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "tool-manifest"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "execution-policy"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "model-config"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "authority"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "baseline-state"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 0,
+          "maxContains": 1
+        }
+      ]
+    },
+    "timestampPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "profile",
+        "everyEvents",
+        "everySeconds",
+        "consequential"
+      ],
+      "description": "The run's signed timestamp policy (common rules §4). Producers always write it; a Control Artifact without one is judged under the defaults, with a warning.",
+      "properties": {
+        "profile": {
+          "type": "string",
+          "enum": [
+            "throughput",
+            "per-event"
+          ]
+        },
+        "everyEvents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "everySeconds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "consequential": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
