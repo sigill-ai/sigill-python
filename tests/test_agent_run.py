@@ -983,3 +983,11 @@ def test_blind_verdict_maps_the_verify_objects_response() -> None:
     assert v.objects == [("urn:sigill:envelope", True)]
     assert v.timestamp == SignatureTimestampInfo("2026-10-01T09:00:00Z", "Example TSA", True)
     assert v.certificate is not None and v.certificate.trust == "issuer_distinct"
+
+
+def test_parse_rejects_deep_nesting_without_recursion_error():
+    # ~450–999 levels: json.loads manages, a recursive depth walk would not.
+    text = '{"format":"AgentRunBundle","bundleVersion":"1","artifacts":[],"x":' + '{"a":' * 800 + '1' + '}' * 800 + '}'
+    with pytest.raises(AgentRunBundleFormatError) as err:
+        AgentRunBundle.parse(text)
+    assert any("nests deeper than 64 levels" in e for e in err.value.errors)

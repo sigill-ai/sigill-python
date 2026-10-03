@@ -244,12 +244,16 @@ class AgentRunBundleFormatError(SigillError):
 
 
 def _depth(v: Any) -> int:
-    """Nesting depth: a scalar is 0, an object or array one more than its deepest member."""
-    if isinstance(v, dict):
-        return 1 + max((_depth(x) for x in v.values()), default=0)
-    if isinstance(v, list):
-        return 1 + max((_depth(x) for x in v), default=0)
-    return 0
+    """Nesting depth: a scalar is 0, an object or array one more than its deepest member.
+    Iterative, so arbitrarily deep input cannot exhaust the stack."""
+    deepest, stack = 0, [(v, 0)]
+    while stack:
+        node, level = stack.pop()
+        if isinstance(node, (dict, list)):
+            level += 1
+            deepest = max(deepest, level)
+            stack.extend((x, level) for x in (node.values() if isinstance(node, dict) else node))
+    return deepest
 
 
 @dataclass(frozen=True)
