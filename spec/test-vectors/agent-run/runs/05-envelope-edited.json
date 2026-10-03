@@ -1,5 +1,5 @@
 {
-  "description": "model_output's envelope was edited after signing.",
+  "description": "model_output's envelope was edited after signing (its eventTime moved before the control basis).",
   "bundle": {
     "format": "AgentRunBundle",
     "bundleVersion": "1",
@@ -355,10 +355,12 @@
     "findingsContain": [
       "the signature does not cover this envelope"
     ],
-    "warningsContain": [],
-    "warningCount": 0,
-    "controlSealedBeforeRun": null,
-    "eventTimesPlausible": true,
+    "warningsContain": [
+      "earlier than the Control Artifact's timestamp"
+    ],
+    "warningCount": 1,
+    "controlSealedBeforeRun": true,
+    "eventTimesPlausible": false,
     "evaluations": []
   }
 }

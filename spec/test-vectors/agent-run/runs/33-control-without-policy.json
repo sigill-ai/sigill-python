@@ -351,7 +351,7 @@
       "signs no timestampPolicy"
     ],
     "warningCount": 1,
-    "controlSealedBeforeRun": null,
+    "controlSealedBeforeRun": true,
     "eventTimesPlausible": true,
     "evaluations": []
   }

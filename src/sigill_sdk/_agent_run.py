@@ -249,10 +249,19 @@ class AgentRun:
         run.control_artifact = AgentRunArtifact(envelope, result.signature, digests)
         if retain_payloads:
             run._payloads.update({o.uri: o.data for o in objects})
-        run._notify(run.control_artifact, -1)
 
+        # Seal run_start before any callback runs, so a failing callback cannot strand a sealed control basis.
         start = run._seal_event("run_start", list(start_objects or []), {}, consequential=False)
-        run._notify(start, 0)
+        # Both are delivered even when the first callback fails: later events wait for their turn in order.
+        failure: Optional[Exception] = None
+        for artifact, seq in ((run.control_artifact, -1), (start, 0)):
+            try:
+                run._notify(artifact, seq)
+            except Exception as ex:  # noqa: BLE001 — surfaced below with the started run
+                if failure is None:
+                    failure = ex
+        if failure is not None:
+            raise AgentRunCallbackError(run, failure) from failure
         return run
 
     @property
@@ -482,6 +491,19 @@ class AgentRun:
                                "sealed.")
         if self._finished:
             raise RuntimeError("The run is finished.")
+
+
+class AgentRunCallbackError(SigillError):
+    """An ``on_artifact_sealed`` callback failed while the run was starting.
+
+    The run itself started: the Control Artifact and ``run_start`` are sealed,
+    and :attr:`run` carries on from there. The callback's exception is the
+    ``__cause__``.
+    """
+
+    def __init__(self, run: "AgentRun", cause: Exception) -> None:
+        super().__init__(f"The run started, but an on_artifact_sealed callback failed: {cause}")
+        self.run = run
 
 
 class ControlEvaluation:

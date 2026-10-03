@@ -354,10 +354,10 @@
     "fingerprint": "e572c0849206d976138884cdcb17a8014d7f772d4a16e34891af9d853c11f4db",
     "findingsContain": [],
     "warningsContain": [
-      "is later than its own seal time"
+      "later than the timestamp that bounds it"
     ],
     "warningCount": 1,
-    "controlSealedBeforeRun": null,
+    "controlSealedBeforeRun": true,
     "eventTimesPlausible": false,
     "evaluations": []
   }

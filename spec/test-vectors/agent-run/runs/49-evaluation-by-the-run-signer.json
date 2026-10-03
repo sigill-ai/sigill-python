@@ -435,7 +435,7 @@
       "is signed by the run's own certificate"
     ],
     "warningCount": 1,
-    "controlSealedBeforeRun": null,
+    "controlSealedBeforeRun": true,
     "eventTimesPlausible": true,
     "evaluations": [
       {

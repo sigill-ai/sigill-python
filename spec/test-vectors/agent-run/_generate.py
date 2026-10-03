@@ -294,6 +294,35 @@ def fingerprint(b: dict) -> str | None:
         "evaluations": evals, "payloads": pls}))
 
 
+def _time(v):
+    from datetime import datetime
+    return datetime.fromisoformat(v.replace("Z", "+00:00")) if isinstance(v, str) else None
+
+
+def seal_time(b: dict):
+    """Reference for the §8 seal-time results: (controlSealedBeforeRun, eventTimesPlausible).
+    Every stub timestamp is valid; artifacts that are not I-JSON are not read."""
+    from datetime import timedelta
+    allowance, accuracy = timedelta(seconds=6), timedelta(seconds=1)
+    ctl = b.get("controlArtifact")
+    ctl_at = _time(stamp_of(ctl)) if ctl else None
+    events = [a for a in b["artifacts"] if is_i_json(a["envelope"]) and is_i_json(a["signature"])]
+    events.sort(key=lambda a: a["envelope"]["chain"]["seq"])
+    line = [(_time(a["envelope"]["step"].get("eventTime")), _time(stamp_of(a))) for a in events]
+    stamped = [at for _, at in line if at is not None]
+    before = (ctl_at <= stamped[0] + accuracy) if ctl_at and stamped else None
+    plausible = None
+    for i, (claimed, _) in enumerate(line):
+        if claimed is None:
+            continue
+        if ctl_at is not None:
+            plausible = (True if plausible is None else plausible) and claimed >= ctl_at - allowance
+        upper = next((at for _, at in line[i:] if at is not None), None)
+        if upper is not None:
+            plausible = (True if plausible is None else plausible) and claimed <= upper + allowance
+    return before, plausible
+
+
 CHECKS = ("correlation", "sequence", "chain", "envelope", "signatures", "timestamps", "objects", "finalization",
           "control")
 ALL_OK = {k: "ok" for k in CHECKS}
@@ -302,9 +331,9 @@ EVAL_OK = {"subjectBound": True, "controlSetDigestMatches": True, "baselineDiges
 
 
 def scenario(name, description, b, verdict, checks, *, binding="bound", missing=None, findings=None,
-             evaluations=None, ascii_only=False, warnings=None, before=None, plausible=True) -> None:
-    """warnings: substrings, and their exact number. before / plausible: controlSealedBeforeRun and
-    eventTimesPlausible (null when nothing is comparable: run_start unstamped / no event stamped)."""
+             evaluations=None, ascii_only=False, warnings=None) -> None:
+    """warnings: substrings, and their exact number."""
+    before, plausible = seal_time(b)
     exp = dict(ALL_OK)
     exp.update(checks)
     write(f"runs/{name}.json", {
@@ -356,7 +385,7 @@ def main() -> None:
 
     p, control, arts = standard(finish=False)
     scenario("03-open", "No run_end yet: run_open; finalization and timestamps warn.", bundle(control, arts),
-             "run_open", {"objects": "warn", "finalization": "warn", "timestamps": "warn"}, plausible=None)
+             "run_open", {"objects": "warn", "finalization": "warn", "timestamps": "warn"})
 
     p, control, arts = standard()
     del arts[2]
@@ -366,8 +395,10 @@ def main() -> None:
 
     p, control, arts = standard()
     arts[3]["envelope"]["step"]["eventTime"] = "2026-10-01T08:58:00.000Z"
-    scenario("05-envelope-edited", "model_output's envelope was edited after signing.", bundle(control, arts),
-             "run_invalid", {"objects": "bad"}, findings=["the signature does not cover this envelope"])
+    scenario("05-envelope-edited", "model_output's envelope was edited after signing (its eventTime moved before "
+             "the control basis).", bundle(control, arts), "run_invalid", {"objects": "bad"},
+             findings=["the signature does not cover this envelope"],
+             warnings=["earlier than the Control Artifact's timestamp"])
 
     p, control, arts = standard()
     arts[2]["envelope"]["activity"]["correlationId"] = "urn:uuid:00000000-0000-4000-9000-000000000002"
@@ -380,7 +411,7 @@ def main() -> None:
     p, control, arts = standard(end_stamp=False)
     scenario("07-run-end-unanchored", "run_end carries no timestamp: nothing anchors the chain.",
              bundle(control, arts), "run_invalid", {"objects": "warn", "timestamps": "bad", "finalization": "bad"},
-             findings=["(run_end): a timestamp is required"], plausible=None)
+             findings=["(run_end): a timestamp is required"])
 
     p, control, arts = standard(policy=dict(POLICY, everyEvents=2))
     scenario("08-cadence-violated", "The control basis signs everyEvents=2; seq 1 carries no timestamp.",
@@ -500,12 +531,11 @@ def main() -> None:
     per_event = dict(POLICY, profile="per-event")
     p, control, arts = standard(policy=per_event, steps=stamped, start_stamp=True)
     scenario("26-per-event", "per-event: every event timestamped.", bundle(control, arts), "run_finalized",
-             {"objects": "warn"}, before=True)
+             {"objects": "warn"})
     p, control, arts = standard(policy=per_event, steps=[stamped[0], dict(stamped[1], stamp=False), stamped[2]],
                                 start_stamp=True)
     scenario("27-per-event-missing", "per-event, but seq 2 carries no timestamp.", bundle(control, arts),
-             "run_invalid", {"objects": "warn", "timestamps": "bad"}, findings=["seq 2 (tool_result): a timestamp"],
-             before=True)
+             "run_invalid", {"objects": "warn", "timestamps": "bad"}, findings=["seq 2 (tool_result): a timestamp"])
 
     checkpoint = {"type": "checkpoint", "minute": 3, "stamp": True, "step": {"detail": "idle"}}
     p, control, arts = standard(steps=STEPS[:2] + [checkpoint, tail])
@@ -642,13 +672,13 @@ def main() -> None:
     control = control_artifact(p, policy=per_event, stamp_at="2026-10-01T09:10:00Z")
     arts = build_run([dict(s, stamp=True) for s in STEPS], p, control=control, start_stamp=True)
     scenario("50-control-sealed-after-run", "The control basis was timestamped after run_start: a warning.",
-             bundle(control, arts), "run_finalized", {"objects": "warn"}, before=False,
-             warnings=["later than run_start's"])
+             bundle(control, arts), "run_finalized", {"objects": "warn"},
+             warnings=["later than the run's first timestamp", "earlier than the Control Artifact's timestamp"])
 
     p, control, arts = standard(end_stamp_at="2026-10-01T09:03:00Z")
     scenario("51-event-time-implausible", "run_end claims an eventTime a minute after its own seal time: a warning.",
-             bundle(control, arts), "run_finalized", {"objects": "warn"}, plausible=False,
-             warnings=["is later than its own seal time"])
+             bundle(control, arts), "run_finalized", {"objects": "warn"},
+             warnings=["later than the timestamp that bounds it"])
 
     def optional_control(e):
         e["agent"]["identityRef"] = "urn:example:identity:support-triage"
@@ -669,7 +699,30 @@ def main() -> None:
     p, control, arts = standard()
     scenario("53-control-only", "A control basis whose run has not started: control_only, run_open.",
              bundle(control, []), "run_open", {"objects": "warn", "timestamps": "warn", "finalization": "warn"},
-             binding="control_only", plausible=None)
+             binding="control_only")
+
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1], tweak=lambda e: e.update(
+        overall="FAIL", controls=[{"id": "ticket-closed", "result": "PASS"},
+                                  {"id": "owner-unchanged", "result": "FAIL", "detail": "owner changed"}]))
+    ev["envelope"]["overall"] = "PASS"
+    ev["envelope"]["controls"][1] = {"id": "owner-unchanged", "result": "PASS"}
+    scenario("54-evaluation-envelope-edited", "A FAIL evaluation edited to PASS after signing: its signature no longer "
+             "covers its envelope, so it is not valid.", bundle(control, arts, [ev]), "run_finalized",
+             {"objects": "warn"}, evaluations=[dict(EVAL_OK, signatureValid=False)])
+
+    steps = [STEPS[0], dict(STEPS[1], minute=2), {"type": "model_output", "minute": 3, "step": {},
+             "objects": [("model-output", "text/plain", b"Done.")]}]
+    def far(seq, e):
+        if seq == 1:
+            e["step"]["eventTime"] = "2031-01-01T00:00:00.000Z"
+        if seq == 2:
+            e["step"]["eventTime"] = "2020-01-01T00:00:00.000Z"
+    p, control, arts = standard(steps=steps, tweak=far)
+    scenario("55-event-times-outside-the-window", "Unstamped events claim times in 2031 and 2020: both outside the "
+             "window between the control basis and run_end's timestamp.", bundle(control, arts), "run_finalized",
+             {"objects": "warn"}, warnings=["earlier than the Control Artifact's timestamp",
+                                            "later than the timestamp that bounds it"])
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))

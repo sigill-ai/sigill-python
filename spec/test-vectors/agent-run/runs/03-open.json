@@ -310,7 +310,7 @@
     "warningsContain": [],
     "warningCount": 0,
     "controlSealedBeforeRun": null,
-    "eventTimesPlausible": null,
+    "eventTimesPlausible": true,
     "evaluations": []
   }
 }

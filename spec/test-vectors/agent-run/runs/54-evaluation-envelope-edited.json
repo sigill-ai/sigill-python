@@ -1,5 +1,5 @@
 {
-  "description": "seq 2 binds another control basis than run_start.",
+  "description": "A FAIL evaluation edited to PASS after signing: its signature no longer covers its envelope, so it is not valid.",
   "bundle": {
     "format": "AgentRunBundle",
     "bundleVersion": "1",
@@ -228,16 +228,13 @@
               "contentType": "application/json",
               "sizeBytes": 17
             }
-          ],
-          "binds": {
-            "controlArtifactSignatureSha256": "0000000000000000000000000000000000000000000000000000000000000000"
-          }
+          ]
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjc0LU93SDJwOWNYbzdqekZtdW52ZUJCbGtiNUFZV19fOVdNTDFNcHdWXzgiLCJ2SmtHYW91QlBuWXlBY0VVMUgzWk1BY1F1Z3JQSEU1U0t1ZU9MRnhITzRjIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMi10b29sLXJlc3VsdCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-              "signature": "P1bUp60tEnwcYzbXn08x-3dX4XBsQ7xhjq2snlmyB78"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIlB0S0xMT0VIWmxVQlJmVUdMZVEza1RZVlVYeXoyVkNES3pFWHd5RENxYmMiLCJ2SmtHYW91QlBuWXlBY0VVMUgzWk1BY1F1Z3JQSEU1U0t1ZU9MRnhITzRjIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMi10b29sLXJlc3VsdCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "9jppcjcIoopmSzI7_7_QpOjZR71DZhxkTDdRSNI2JUQ"
             }
           ]
         },
@@ -262,7 +259,7 @@
           },
           "chain": {
             "seq": 3,
-            "prevSignatureSha256": "56491c21adae8ed91679891cd2813ecd4b8491d43de40065e538cbbc37d1aa9c"
+            "prevSignatureSha256": "dff8f3495ae8323779050cbbcd1bfa8db133e0fb29c3aa983af84566ec45f35b"
           },
           "step": {
             "type": "model_output",
@@ -282,8 +279,8 @@
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbInc5c3NuTmJiakd4b2pLTXNpOXZxaUhnRkZDeE50MG40SEpsR2V2UUFXN28iLCItRFlUdkNaMS1xSk11UTZvRm5FRUdqQWd1SkxLT0tqUHpUaTQ1a3dPREFrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMy1tb2RlbC1vdXRwdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
-              "signature": "0xJ-zhunzpqdqTDdECIDD7TDK6A6Yjz_3wwrn8jUaak"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIlp4QVJhdjFMMG1md05IVkVMOFpvVHdyNHZJQ2tXRmd1OHhLSks4Wno2X1UiLCItRFlUdkNaMS1xSk11UTZvRm5FRUdqQWd1SkxLT0tqUHpUaTQ1a3dPREFrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajpzMy1tb2RlbC1vdXRwdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "Ypg2dbHCZBB2AhnfPLOWKiZoqA7aIhPOf_buaXv-vjY"
             }
           ]
         },
@@ -308,7 +305,7 @@
           },
           "chain": {
             "seq": 4,
-            "prevSignatureSha256": "15f380b82fa41bd7f0b6a8835bf8106ee95b2f648cd05742388fc45842d81e9d"
+            "prevSignatureSha256": "dd8ed9807a7734357273113f2ead65fac5a97afa72e86321f209f8725ef4c3f4"
           },
           "step": {
             "type": "run_end",
@@ -317,15 +314,15 @@
             "timestamp": "required",
             "runDisposition": "completed",
             "finalSeq": 4,
-            "finalPrevSignatureSha256": "15f380b82fa41bd7f0b6a8835bf8106ee95b2f648cd05742388fc45842d81e9d"
+            "finalPrevSignatureSha256": "dd8ed9807a7734357273113f2ead65fac5a97afa72e86321f209f8725ef4c3f4"
           },
           "objects": []
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbImx0blBYQzhtMVVmendLOFN0amNMcWNfakdHdGJ2WG1pTzdmcFFXY3A2SXciXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
-              "signature": "_mvfAD0LL9l06vQD6B_YwTGL2YyZXpnS1vaex-YOw-M",
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbImhWNHM1Umo5QXZhcnQ0cW94SkpOMVRYWjBGU3BvNldjQ2JpSWxZdzdoWjAiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+              "signature": "huuZlzUvPIEwXrft8isOdDG2A9MvrJGeq3NQGa-Iix0",
               "header": {
                 "stubTimestamp": {
                   "genTime": "2026-10-01T09:04:00Z",
@@ -337,10 +334,88 @@
         },
         "objectDigests": {}
       }
+    ],
+    "evaluations": [
+      {
+        "envelope": {
+          "schemaName": "ControlEvaluation",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000900",
+          "createdAt": "2026-10-01T09:30:00.000Z",
+          "actor": {
+            "type": "verifier",
+            "id": "urn:example:verifier:ticket-state",
+            "version": "1.3.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "subject": {
+            "runEndSignatureSha256": "201bdd1f0c99876fe5e322897eef4563c115eeabaf2c544acec3469d29e6d255",
+            "controlArtifactSignatureSha256": "11960a3d4b522f50c59ccee0dd93f572ac501aca3bcfd85ef7a15b3fd02be0c6"
+          },
+          "controlSet": {
+            "id": "ticket-close-v2",
+            "version": "2"
+          },
+          "controls": [
+            {
+              "id": "ticket-closed",
+              "result": "PASS"
+            },
+            {
+              "id": "owner-unchanged",
+              "result": "PASS"
+            }
+          ],
+          "overall": "PASS",
+          "evaluatedAt": "2026-10-01T09:29:00.000Z",
+          "objects": [
+            {
+              "uri": "urn:example:obj:observed-state",
+              "role": "observed-state",
+              "contentType": "application/json",
+              "sizeBytes": 52
+            },
+            {
+              "uri": "urn:example:obj:control-set",
+              "role": "control-set",
+              "contentType": "application/json",
+              "sizeBytes": 48
+            },
+            {
+              "uri": "urn:example:obj:baseline-state",
+              "role": "baseline-state",
+              "contentType": "application/json",
+              "sizeBytes": 50
+            }
+          ]
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmNvbnRyb2wtZXZhbHVhdGlvbitqc29uIl0sImhhc2hWIjpbInJvb1A1d21sOU43TzdiZHR2Mm1nX1ZMclNPQWpXdm81MEtMcWtXSTZMMFEiLCJSZnRXc2JoVG52eUo1TVNwRmZEbWRUak5LSzlKd2dUTzR6djYtZmVGWUVJIiwiR2R2OGpRN1poSjdBU2NvbTFxOGRKUm53Zmpwb1lsSUgxaVV1Vkk2NXJvRSIsImYtMlNLZjd3QWpLU3d0RXdqMEh0b3ZUaXl0N09vdU4xRDJMMkJjOVpPM2siXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIiwidXJuOmV4YW1wbGU6b2JqOm9ic2VydmVkLXN0YXRlIiwidXJuOmV4YW1wbGU6b2JqOmNvbnRyb2wtc2V0IiwidXJuOmV4YW1wbGU6b2JqOmJhc2VsaW5lLXN0YXRlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRllnS0hSb1pTQmxkbUZzZFdGMGFXNW5JSFpsY21sbWFXVnlLUT09Il0sIng1dCNTMjU2Ijoiei1fSEdOWjdCdE0ta0g1Q192YlVMSnUtdzJhR1o1dUFJZXN0Rjl2djFXSSJ9",
+              "signature": "MdIkJ2xlV0mCyp1RfgQTUwUe_0M49cVrEOd12IjKdc0",
+              "header": {
+                "stubTimestamp": {
+                  "genTime": "2026-10-01T09:30:01Z",
+                  "valid": true
+                }
+              }
+            }
+          ]
+        },
+        "objectDigests": {
+          "urn:example:obj:observed-state": "45fb56b1b8539efc89e4c4a915f0e67538cd28af49c204cee33bfaf9f7856042",
+          "urn:example:obj:control-set": "19dbfc8d0ed9849ec049ca26d6af1d2519f07e3a68625207d6252e548eb9ae81",
+          "urn:example:obj:baseline-state": "7fed9229fef0023292c2d1308f41eda2f4e2cadecea2e3750f62f605cf593b79"
+        }
+      }
     ]
   },
   "expected": {
-    "verdict": "run_invalid",
+    "verdict": "run_finalized",
     "checks": {
       "correlation": "ok",
       "sequence": "ok",
@@ -350,18 +425,25 @@
       "timestamps": "ok",
       "objects": "warn",
       "finalization": "ok",
-      "control": "bad"
+      "control": "ok"
     },
     "binding": "bound",
     "missingSeqs": [],
-    "fingerprint": "ea265804be95a6f226b1fbce80532f6826b74b5d4054ad7953c81167fe09c195",
-    "findingsContain": [
-      "binds another control artifact"
-    ],
+    "fingerprint": "ffa28cd08002b2138e46328670db1191f6fc6c7b12c6498f82ead8258f4d8575",
+    "findingsContain": [],
     "warningsContain": [],
     "warningCount": 0,
     "controlSealedBeforeRun": true,
     "eventTimesPlausible": true,
-    "evaluations": []
+    "evaluations": [
+      {
+        "subjectBound": true,
+        "controlSetDigestMatches": true,
+        "baselineDigestMatches": true,
+        "signatureValid": false,
+        "timestampValid": true,
+        "overall": "PASS"
+      }
+    ]
   }
 }

@@ -94,6 +94,7 @@ from sigill_sdk._agent_types import (
 )
 from sigill_sdk._agent_run import (
     AgentRun,
+    AgentRunCallbackError,
     ControlEvaluation,
     seal_control_evaluation,
 )
@@ -164,6 +165,7 @@ __all__ = [
     "AgentRunArtifact",
     "AgentRunBundle",
     "AgentRunBundleFormatError",
+    "AgentRunCallbackError",
     "AgentRunObject",
     "AgentRunTimestampSummary",
     "AgentRunVerificationResult",

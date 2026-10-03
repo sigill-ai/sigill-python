@@ -204,7 +204,8 @@ The portable form of a controlled run:
 }
 ```
 
-- `artifacts[]` holds the Execution Evidence, at most 2000. `controlArtifact`
+- `artifacts[]` holds the Execution Evidence, at most 2000; `evaluations[]`
+  at most 64; `payloads` at most 20000 entries. `controlArtifact`
   MAY be null; `evaluations` and `payloads` MAY be absent.
 - `objectDigests` carries each object's SHA-256 as recorded by the producer;
   a blind verification needs only these. A supplied payload is hashed and
@@ -241,21 +242,27 @@ verifier never raises on it.
 **Binding state:** `bound` (run and its Control Artifact), `run_only`,
 `control_only` (a Control Artifact without events), `unbound`.
 
-**Seal time, as defence in depth** (reported as warnings, never fatal): the
-Control Artifact's `sigTst` genTime is not later than `run_start`'s plus one
-second for TSA accuracy (`controlSealedBeforeRun`; `null` when `run_start` has
-no timestamp, which is the default policy), and no timestamped event claims an
-`eventTime` later than its own `sigTst` genTime plus six seconds — five
-seconds of clock skew and one of TSA accuracy (`eventTimesPlausible`; `null`
-when no event is timestamped).
+**Seal time, as defence in depth** (reported as warnings, never fatal):
+
+- `controlSealedBeforeRun`: the Control Artifact's `sigTst` genTime is not
+  later than the run's first event timestamp (`run_start`'s when it has one,
+  else the first timestamped event's, usually `run_end`) plus one second for
+  TSA accuracy. `null` when either is missing.
+- `eventTimesPlausible`: every event's `eventTime` lies within the window the
+  timestamps allow — no earlier than the Control Artifact's genTime, and no
+  later than the genTime of the first valid timestamp at or after its own
+  `seq` (its own, or the next one: the chain makes it exist before that) —
+  with six seconds of allowance on either side (five of clock skew, one of
+  TSA accuracy). Unstamped events are checked too. `null` when no bound
+  exists.
 Seal times are never compared along the chain: `prevSignatureSha256` proves
 that order already.
 
 **Evaluations** are reported per evaluation, never merged into the run
 verdict: `subjectBound` (its `subject` names this run's `run_end` and Control
-Artifact), `controlSetDigestMatches`, `baselineDigestMatches` (when both
-carry a `baseline-state`), its own signature, timestamp, signer and chain
-trust, and `overall` and `controls[]` **unchanged**. A verifier never
+Artifact), `controlSetDigestMatches`, `baselineDigestMatches` (when the
+evaluation carries a `baseline-state`), its own signature — valid only when it
+covers this very envelope — timestamp, signer and chain trust, and `overall` and `controls[]` **unchanged**. A verifier never
 evaluates controls.
 
 **Signature verification** of each artifact is the v2 object-level verdict
@@ -336,6 +343,10 @@ verification by digest needs only their hashes.
   turn an invalid run into a finalized one.
 - **`finalSeq` is `run_end`'s own `seq`**, duplicated in its step block, so
   closure is checkable without trusting the same artifact's chain fields.
+- **A Control Evaluation is valid only over its own envelope** (2026-10-03):
+  a valid signature whose `urn:sigill:envelope` digest does not match the
+  envelope at hand reports `signatureValid: false`, so an edited result can
+  never read as valid.
 - **Bare UUID `evidenceId`**, as the v2 family core requires. The `urn:uuid:`
   form is accepted by the SDK verifiers (their validator's `format: uuid`
   allows it); a general JSON Schema validator that enforces formats rejects

@@ -378,11 +378,12 @@
     "fingerprint": "37f8ab64559374c2bb3b606efa9052f2649b9c660d4a056d7b08f0ee6214bd5e",
     "findingsContain": [],
     "warningsContain": [
-      "later than run_start's"
+      "later than the run's first timestamp",
+      "earlier than the Control Artifact's timestamp"
     ],
-    "warningCount": 1,
+    "warningCount": 2,
     "controlSealedBeforeRun": false,
-    "eventTimesPlausible": true,
+    "eventTimesPlausible": false,
     "evaluations": []
   }
 }

@@ -16,6 +16,8 @@ from sigill_sdk._agent_profiles import (
     BUNDLE_FORMAT,
     BUNDLE_VERSION,
     MAX_ARTIFACTS,
+    MAX_EVALUATIONS,
+    MAX_PAYLOADS,
     _DuplicateMember,
     _int,
     _obj,
@@ -364,6 +366,8 @@ class AgentRunBundle:
         if value.get("evaluations") is not None:
             if not isinstance(value["evaluations"], list):
                 errors.append("evaluations is not an array")
+            elif len(value["evaluations"]) > MAX_EVALUATIONS:
+                errors.append(f"more than {MAX_EVALUATIONS} evaluations")
             else:
                 for i, a in enumerate(value["evaluations"]):
                     r = read(a, f"evaluations[{i}]")
@@ -374,6 +378,8 @@ class AgentRunBundle:
         if value.get("payloads") is not None:
             if not isinstance(value["payloads"], dict):
                 errors.append("payloads is not an object")
+            elif len(value["payloads"]) > MAX_PAYLOADS:
+                errors.append(f"more than {MAX_PAYLOADS} payloads")
             else:
                 for uri, b64 in value["payloads"].items():
                     if not isinstance(b64, str) or len(b64) % 4 != 0 or not _B64.match(b64):

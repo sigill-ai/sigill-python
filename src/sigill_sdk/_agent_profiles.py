@@ -37,6 +37,10 @@ CONTROL_EVALUATION_CONTENT_TYPE = "application/vnd.sigill.control-evaluation+jso
 
 MAX_ARTIFACTS = 2000
 """Upper bound on events per bundle (§7)."""
+MAX_EVALUATIONS = 64
+"""Upper bound on Control Evaluations per bundle; each costs one signature check."""
+MAX_PAYLOADS = 20000
+"""Upper bound on supplied payloads per bundle."""
 
 _B64URL = re.compile(r"^[A-Za-z0-9_-]*$")
 _I_JSON_MAX_INT = 2 ** 53

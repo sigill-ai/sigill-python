@@ -360,7 +360,7 @@
     ],
     "warningsContain": [],
     "warningCount": 0,
-    "controlSealedBeforeRun": null,
+    "controlSealedBeforeRun": true,
     "eventTimesPlausible": true,
     "evaluations": []
   }

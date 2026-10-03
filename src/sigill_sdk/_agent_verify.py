@@ -242,7 +242,7 @@ class AgentEvaluationVerdict:
     baseline_digest_matches: Optional[bool] = None
     """Same baseline (URI and digest) as the Control Artifact; None unless the evaluation carries one."""
     signature_valid: bool = False
-    """Valid signature with an established signer (and an expected one, when given)."""
+    """Valid signature over this very envelope, with an established signer (and an expected one, when given)."""
     timestamp_valid: bool = False
     timestamp_gen_time: Optional[str] = None
     objects_complete: bool = False
@@ -370,6 +370,7 @@ def _parse_signed(envelope: dict, signature: dict, schema_name: str) -> tuple[Op
 @dataclass
 class _ArtifactCheck:
     signature_valid: bool = False
+    envelope_covered: bool = False
     objects_complete: bool = False
     timestamp_present: bool = False
     timestamp_valid: Optional[bool] = None
@@ -440,6 +441,7 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
             if o.signed and matches.get(o.uri) is False:
                 c.objects[i] = replace(o, hash_match=False)
                 c.findings.append(f"{label}: object '{o.uri}' ({o.role}) no longer matches its signed digest.")
+        c.envelope_covered = matches.get(ENVELOPE_URI) is True
         if matches.get(ENVELOPE_URI) is not True:
             c.objects_complete = False
             c.findings.append(f"{label}: the signature does not cover this envelope.")
@@ -588,7 +590,6 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
 
     ts_required = ts_present = ts_valid = 0
     anchor_valid = False
-    plausible: Optional[bool] = None
     certificates: list[SignerCertificateInfo] = []
 
     def add_certificate(cert: Optional[SignerCertificateInfo]) -> None:
@@ -598,7 +599,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     prev_sig_hash: Optional[str] = None
     prev_seq = -1
     coverage = _TimestampCoverage(policy)
-    start_gen_time: Optional[str] = None
+    timeline: list[tuple[int, Optional[datetime], Optional[datetime]]] = []
 
     for art, index, sa, error in arts:
         if sa is None:
@@ -670,15 +671,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             findings.append(f"{label}: timestamp invalid.")
         if sa.step_type == "run_end" and c.timestamp_ok and c.signature_valid:
             anchor_valid = True
-        sealed_at = _time(c.gen_time) if c.timestamp_ok else None
-        if sealed_at is not None and sa.event_time is not None:
-            ok = sa.event_time <= sealed_at + _SEAL_TIME_ALLOWANCE
-            plausible = (True if plausible is None else plausible) and ok
-            if not ok:
-                warnings.append(f"{label}: eventTime {_format_time(sa.event_time)} is later than its own seal time "
-                                f"{c.gen_time}.")
-        if sa is reference and sa.step_type == "run_start" and c.timestamp_ok:
-            start_gen_time = c.gen_time
+        timeline.append((seq, sa.event_time, _time(c.gen_time) if c.timestamp_ok else None))
         add_certificate(c.certificate)
 
         verdicts.append(AgentStepVerdict(
@@ -772,14 +765,41 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             certificate=ctl_check.certificate, objects=ctl_check.objects)
     checks["control"] = "ok" if control_ok else "bad"
 
-    sealed_before_run: Optional[bool] = None
+    # ── seal time, defence in depth (§8): warnings only
     ctl_at = _time(ctl_check.gen_time) if ctl_check is not None and ctl_check.timestamp_ok else None
-    start_at = _time(start_gen_time)
-    if ctl_at is not None and start_at is not None:
-        sealed_before_run = ctl_at <= start_at + timedelta(seconds=1)  # TSAs state up to 1 s accuracy
+    sealed_before_run: Optional[bool] = None
+    first = next((t for t in timeline if t[2] is not None), None)
+    if ctl_at is not None and first is not None:
+        sealed_before_run = ctl_at <= first[2] + timedelta(seconds=1)  # TSAs state up to 1 s accuracy
         if not sealed_before_run:
-            warnings.append("The Control Artifact's timestamp is later than run_start's: the control basis may not "
-                            "have been sealed before the run.")
+            warnings.append(f"The Control Artifact's timestamp is later than the run's first timestamp (seq {first[0]}): "
+                            "the control basis may not have been sealed before the run.")
+    # Every eventTime must lie between the Control Artifact's timestamp and the first timestamp at or after
+    # its own seq (its own, or the next one: the chain makes it exist before that), within the allowance.
+    plausible: Optional[bool] = None
+    early: list[int] = []
+    late: list[int] = []
+    for i, (t_seq, claimed, _) in enumerate(timeline):
+        if claimed is None:
+            continue
+        if ctl_at is not None:
+            if plausible is None:
+                plausible = True
+            if claimed < ctl_at - _SEAL_TIME_ALLOWANCE:
+                early.append(t_seq)
+        upper = next((t[2] for t in timeline[i:] if t[2] is not None), None)
+        if upper is not None:
+            if plausible is None:
+                plausible = True
+            if claimed > upper + _SEAL_TIME_ALLOWANCE:
+                late.append(t_seq)
+    if early or late:
+        plausible = False
+    if early:
+        warnings.append(f"eventTime earlier than the Control Artifact's timestamp {ctl_check.gen_time} "
+                        f"(seq {', '.join(str(x) for x in early)}).")
+    if late:
+        warnings.append(f"eventTime later than the timestamp that bounds it (seq {', '.join(str(x) for x in late)}).")
 
     # ── every payload must be a signed object of some artifact (§7)
     eval_parsed = [_parse_signed(e.envelope, e.signature, CONTROL_EVALUATION_SCHEMA) for e in bundle.evaluations]
@@ -850,7 +870,8 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         ef = [f"{label}: {e}." for e in sa.conformance]
         c = _check_artifact(sa, art, bundle.payloads, verifier, label)
         ef.extend(c.findings)
-        signature_valid = c.signature_valid
+        # An evaluation's claim is its envelope: a valid signature over another envelope is no claim at all.
+        signature_valid = c.signature_valid and c.envelope_covered
         signer, signer_problem = signer_of(sa.jws)
         if signer_problem is not None:
             signature_valid = False

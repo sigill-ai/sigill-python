@@ -32,6 +32,8 @@ from sigill_sdk import (
     AgentRunArtifact,
     AgentRunBundle,
     AgentRunBundleFormatError,
+    AgentRunCallbackError,
+    AgentRunActor,
     AgentRunObject,
     AgentTimestampPolicy,
     BlindObjectsVerdict,
@@ -47,6 +49,9 @@ from sigill_sdk import (
     verify_agent_run,
 )
 from sigill_sdk._agent_profiles import (
+    CONTROL_ARTIFACT_SCHEMA,
+    MAX_ARTIFACTS,
+    MAX_EVALUATIONS,
     CONTROL_ARTIFACT_CONTENT_TYPE,
     CONTROL_EVALUATION_CONTENT_TYPE,
     EXECUTION_EVIDENCE_CONTENT_TYPE,
@@ -141,7 +146,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 54
+    assert len(RUN_VECTORS) == 56
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -781,6 +786,70 @@ def test_ordinary_event_callback_failure_leaves_the_run_usable() -> None:
         run.record_tool_call("lookup_ticket", b"{}")
     assert not run.is_broken
     run.record_model_output(b"ok")
+    assert verify_agent_run(run.finish(), stub_verify).verdict == "run_finalized"
+
+
+def test_optional_inputs_are_sealed_and_verify() -> None:
+    sealer = StubSealer()
+    client = _client(sealer)
+    agent = dataclasses.replace(_agent(), identity_ref="urn:example:identity:triage")
+    o = _options(authority=b"eyJhbGciOiJub25lIn0.e30.",
+                 control_actor=AgentRunActor("system", "urn:example:harness:prod", "4.1"), qualified=True)
+    run = AgentRun.start(client, agent, _clock=_clock(), **o)
+    ctl = run.control_artifact.envelope
+    assert ctl["agent"]["identityRef"] == "urn:example:identity:triage"
+    assert ctl["actor"] == {"type": "system", "id": "urn:example:harness:prod", "version": "4.1"}
+    roles = [x["role"] for x in ctl["objects"]]
+    assert "authority" in roles and "baseline-state" in roles
+    assert sealer.requests[0]["qualified"] is True, "the Control Artifact is timestamped"
+    assert not sealer.requests[1].get("qualified", False), "B-B events are never qualified"
+
+    retrieval = run.record_retrieval(b"kb article 7")
+    assert retrieval.envelope["objects"][0]["role"] == "retrieved-context"
+    call = run.record_tool_call("lookup_ticket", b"{}", use_id="call-7")
+    assert call.envelope["step"]["tool"]["useId"] == "call-7"
+    bundle = run.finish()
+
+    evaluated_at = datetime(2026, 10, 1, 9, 30, 0, 123_456, tzinfo=timezone.utc)
+    evaluation = ControlEvaluation.seal(client, ControlEvaluationRequest(
+        certificate_id=VERIFIER_CERT, verifier_id="urn:example:verifier", verifier_version="1",
+        control_artifact=run.control_artifact, run_end=bundle.artifacts[-1],
+        observed_state=[AgentRunObject.text("observed-state", "closed")],
+        controls=[ControlResult("ticket-closed", "PASS")], overall="PASS",
+        include_baseline=False, evaluated_at=evaluated_at), _clock=_clock())
+    assert evaluation.envelope["evaluatedAt"] == "2026-10-01T09:30:00.123Z"
+    assert [x["role"] for x in evaluation.envelope["objects"]] == ["observed-state", "control-set"]
+
+    r = verify_agent_run(bundle.with_evaluations(evaluation), stub_verify)
+    assert r.verdict == "run_finalized", r.findings
+    (ev,) = r.evaluations
+    assert ev.baseline_digest_matches is None, "the evaluation carries no baseline"
+    assert ev.signature_valid
+
+
+def test_bundle_parse_enforces_its_limits() -> None:
+    v = json.loads((VECTORS / "runs" / "01-finalized-digests-only.json").read_text(encoding="utf-8"))["bundle"]
+    v["artifacts"] = [v["artifacts"][0]] * (MAX_ARTIFACTS + 1)
+    v["evaluations"] = [v["evaluations"][0]] * (MAX_EVALUATIONS + 1)
+    with pytest.raises(AgentRunBundleFormatError) as ei:
+        AgentRunBundle.parse(v)
+    assert any(f"more than {MAX_ARTIFACTS} artifacts" in e for e in ei.value.errors)
+    assert any(f"more than {MAX_EVALUATIONS} evaluations" in e for e in ei.value.errors)
+
+
+def test_start_callback_failure_still_hands_back_the_started_run() -> None:
+    def persist(a):
+        if a.schema_name == CONTROL_ARTIFACT_SCHEMA:
+            raise OSError("disk full")
+
+    with pytest.raises(AgentRunCallbackError) as ei:
+        _start(_client(StubSealer()), on_artifact_sealed=persist)
+    assert isinstance(ei.value.__cause__, OSError)
+    assert isinstance(ei.value, SigillError)
+    run = ei.value.run
+    assert [a.step_type for a in run.artifacts] == ["run_start"], "run_start is sealed before any callback"
+    assert not run.is_broken
+    run.record_model_output(b"carries on")
     assert verify_agent_run(run.finish(), stub_verify).verdict == "run_finalized"
 
 
