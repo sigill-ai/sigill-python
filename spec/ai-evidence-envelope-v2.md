@@ -193,8 +193,8 @@ base64url-decoded JWS Signature Value of the previous artifact's classical
 signature (the first `signatures[]` entry whose `alg` is not ML-DSA).
 
 What constitutes a step, and the rest of the run semantics (step types,
-timestamp policy, finalization, the agent identity record), are defined by
-[AgentExecutionProfileV1](agent-execution-profile-v1.md). Producers SHOULD
+timestamp policy, finalization, the binding to the control basis), are defined by
+the [Agent Evidence Profiles](agent-profiles-common-v1.md) (§2 binding rule). Producers SHOULD
 NOT emit `chain` outside a profile that defines it.
 
 ## 4. Canonicalization
@@ -498,5 +498,5 @@ revisit them deliberately:
   actor id never reaches Sigill either way.
 - **`chain`**: reserved with open semantics (§3.4) rather than omitted, so
   the field name and shape were stable before multi-step producers existed.
-  Closed by AgentExecutionProfileV1: the classical-signature preimage is
-  normative, and step semantics belong to the profile, not the family core.
+  Closed by the Agent Evidence Profiles v1: the classical-signature preimage is
+  normative, and step semantics belong to the agent profiles, not the family core.

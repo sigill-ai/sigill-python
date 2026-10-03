@@ -14,14 +14,9 @@ from typing import Mapping, Protocol
 import httpx
 
 from sigill_sdk import _pdf
-from sigill_sdk._agent_run import (
-    AgentDefinition,
-    AgentRun,
-    AgentRunBundle,
-    AgentRunVerificationResult,
-    remote_verifier,
-    verify_agent_run,
-)
+from sigill_sdk._agent_run import AgentRun, ControlEvaluation
+from sigill_sdk._agent_types import AgentDefinition, AgentRunArtifact, AgentRunBundle, ControlEvaluationRequest
+from sigill_sdk._agent_verify import AgentRunVerificationResult, remote_verifier, verify_agent_run
 from sigill_sdk._canonical import canonicalize, compute_envelope_hash, hash_bytes
 from sigill_sdk._envelope import (
     AiEvidenceEnvelopeInput,
@@ -772,19 +767,25 @@ class SigillClient:
     # ------------------------------------------------------------ agent runs
 
     def start_agent_run(self, agent: AgentDefinition, *, certificate_id: str, **options) -> AgentRun:
-        """Opens an agent run recorded under AgentExecutionProfileV1
-        (``spec/agent-execution-profile-v1.md``). Options are those of
+        """Opens a controlled agent run (``spec/agent-profiles-common-v1.md``):
+        seals the Control Artifact, then ``run_start``. Options are those of
         :meth:`AgentRun.start`."""
         return AgentRun.start(self, agent, certificate_id=certificate_id, **options)
 
-    def verify_agent_run(self, bundle: AgentRunBundle, *,
-                         expected_signers: list[str] | None = None) -> AgentRunVerificationResult:
-        """Verifies an agent run bundle (spec §8). The envelopes are read
-        locally; each artifact's signature is checked through the blind
+    def seal_control_evaluation(self, request: ControlEvaluationRequest) -> AgentRunArtifact:
+        """Seals a Control Evaluation of a finished run. See :class:`ControlEvaluation`."""
+        return ControlEvaluation.seal(self, request)
+
+    def verify_agent_run(self, bundle: AgentRunBundle, *, expected_signers: list[str] | None = None,
+                         expected_evaluation_signers: list[str] | None = None) -> AgentRunVerificationResult:
+        """Verifies an agent run bundle (common rules §8). The envelopes are
+        read locally; each artifact's signature is checked through the blind
         ``POST /seal/verify-objects`` endpoint — digests only, never content.
         ``expected_signers`` pins the run to your sealing certificates'
-        ``x5t#S256`` thumbprints (spec §4.1)."""
-        return verify_agent_run(bundle, remote_verifier(self), expected_signers=expected_signers)
+        ``x5t#S256`` thumbprints (§3); ``expected_evaluation_signers`` does the
+        same for Control Evaluations."""
+        return verify_agent_run(bundle, remote_verifier(self), expected_signers=expected_signers,
+                                expected_evaluation_signers=expected_evaluation_signers)
 
     # ------------------------------------------------------------- seal_pades
 

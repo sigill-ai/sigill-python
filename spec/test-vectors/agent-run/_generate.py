@@ -1,12 +1,13 @@
 # Licensed to Sigill under the Apache License, Version 2.0.
 # SPDX-License-Identifier: Apache-2.0
-"""Reference generator for the AgentExecutionProfileV1 test vectors.
+"""Reference generator for the Agent Evidence Profiles v1 test vectors.
 
 Deterministic: fixed identifiers, times and bytes, so every run produces
 byte-identical files. Signatures are produced by the *stub signer* described
 in README.md — not real JAdES — so the vectors exercise the profile layer
-(chain, sequence, policy, finalization, identity, fingerprint) without
-depending on issued certificates.
+(binding, chain, sequence, signer, timestamp policy, finalization, control
+binding, evaluations, fingerprint) without depending on issued certificates.
+Expected results are declared here, never derived from an SDK.
 
     pip install jcs
     python _generate.py
@@ -23,12 +24,18 @@ from pathlib import Path
 import jcs
 
 HERE = Path(__file__).parent
-EXT = "ai.sigill.agent-execution"
 ENVELOPE_URI = "urn:sigill:envelope"
-AGENT_ID = "urn:example:agent:support-triage"
-AGENT_VERSION = "2.4.0"
-TENANT = "tenant-example"
-MODEL = {"provider": "example-ai", "name": "example-model-1"}
+RUN = "urn:uuid:00000000-0000-4000-9000-000000000001"
+ACTIVITY = "support-ticket-close"
+AGENT = {"id": "urn:example:agent:support-triage", "version": "2.4.0"}
+CERT_A = b"stub signing certificate A (the producer)"
+CERT_B = b"stub signing certificate B (someone else)"
+CERT_V = b"stub signing certificate V (the evaluating verifier)"
+CTY = {
+    "control": "application/vnd.sigill.agent-control+json",
+    "event": "application/vnd.sigill.agent-execution+json",
+    "evaluation": "application/vnd.sigill.control-evaluation+json",
+}
 
 
 def b64u(b: bytes) -> str:
@@ -39,6 +46,10 @@ def sha256hex(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
 
+def uuid(n: int) -> str:
+    return f"00000000-0000-4000-8000-{n:012d}"
+
+
 def write(name: str, value, *, ascii_only: bool = False) -> None:
     path = HERE / name
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -47,32 +58,32 @@ def write(name: str, value, *, ascii_only: bool = False) -> None:
 
 # ── Stub signer (see README.md) ─────────────────────────────────────────────
 
-CERT_A = b"stub signing certificate A (the producer)"
-CERT_B = b"stub signing certificate B (someone else)"
-
-
 def signer_header(cert: bytes) -> dict:
     """x5c / x5t#S256 as real JAdES carries them: thumbprint = b64url(SHA-256(DER x5c[0]))."""
     return {"x5c": [base64.b64encode(cert).decode()], "x5t#S256": b64u(hashlib.sha256(cert).digest())}
 
 
-def stub_sign(envelope: dict, digests: dict[str, str], *, timestamp: str | None, valid_ts: bool = True,
-              hybrid: bool = False, cert: bytes = CERT_A) -> dict:
+def stub_sign(envelope: dict, digests: dict, cty: str, *, timestamp: str | None, cert: bytes = CERT_A,
+              hybrid: bool = False, dup_alg: bool = False) -> dict:
     pars = [ENVELOPE_URI] + [o["uri"] for o in envelope["objects"]]
-    env_hex = sha256hex(jcs.canonicalize(envelope))
-    hash_v = [b64u(bytes.fromhex(env_hex))] + [b64u(bytes.fromhex(digests[u])) for u in pars[1:]]
-    protected = b64u(jcs.canonicalize({"alg": "ES256", "sigD": {"pars": pars, "hashV": hash_v}, **signer_header(cert)}))
+    hash_v = [b64u(hashlib.sha256(jcs.canonicalize(envelope)).digest())] + \
+             [b64u(bytes.fromhex(digests[u])) for u in pars[1:]]
+    header = jcs.canonicalize({"alg": "ES256", "sigD": {"pars": pars, "hashV": hash_v, "ctys": [cty]},
+                               **signer_header(cert)})
+    if dup_alg:  # a repeated member name: parsers disagree on which value wins, so the header is unreadable
+        header = header.replace(b'{"alg":"ES256"', b'{"alg":"ES256","alg":"ES256"', 1)
+    protected = b64u(header)
     entry: dict = {"protected": protected, "signature": b64u(hashlib.sha256(protected.encode()).digest())}
     if timestamp is not None:
-        entry["header"] = {"stubTimestamp": {"genTime": timestamp, "valid": valid_ts}}
+        entry["header"] = {"stubTimestamp": {"genTime": timestamp, "valid": True}}
     entries = [entry]
     if hybrid:
-        pq = b64u(jcs.canonicalize({"alg": "ML-DSA-87"}))
-        entries.insert(0, {"protected": pq, "signature": b64u(b"post-quantum signature value")})
+        entries.insert(0, {"protected": b64u(jcs.canonicalize({"alg": "ML-DSA-87"})),
+                           "signature": b64u(b"post-quantum signature value")})
     return {"signatures": entries}
 
 
-def chain_digest(jws: dict) -> str:
+def signature_sha256(jws: dict) -> str:
     for e in jws["signatures"]:
         alg = json.loads(base64.urlsafe_b64decode(e["protected"] + "=" * (-len(e["protected"]) % 4)))["alg"]
         if alg.upper().startswith("ML-DSA"):
@@ -81,179 +92,169 @@ def chain_digest(jws: dict) -> str:
     raise ValueError("no classical signature")
 
 
-# ── Envelopes ───────────────────────────────────────────────────────────────
-
-def uuid(n: int) -> str:
-    return f"00000000-0000-4000-8000-{n:012d}"
+def objects_block(objs: list) -> list:
+    return [{"uri": uri, "role": role, "contentType": ctype, "sizeBytes": len(data)} for uri, role, ctype, data in objs]
 
 
-def envelope(evidence_n: int, at: str, category: str, activity: str, correlation: str | None,
-             parent: str | None, objects: list[tuple[str, str, str, str, bytes]], seq: int | None,
-             prev: str | None, ext: dict) -> dict:
-    activity_node: dict = {"name": activity}
-    if correlation is not None:
-        activity_node["correlationId"] = correlation
-    if parent is not None:
-        activity_node["parentEvidenceId"] = parent
-    kinds = {}
-    objs = []
-    for uri, kind, role, ctype, data in objects:
-        objs.append({"uri": uri, "role": role, "contentType": ctype, "sizeBytes": len(data)})
-        kinds[uri] = kind
-    ext = dict(ext)
-    ext["objectKinds"] = kinds
-    env = {
-        "schemaName": "AiEvidenceEnvelope",
-        "schemaVersion": "2",
-        "evidenceId": uuid(evidence_n),
-        "createdAt": at,
-        "purpose": {"category": category, "businessContext": "support-triage"},
-        "actor": {"type": "agent", "id": AGENT_ID, "tenantId": TENANT},
-        "activity": activity_node,
-        "model": dict(MODEL),
-        "objects": objs,
-    }
-    if seq is not None:
-        chain = {"seq": seq}
-        if prev is not None:
-            chain["prevSignatureSha256"] = prev
-        env["chain"] = chain
-    env["extensions"] = {EXT: ext}
-    return env
-
-
-CONFIG = {
-    "instruction-set": ("urn:example:obj:instruction-set", "text/plain", b"You triage support tickets. Never close a ticket without approval."),
-    "tool-manifest": ("urn:example:obj:tool-manifest", "application/json", b'{"tools":[{"name":"lookup_ticket"},{"name":"close_ticket"}]}'),
-    "model-config": ("urn:example:obj:model-config", "application/json", b'{"max_tokens":1024,"temperature":0}'),
-    "execution-policy": ("urn:example:obj:execution-policy", "application/json", b'{"allow":["lookup_ticket","close_ticket"],"writeRequiresApproval":true}'),
-}
-MANIFEST = jcs.canonicalize({"agentId": AGENT_ID, "agentVersion": AGENT_VERSION, "displayName": "Support triage",
-                             "model": MODEL})
-REGISTRATION = jcs.canonicalize({"action": "agent-registration", "agentId": AGENT_ID, "mode": "automatic-on-first-use",
-                                 "registeredAt": "2026-10-01T08:00:00.000Z"})
-
-
-def config_digest(manifest: bytes, cfg: dict[str, bytes]) -> str:
-    d = {
-        "agentManifest": sha256hex(manifest),
-        "instructionSet": sha256hex(cfg["instruction-set"]),
-        "toolManifest": sha256hex(cfg["tool-manifest"]),
-        "executionPolicy": sha256hex(cfg["execution-policy"]),
-    }
-    if "model-config" in cfg:  # optional (§3.6)
-        d["modelConfig"] = sha256hex(cfg["model-config"])
-    return sha256hex(jcs.canonicalize(d))
-
-
-CONFIG_BYTES = {k: v[2] for k, v in CONFIG.items()}
-CONFIG_SHA = config_digest(MANIFEST, CONFIG_BYTES)
-
-
-def identity_artifact(payloads: dict[str, bytes], *, ext_override: dict | None = None,
-                      without: tuple = (), cert: bytes = CERT_A) -> dict:
-    objs = [("urn:example:obj:agent-manifest", "agent-manifest", "input", "application/json", MANIFEST)]
-    objs += [(uri, kind, "input", ctype, data) for kind, (uri, ctype, data) in CONFIG.items() if kind not in without]
-    objs += [("urn:example:obj:registration", "registration-record", "input", "application/json", REGISTRATION)]
-    cfg = {k: v for k, v in CONFIG_BYTES.items() if k not in without}
-    ext = {
-        "recordType": "agent-identity", "stepType": "record:agent-identity", "agentId": AGENT_ID,
-        "agentVersion": AGENT_VERSION, "configSha256": config_digest(MANIFEST, cfg),
-        "eventTime": "2026-10-01T08:00:00.000Z",
-    }
-    ext.update(ext_override or {})
-    env = envelope(1, "2026-10-01T08:00:00.000Z", "agent-identity", "agent_identity", None, None, objs, None, None, ext)
-    digests = {o[0]: sha256hex(o[4]) for o in objs}
-    for o in objs:
-        payloads[o[0]] = o[4]
-    return {"envelope": env, "signature": stub_sign(env, digests, timestamp="2026-10-01T08:00:01Z", cert=cert),
+def artifact(env: dict, objs: list, cty: str, *, stamp_at: str | None, cert: bytes = CERT_A,
+             dup_alg: bool = False) -> dict:
+    digests = {uri: sha256hex(data) for uri, _, _, data in objs}
+    return {"envelope": env, "signature": stub_sign(env, digests, cty, timestamp=stamp_at, cert=cert, dup_alg=dup_alg),
             "objectDigests": digests}
 
 
-RUN = "urn:uuid:00000000-0000-4000-9000-000000000001"
+def stamp_of(a: dict) -> str | None:
+    old = a["signature"]["signatures"][-1].get("header", {}).get("stubTimestamp")
+    return old["genTime"] if old else None
 
 
-def build_run(steps: list[dict], policy, payloads: dict[str, bytes], *, finish: bool = True,
-              config_override: dict[str, bytes] | None = None, start_type: str = "run_start",
-              start_extra_objects: list | None = None, tweak=None, identity: dict | None = None,
-              start_without: tuple = (), start_stamp: bool | None = None,
-              end_cert: bytes = CERT_A) -> tuple[dict, list[dict]]:
-    """steps: [{type, minute, objects, consequential, stamp, ext}] after run_start.
-    tweak(seq, envelope) edits an envelope before it is signed (producer-side non-conformance)."""
-    identity = identity or identity_artifact(payloads)
-    artifacts: list[dict] = []
-    prev_sig = None
-    prev_id = identity["envelope"]["evidenceId"]
-    n = 100
-
-    def seal(step_type: str, at: str, objs, ext: dict, stamp: bool, consequential: bool, cert: bytes = CERT_A):
-        nonlocal prev_sig, prev_id, n
-        seq = len(artifacts)
-        ext = copy.deepcopy(ext)  # tweaks must never leak into shared step templates
-        ext.update({"stepType": step_type, "agentVersion": AGENT_VERSION, "eventTime": at,
-                    "consequential": consequential, "timestamp": "required" if stamp else "none"})
-        env = envelope(n, at, "agent-execution", step_type, RUN, prev_id, objs, seq, prev_sig, ext)
-        if tweak is not None:
-            tweak(seq, env)
-        n += 1
-        digests = {o[0]: sha256hex(o[4]) for o in objs}
-        for o in objs:
-            payloads[o[0]] = o[4]
-        sig = stub_sign(env, digests, timestamp=at.replace(".000", "") if stamp else None, cert=cert)
-        artifacts.append({"envelope": env, "signature": sig, "objectDigests": digests})
-        prev_sig = chain_digest(sig)
-        prev_id = env["evidenceId"]
-
-    cfg = dict(CONFIG_BYTES)
-    if config_override:
-        cfg.update(config_override)
-    start_objs = [(CONFIG[k][0] + ":run", k, "input", CONFIG[k][1], cfg[k]) for k in CONFIG if k not in start_without]
-    start_objs.append(("urn:example:obj:request", "user-turn", "prompt", "text/plain", b"Ticket 4411: login fails after reset."))
-    start_objs += start_extra_objects or []
-    profile = policy["profile"] if isinstance(policy, dict) else "throughput"
-    seal(start_type, "2026-10-01T09:00:00.000Z", start_objs, {
-        "agentIdentityEvidenceId": identity["envelope"]["evidenceId"],
-        "assuranceProfile": profile, "timestampPolicy": policy,
-    }, start_stamp if start_stamp is not None
-        else (isinstance(policy, dict) and policy.get("runStart", False)) or profile == "per-event", False)
-    for i, s in enumerate(steps):
-        objs = [(f"urn:example:obj:step-{i}-{k}", k, role, ctype, data) for k, role, ctype, data in s.get("objects", [])]
-        seal(s["type"], f"2026-10-01T09:{s['minute']:02d}:00.000Z", objs, s.get("ext", {}), s["stamp"],
-             s.get("consequential", False), s.get("cert", CERT_A))
-    if finish:
-        head = artifacts[-1]
-        seal("run_end", f"2026-10-01T09:{steps[-1]['minute'] + 1:02d}:00.000Z", [], {
-            "finalSeq": head["envelope"]["chain"]["seq"], "finalPrevSignatureSha256": chain_digest(head["signature"]),
-            "runDisposition": "completed", "usage": {"inputTokens": 900, "outputTokens": 120},
-        }, True, True, end_cert)
-    return identity, artifacts
+def resign(a: dict, cty: str, cert: bytes = CERT_A) -> None:
+    a["signature"] = stub_sign(a["envelope"], a["objectDigests"], cty, timestamp=stamp_of(a), cert=cert)
 
 
-THROUGHPUT = {"profile": "throughput", "everyEvents": 10, "everySeconds": 300, "runStart": False,
-              "runEnd": True, "consequential": True}
+# ── The three profiles ──────────────────────────────────────────────────────
 
-STEPS = [
-    {"type": "tool_call", "minute": 1, "stamp": False,
-     "ext": {"tool": {"name": "lookup_ticket", "operation": "read"},
-             "authorization": {"decision": "allowed", "policyId": "support-tools-v1"}},
-     "objects": [("tool-arguments", "input", "application/json", b'{"ticket":"4411"}')]},
-    {"type": "tool_result", "minute": 2, "ext": {"tool": {"name": "lookup_ticket"}}, "stamp": False,
-     "objects": [("tool-result", "context", "application/json", b'{"status":"open","product":"web"}')]},
-    {"type": "model_output", "minute": 3, "stamp": False,
-     "objects": [("assistant-reply", "output", "text/plain", b"Reset the session cache and retry.")]},
+POLICY = {"profile": "throughput", "everyEvents": 0, "everySeconds": 0, "consequential": False}
+CONTROL_OBJS = [
+    ("urn:example:obj:instruction-set", "instruction-set", "text/plain", b"You triage support tickets. Close only with approval."),
+    ("urn:example:obj:tool-manifest", "tool-manifest", "application/json", b'{"tools":["lookup_ticket","close_ticket"]}'),
+    ("urn:example:obj:execution-policy", "execution-policy", "application/json", b'{"allow":["lookup_ticket","close_ticket"]}'),
+    ("urn:example:obj:model-config", "model-config", "application/json", b'{"temperature":0}'),
+    ("urn:example:obj:control-set", "control-set", "application/json", b'{"controls":["ticket-closed","owner-unchanged"]}'),
+    ("urn:example:obj:baseline-state", "baseline-state", "application/json", b'{"ticket":"4411","status":"open","owner":"team-a"}'),
 ]
 
 
-def bundle(identity, artifacts, payloads=None) -> dict:
-    b = {"profile": "AgentExecutionProfileV1", "bundleVersion": "1", "correlationId": RUN,
-         "agentIdentity": identity, "artifacts": artifacts}
+def control_artifact(payloads: dict, *, policy=POLICY, cert: bytes = CERT_A, n: int = 1, tweak=None) -> dict:
+    env = {
+        "schemaName": "AgentControlArtifact", "schemaVersion": "1", "evidenceId": uuid(n),
+        "createdAt": "2026-10-01T08:59:00.000Z",
+        "actor": {"type": "system", "id": "urn:example:harness:prod"},
+        "activity": {"name": ACTIVITY, "correlationId": RUN},
+        "agent": dict(AGENT),
+        "controlSet": {"id": "ticket-close-v2", "version": "2"},
+        "objects": objects_block(CONTROL_OBJS),
+    }
+    if policy is not None:
+        env["timestampPolicy"] = policy
+    if tweak:
+        tweak(env)
+    for uri, _, _, data in CONTROL_OBJS:
+        payloads[uri] = data
+    return artifact(env, CONTROL_OBJS, CTY["control"], stamp_at="2026-10-01T08:59:01Z", cert=cert)
+
+
+def at(minute: int) -> str:
+    return f"2026-10-01T09:{minute:02d}:00.000Z"
+
+
+STEPS = [
+    {"type": "tool_call", "minute": 1, "step": {"tool": {"name": "lookup_ticket", "operation": "read"}},
+     "objects": [("tool-arguments", "application/json", b'{"ticket":"4411"}')]},
+    {"type": "tool_result", "minute": 2, "step": {"tool": {"name": "lookup_ticket"}},
+     "objects": [("tool-result", "application/json", b'{"status":"open"}')]},
+    {"type": "model_output", "minute": 3,
+     "objects": [("model-output", "text/plain", b"Reset the session cache and retry.")]},
+]
+
+
+def build_run(steps: list, payloads: dict, *, control: dict | None, finish: bool = True, start_type: str = "run_start",
+              tweak=None, end_cert: bytes = CERT_A, end_stamp: bool = True, start_stamp: bool = False) -> list:
+    """steps: [{type, minute, step:{…}, objects:[(role, ctype, bytes)], stamp, consequential, cert, dupAlg}]."""
+    arts: list = []
+    bind_value = signature_sha256(control["signature"]) if control else None
+
+    def seal(step_type, minute, step_fields, objs, stamp, consequential, cert, dup_alg=False):
+        seq = len(arts)
+        uris = [(f"urn:example:obj:s{seq}-{role}", role, ctype, data) for role, ctype, data in objs]
+        step = {"type": step_type, "eventTime": at(minute), "consequential": consequential,
+                "timestamp": "required" if stamp else "none"}
+        step.update(copy.deepcopy(step_fields))
+        env = {
+            "schemaName": "AgentExecutionEvidence", "schemaVersion": "1", "evidenceId": uuid(100 + seq),
+            "createdAt": at(minute),
+            "actor": {"type": "agent", "id": AGENT["id"], "version": AGENT["version"]},
+            "activity": {"name": ACTIVITY, "correlationId": RUN},
+            "chain": {"seq": seq},
+            "step": step,
+            "objects": objects_block(uris),
+        }
+        if seq > 0:
+            env["chain"]["prevSignatureSha256"] = signature_sha256(arts[-1]["signature"])
+        if step_type == "run_end":
+            step["finalSeq"] = seq
+            step["finalPrevSignatureSha256"] = env["chain"]["prevSignatureSha256"]
+        if seq == 0 and bind_value is not None:
+            env["binds"] = {"controlArtifactSignatureSha256": bind_value}
+        if tweak:
+            tweak(seq, env)
+        for uri, _, _, data in uris:
+            payloads[uri] = data
+        arts.append(artifact(env, uris, CTY["event"], stamp_at=at(minute).replace(".000", "") if stamp else None,
+                             cert=cert, dup_alg=dup_alg))
+
+    seal(start_type, 0, {}, [("model-input", "text/plain", b"Ticket 4411: login fails after reset.")],
+         start_stamp, False, CERT_A)
+    for s in steps:
+        seal(s["type"], s["minute"], s.get("step", {}), s.get("objects", []), s.get("stamp", False),
+             s.get("consequential", False), s.get("cert", CERT_A), s.get("dupAlg", False))
+    if finish:
+        seal("run_end", steps[-1]["minute"] + 1, {"runDisposition": "completed"}, [], end_stamp, False, end_cert)
+    return arts
+
+
+def rechain(arts: list, from_seq: int) -> None:
+    """Re-link and re-sign events from `from_seq` on after an earlier event's signature changed."""
+    for i in range(from_seq, len(arts)):
+        e = arts[i]["envelope"]
+        e["chain"]["prevSignatureSha256"] = signature_sha256(arts[i - 1]["signature"])
+        if e["step"]["type"] == "run_end":
+            e["step"]["finalPrevSignatureSha256"] = e["chain"]["prevSignatureSha256"]
+        resign(arts[i], CTY["event"])
+
+
+def evaluation(payloads: dict, control: dict, run_end: dict, *, tweak=None,
+               control_set_bytes: bytes | None = None, baseline_bytes: bytes | None = None) -> dict:
+    cs = next(o for o in CONTROL_OBJS if o[1] == "control-set")
+    bl = next(o for o in CONTROL_OBJS if o[1] == "baseline-state")
+    objs = [
+        ("urn:example:obj:observed-state", "observed-state", "application/json",
+         b'{"ticket":"4411","status":"closed","owner":"team-a"}'),
+        (cs[0], "control-set", cs[2], control_set_bytes if control_set_bytes is not None else cs[3]),
+        (bl[0], "baseline-state", bl[2], baseline_bytes if baseline_bytes is not None else bl[3]),
+    ]
+    env = {
+        "schemaName": "ControlEvaluation", "schemaVersion": "1", "evidenceId": uuid(900),
+        "createdAt": "2026-10-01T09:30:00.000Z",
+        "actor": {"type": "verifier", "id": "urn:example:verifier:ticket-state", "version": "1.3.0"},
+        "activity": {"name": ACTIVITY, "correlationId": RUN},
+        "subject": {"runEndSignatureSha256": signature_sha256(run_end["signature"]),
+                    "controlArtifactSignatureSha256": signature_sha256(control["signature"])},
+        "controlSet": {"id": "ticket-close-v2", "version": "2"},
+        "controls": [{"id": "ticket-closed", "result": "PASS"}, {"id": "owner-unchanged", "result": "PASS"}],
+        "overall": "PASS",
+        "evaluatedAt": "2026-10-01T09:29:00.000Z",
+        "objects": objects_block(objs),
+    }
+    if tweak:
+        tweak(env)
+    payloads["urn:example:obj:observed-state"] = objs[0][3]
+    return artifact(env, objs, CTY["evaluation"], stamp_at="2026-10-01T09:30:01Z", cert=CERT_V)
+
+
+def bundle(control, arts, evaluations=(), payloads=None) -> dict:
+    b = {"format": "AgentRunBundle", "bundleVersion": "1", "correlationId": RUN,
+         "controlArtifact": control, "artifacts": arts}
+    if evaluations:
+        b["evaluations"] = list(evaluations)
     if payloads is not None:
         b["payloads"] = {u: base64.b64encode(d).decode() for u, d in sorted(payloads.items())}
     return b
 
 
+# ── Fingerprint (common rules §8.2) ─────────────────────────────────────────
+
 def is_i_json(v) -> bool:
-    """No integers beyond ±2^53, no lone surrogates (jcs would silently round / fail)."""
     if isinstance(v, bool) or v is None or isinstance(v, float):
         return True
     if isinstance(v, int):
@@ -266,56 +267,54 @@ def is_i_json(v) -> bool:
 
 
 def fingerprint(b: dict) -> str | None:
-    arts = b["artifacts"] + ([b["agentIdentity"]] if b.get("agentIdentity") else [])
-    if not all(is_i_json(a["envelope"]) and is_i_json(a["signature"]) for a in arts):
-        return None  # §8.1: undefined for evidence that is not valid I-JSON
-    try:
-        return _fingerprint(b)
-    except Exception:  # not valid I-JSON: the fingerprint is undefined (§8.1)
+    every = b["artifacts"] + ([b["controlArtifact"]] if b.get("controlArtifact") else []) + b.get("evaluations", [])
+    if not all(is_i_json(a["envelope"]) and is_i_json(a["signature"]) for a in every):
         return None
 
-
-def _fingerprint(b: dict) -> str:
     def one(a):
         return {"e": sha256hex(jcs.canonicalize(a["envelope"])), "s": sha256hex(jcs.canonicalize(a["signature"])),
-                "d": dict(sorted((a.get("objectDigests") or {}).items()))}
+                "d": dict(sorted(a.get("objectDigests", {}).items()))}
     arts = []
     for a in b["artifacts"]:
-        raw = (a["envelope"].get("chain") or {}).get("seq") if isinstance(a["envelope"].get("chain"), dict) else None
+        chain = a["envelope"].get("chain")
+        raw = chain.get("seq") if isinstance(chain, dict) else None
         seq = raw if isinstance(raw, int) and not isinstance(raw, bool) and raw >= 0 else -1
         arts.append({"seq": seq, **one(a)})
     arts.sort(key=lambda x: (x["seq"], x["e"]))
-    ident = one(b["agentIdentity"]) if b.get("agentIdentity") else None
+    evals = sorted((one(e) for e in b.get("evaluations", [])), key=lambda x: x["e"])
     pls = [{"uri": u, "sha256": sha256hex(base64.b64decode(v))} for u, v in sorted((b.get("payloads") or {}).items())]
-    return sha256hex(jcs.canonicalize({"profile": b["profile"], "artifacts": arts, "identity": ident, "payloads": pls}))
+    return sha256hex(jcs.canonicalize({
+        "format": b["format"], "artifacts": arts,
+        "control": one(b["controlArtifact"]) if b.get("controlArtifact") else None,
+        "evaluations": evals, "payloads": pls}))
 
 
-def resign(art: dict, timestamp: str | None = "keep") -> None:
-    """Re-sign an artifact with the stub after a deliberate edit (a producer-side forgery)."""
-    old = art["signature"]["signatures"][-1].get("header", {}).get("stubTimestamp")
-    ts = old["genTime"] if (timestamp == "keep" and old) else (None if timestamp == "keep" else timestamp)
-    art["signature"] = stub_sign(art["envelope"], art["objectDigests"], timestamp=ts)
+CHECKS = ("correlation", "sequence", "chain", "envelope", "signatures", "timestamps", "objects", "finalization",
+          "control")
+ALL_OK = {k: "ok" for k in CHECKS}
+EVAL_OK = {"subjectBound": True, "controlSetDigestMatches": True, "baselineDigestMatches": True,
+           "signatureValid": True, "timestampValid": True, "overall": "PASS"}
 
 
-ALL_OK = {k: "ok" for k in ("correlation", "sequence", "chain", "envelope", "signatures", "timestamps",
-                            "objects", "finalization", "identity")}
-
-
-def scenario(name: str, description: str, b: dict, verdict: str, checks: dict, missing=None,
-             findings_contain=None, ascii_only: bool = False) -> None:
-    exp_checks = dict(ALL_OK)
-    exp_checks.update(checks)
+def scenario(name, description, b, verdict, checks, *, binding="bound", missing=None, findings=None,
+             evaluations=None, ascii_only=False) -> None:
+    exp = dict(ALL_OK)
+    exp.update(checks)
     write(f"runs/{name}.json", {
-        "description": description,
-        "bundle": b,
+        "description": description, "bundle": b,
         "expected": {
-            "verdict": verdict,
-            "checks": exp_checks,
-            "missingSeqs": missing or [],
-            "fingerprint": fingerprint(b),
-            "findingsContain": findings_contain or [],
+            "verdict": verdict, "checks": exp, "binding": binding, "missingSeqs": missing or [],
+            "fingerprint": fingerprint(b), "findingsContain": findings or [],
+            "evaluations": evaluations if evaluations is not None else [EVAL_OK] * len(b.get("evaluations", [])),
         },
     }, ascii_only=ascii_only)
+
+
+def standard(*, policy=POLICY, steps=STEPS, **kw):
+    p: dict = {}
+    control = control_artifact(p, policy=policy)
+    arts = build_run(steps, p, control=control, **kw)
+    return p, control, arts
 
 
 def main() -> None:
@@ -323,442 +322,251 @@ def main() -> None:
     if runs.is_dir():  # stale vectors must not survive a regeneration
         for f in runs.glob("*.json"):
             f.unlink()
-    # Chain digest vectors.
+
     env = {"x": 1, "objects": []}
-    plain = stub_sign(env, {}, timestamp=None)
-    hybrid = stub_sign(env, {}, timestamp="2026-10-01T09:00:00Z", hybrid=True)
+    plain = stub_sign(env, {}, CTY["event"], timestamp=None)
+    hybrid = stub_sign(env, {}, CTY["event"], timestamp="2026-10-01T09:00:00Z", hybrid=True)
     flattened = {"protected": plain["signatures"][0]["protected"], "signature": plain["signatures"][0]["signature"]}
-    write("chain-digest.json", [
-        {"name": "general-jws", "signature": plain, "expected": chain_digest(plain)},
+    write("signature-sha256.json", [
+        {"name": "general-jws", "signature": plain, "expected": signature_sha256(plain)},
         {"name": "hybrid-mldsa-first", "description": "The ML-DSA entry is skipped; unprotected headers are ignored.",
-         "signature": hybrid, "expected": chain_digest(hybrid)},
-        {"name": "flattened-jws", "signature": flattened, "expected": chain_digest(plain)},
+         "signature": hybrid, "expected": signature_sha256(hybrid)},
+        {"name": "flattened-jws", "signature": flattened, "expected": signature_sha256(plain)},
         {"name": "non-base64url-signature", "description": "Characters outside the base64url alphabet: no digest.",
-         "signature": {"signatures": [dict(plain["signatures"][0],
-                                           signature=plain["signatures"][0]["signature"] + "!!")]},
+         "signature": {"signatures": [dict(plain["signatures"][0], signature=plain["signatures"][0]["signature"] + "!!")]},
          "expected": None},
     ])
 
-    # Configuration digest vector.
-    write("config-digest.json", {
-        "agentManifest": base64.b64encode(MANIFEST).decode(),
-        "instructionSet": base64.b64encode(CONFIG_BYTES["instruction-set"]).decode(),
-        "toolManifest": base64.b64encode(CONFIG_BYTES["tool-manifest"]).decode(),
-        "modelConfig": base64.b64encode(CONFIG_BYTES["model-config"]).decode(),
-        "executionPolicy": base64.b64encode(CONFIG_BYTES["execution-policy"]).decode(),
-        "expected": CONFIG_SHA,
-        "expectedWithoutModelConfig": config_digest(MANIFEST, {k: v for k, v in CONFIG_BYTES.items()
-                                                               if k != "model-config"}),
-    })
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1])
+    scenario("01-finalized-digests-only", "Control basis, events sealed B-B, a timestamped run_end and a PASS "
+             "evaluation: three timestamps for the whole run. Digests only, so objects is 'warn'.",
+             bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"})
+    scenario("02-finalized-with-payloads", "The same run with every payload supplied: every check ok.",
+             bundle(control, arts, [ev], p), "run_finalized", {})
 
-    # 01 — finalized, digests only.
-    p: dict = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
-    scenario("01-finalized-digests-only", "A finalized throughput run verified by digests only: every check passes; "
-             "objects is 'warn' because no payload bytes were supplied.",
-             bundle(ident, arts), "run_finalized", {"objects": "warn"})
+    p, control, arts = standard(finish=False)
+    scenario("03-open", "No run_end yet: run_open; finalization and timestamps warn.", bundle(control, arts),
+             "run_open", {"objects": "warn", "finalization": "warn", "timestamps": "warn"})
 
-    # 02 — finalized with payloads.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
-    scenario("02-finalized-with-payloads", "The same run with every payload supplied: all nine checks are ok.",
-             bundle(ident, arts, p), "run_finalized", {})
-
-    # 03 — open run.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, finish=False)
-    scenario("03-open", "No run_end yet: run_open; finalization and timestamps warn.",
-             bundle(ident, arts), "run_open", {"objects": "warn", "finalization": "warn", "timestamps": "warn"})
-
-    # 04 — a step withheld.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
+    p, control, arts = standard()
     del arts[2]
-    scenario("04-withheld-step", "seq 2 removed from the bundle: the sequence gap is listed and the chain breaks.",
-             bundle(ident, arts), "run_invalid",
-             {"objects": "warn", "sequence": "bad", "chain": "bad"}, missing=[2],
-             findings_contain=["Sequence gap"])
+    scenario("04-withheld-event", "seq 2 removed: the gap is listed and the chain breaks.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "sequence": "bad", "chain": "bad"}, missing=[2],
+             findings=["Sequence gap"])
 
-    # 05 — envelope edited after signing.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
-    arts[3]["envelope"]["extensions"][EXT]["eventTime"] = "2026-10-01T08:59:00.000Z"
-    scenario("05-envelope-edited", "model_output's envelope was edited after signing: the signature no longer "
-             "covers it.", bundle(ident, arts), "run_invalid", {"objects": "bad"},
-             findings_contain=["the signature does not cover this envelope"])
+    p, control, arts = standard()
+    arts[3]["envelope"]["step"]["eventTime"] = "2026-10-01T08:58:00.000Z"
+    scenario("05-envelope-edited", "model_output's envelope was edited after signing.", bundle(control, arts),
+             "run_invalid", {"objects": "bad"}, findings=["the signature does not cover this envelope"])
 
-    # 06 — cross-run splice.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
+    p, control, arts = standard()
     arts[2]["envelope"]["activity"]["correlationId"] = "urn:uuid:00000000-0000-4000-9000-000000000002"
-    resign(arts[2])
-    scenario("06-cross-run-splice", "A validly signed step from another run is spliced in: correlation and chain "
-             "fail.", bundle(ident, arts), "run_invalid",
-             {"objects": "warn", "correlation": "bad", "chain": "bad"},
-             findings_contain=["cross-run splice"])
+    resign(arts[2], CTY["event"])
+    rechain(arts, 3)
+    scenario("06-cross-run-splice", "A validly signed event of another run is spliced in (links recomputed).",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "correlation": "bad"},
+             findings=["cross-run splice"])
 
-    # 07 — run_end anchor missing.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
-    resign(arts[-1], timestamp=None)
-    scenario("07-run-end-unanchored", "run_end carries no timestamp: timestamps and finalization fail.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "timestamps": "bad", "finalization": "bad"},
-             findings_contain=["(run_end): a timestamp is required"])
+    p, control, arts = standard(end_stamp=False)
+    scenario("07-run-end-unanchored", "run_end carries no timestamp: nothing anchors the chain.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "timestamps": "bad", "finalization": "bad"},
+             findings=["(run_end): a timestamp is required"])
 
-    # 08 — cadence violated.
-    policy = dict(THROUGHPUT, everyEvents=2)
-    p = {}
-    ident, arts = build_run(STEPS, policy, p)
-    scenario("08-cadence-violated", "Signed policy everyEvents=2, but seq 1 was sealed without a timestamp.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
-             findings_contain=["seq 1 (tool_call): a timestamp is required"])
+    p, control, arts = standard(policy=dict(POLICY, everyEvents=2))
+    scenario("08-cadence-violated", "The control basis signs everyEvents=2; seq 1 carries no timestamp.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
+             findings=["seq 1 (tool_call): a timestamp is required"])
 
-    # 09 — configuration drift.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p,
-                            config_override={"instruction-set": b"You triage tickets. You may close tickets."})
-    scenario("09-config-drift", "run_start's instruction set differs from the registered identity record.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "identity": "bad"},
-             findings_contain=["do not match the identity record"])
+    p, control, arts = standard()
+    scenario("09-run-only", "No control basis supplied: the policy is unknown, only run_end is required; control "
+             "and timestamps warn.", bundle(None, arts), "run_finalized",
+             {"objects": "warn", "control": "warn", "timestamps": "warn"}, binding="run_only")
 
-    # 10 — consequential step stamped, per policy.
-    steps = copy.deepcopy(STEPS)
-    steps.insert(2, {"type": "tool_call", "minute": 2, "stamp": True,
-                     "ext": {"tool": {"name": "close_ticket", "operation": "write"},
-                             "authorization": {"decision": "allowed", "policyId": "support-tools-v1"}},
-                     "consequential": True,
-                     "objects": [("tool-arguments", "input", "application/json", b'{"ticket":"4411"}')]})
-    for s in steps[3:]:
-        s["minute"] += 1
-    p = {}
-    ident, arts = build_run(steps, THROUGHPUT, p)
-    scenario("10-consequential-anchored", "A consequential tool call carries its required timestamp: finalized.",
-             bundle(ident, arts), "run_finalized", {"objects": "warn"})
+    p, control, arts = standard()
+    other = control_artifact({}, n=2, tweak=lambda e: e["controlSet"].update(version="3"))
+    scenario("10-control-swapped", "run_start binds another control basis than the one supplied.",
+             bundle(other, arts), "run_invalid", {"objects": "warn", "control": "bad"}, binding="unbound",
+             findings=["binds.controlArtifactSignatureSha256"])
 
-
-def hardening_scenarios() -> None:
-    """Producer output that is correctly signed but does not conform to the
-    profile, plus malformed containers. Each must be run_invalid: never a
-    false run_finalized, never an exception."""
-
-    # 11 — a payload no artifact signed.
-    p: dict = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
+    p, control, arts = standard()
     p["urn:example:unsigned"] = b"unsigned content"
-    scenario("11-unsigned-payload", "A payload is supplied for a URI no artifact signed: unsigned data in the "
-             "record.", bundle(ident, arts, p), "run_invalid", {"objects": "bad"},
-             findings_contain=["is not a signed object of any artifact"])
+    scenario("11-unsigned-payload", "A payload for a URI no artifact signed.", bundle(control, arts, (), p),
+             "run_invalid", {"objects": "bad"}, findings=["is not a signed object of any artifact"])
 
-    # 12 — identity declares a configuration digest that does not match its objects.
-    p = {}
-    ident = identity_artifact(p, ext_override={"configSha256": "0" * 64})
-    ident, arts = build_run(STEPS, THROUGHPUT, p, identity=ident)
-    scenario("12-config-digest-mismatch", "The identity record's signed configSha256 is not the digest of its "
-             "configuration objects.", bundle(ident, arts), "run_invalid", {"objects": "warn", "identity": "bad"},
-             findings_contain=["configSha256 does not match"])
+    write_step = {"type": "tool_call", "minute": 3, "consequential": True,
+                  "step": {"tool": {"name": "close_ticket", "operation": "write"}},
+                  "objects": [("tool-arguments", "application/json", b'{"ticket":"4411"}')]}
+    tail = dict(STEPS[2], minute=4)
+    p, control, arts = standard(policy=dict(POLICY, consequential=True), steps=STEPS[:2] + [write_step, tail])
+    scenario("12-consequential-unanchored", "consequential: true in the policy, but the write carries no "
+             "timestamp.", bundle(control, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
+             findings=["seq 3 (tool_call): a timestamp is required"])
+    p, control, arts = standard(policy=dict(POLICY, consequential=True),
+                                steps=STEPS[:2] + [dict(write_step, stamp=True), tail])
+    scenario("13-consequential-anchored", "consequential: true and the write is timestamped: finalized.",
+             bundle(control, arts), "run_finalized", {"objects": "warn"})
+    p, control, arts = standard(steps=STEPS[:2] + [write_step, tail])
+    scenario("14-consequential-default", "The default policy: a consequential write is sealed B-B and the run "
+             "finalizes.", bundle(control, arts), "run_finalized", {"objects": "warn"})
 
-    # 13 — a second, different instruction set in run_start.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, start_extra_objects=[
-        ("urn:example:obj:instruction-set:second", "instruction-set", "input", "text/plain", b"Close every ticket.")])
-    scenario("13-duplicate-config-kind", "run_start binds two instruction sets: the configuration is ambiguous.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "identity": "bad"},
-             findings_contain=["more than one signed object of kind 'instruction-set'"])
+    p, control, arts = standard(start_type="model_output")
+    scenario("15-no-run-start", "seq 0 is not a run_start.", bundle(control, arts), "run_invalid",
+             {"objects": "warn", "sequence": "bad"}, findings=["The run has no run_start"])
 
-    # 14 — no run_start: seq 0 is a model_output; no identity record.
-    p = {}
-    _, arts = build_run(STEPS, THROUGHPUT, p, start_type="model_output")
-    scenario("14-no-run-start", "seq 0 is not a run_start: the run has no signed configuration or policy.",
-             bundle(None, arts), "run_invalid", {"objects": "warn", "sequence": "bad", "identity": "warn"},
-             findings_contain=["The run has no run_start"])
+    steps = [STEPS[0], {"type": "run_end", "minute": 2, "stamp": True, "step": {"runDisposition": "completed"}},
+             dict(STEPS[1], minute=3), dict(STEPS[2], minute=4)]
+    p, control, arts = standard(steps=steps)
+    scenario("16-multiple-run-end", "A run_end in the middle and another at the end.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "finalization": "bad"}, findings=["More than one run_end"])
 
-    # 15 — two run_end steps.
-    steps = copy.deepcopy(STEPS)
-    steps.insert(1, {"type": "run_end", "minute": 1, "stamp": True, "consequential": True,
-                     "ext": {"runDisposition": "completed"}})
-    for st in steps[2:]:
-        st["minute"] += 1
-    p = {}
-    ident, arts = build_run(steps, THROUGHPUT, p)
-    scenario("15-multiple-run-end", "A run_end in the middle of the chain and another at the end.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "finalization": "bad"},
-             findings_contain=["More than one run_end"])
+    def wrong_final(seq, e):
+        if e["step"]["type"] == "run_end":
+            e["step"]["finalSeq"] = seq - 1
+    p, control, arts = standard(tweak=wrong_final)
+    scenario("17-final-seq-not-own", "run_end's finalSeq names the previous seq instead of its own.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "finalization": "bad"},
+             findings=["finalSeq"])
 
-    # 16 — the signed timestamp policy is not an object.
-    p = {}
-    ident, arts = build_run(STEPS, [], p)
-    scenario("16-malformed-policy", "run_start's signed timestampPolicy is an array: malformed, not absent.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
-             findings_contain=["timestamp policy is malformed"])
+    def bad_tool(seq, e):
+        if seq == 1:
+            e["step"]["tool"] = "lookup_ticket"
+    p, control, arts = standard(tweak=bad_tool)
+    scenario("18-schema-violation", "tool_call's tool is a string, not {name, operation}.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "envelope": "bad"}, findings=["step.tool must be of type object"])
 
-    # 17 — not a v2/profile envelope: model is an array, actor is not an agent.
-    def bad_shape(seq, env):
-        if seq == 0:
-            env["model"] = ["not a model"]
-            env["actor"]["type"] = "human"
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=bad_shape)
-    scenario("17-malformed-envelope", "run_start is signed but is not a well-formed v2 agent envelope.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
-             findings_contain=["model must be of type object", "actor.type must be 'agent'"])
-
-    # 18 — a signature that is not valid I-JSON (lone surrogate).
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
+    p, control, arts = standard()
     arts[2]["signature"]["x-note"] = "\ud800"
-    scenario("18-not-i-json", "seq 2's signature carries a lone surrogate: not valid I-JSON. A verdict, never an "
-             "exception.", bundle(ident, arts), "run_invalid",
+    scenario("19-not-i-json", "seq 2's signature carries a lone surrogate. A verdict, never an exception.",
+             bundle(control, arts), "run_invalid",
              {"objects": "bad", "sequence": "bad", "chain": "bad", "envelope": "bad", "signatures": "bad"},
-             missing=[2], findings_contain=["not valid I-JSON"], ascii_only=True)
+             missing=[2], findings=["not valid I-JSON"], ascii_only=True)
 
+    p, control, arts = standard()
+    arts[2]["envelope"]["extensions"] = {"com.example.x": {"count": 2 ** 53 + 1}}
+    resign(arts[2], CTY["event"])
+    rechain(arts, 3)
+    scenario("20-integer-beyond-i-json", "seq 2 carries 2^53+1: not valid I-JSON.", bundle(control, arts),
+             "run_invalid", {"objects": "bad", "sequence": "bad", "chain": "bad", "envelope": "bad",
+                             "signatures": "bad"}, missing=[2], findings=["not valid I-JSON"])
 
-def schema_scenarios() -> None:
-    """Optional v2 sections are optional to supply, never exempt from
-    validation; and the run identifier must be signed on every step."""
+    p, control, arts = standard(tweak=lambda seq, e: e["activity"].update(correlationId=""))
+    scenario("21-empty-correlation", "No event carries a non-empty correlationId.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "correlation": "bad", "envelope": "bad"},
+             findings=["no signed correlationId"])
 
-    def full_optional(seq, env):
-        if seq == 1:
-            env["sourceTrace"] = [{
-                "sourceId": "kb-1182", "sourceType": "kb-article", "sourceUri": "urn:example:kb:1182",
-                "snapshotHash": {"alg": "SHA-256", "hex": "ab" * 32, "sizeBytes": 2048},
-                "retrievedAt": "2026-10-01T09:00:30Z",
-            }]
-            env["objects"][0]["metadata"] = {"rank": 1, "score": 0.92, "source": "urn:example:kb:1182",
-                                             "language": "en", "x-producer-field": "allowed"}
-        if seq == 3:
-            env["processingMetadata"] = {
-                "startedAt": "2026-10-01T09:02:30Z", "completedAt": "2026-10-01T09:03:00.250Z", "durationMs": 30250,
-                "tokenUsage": {"input": 900, "output": 120, "total": 1020, "cached": 0},
-                "stopReason": "end_turn", "providerRequestId": "req-example-1",
-            }
-            env["policyMetadata"] = {
-                "redactionApplied": True, "redactionPolicy": "pii-redaction-v3", "contentFilters": ["pii"],
-                "consent": {"scope": "support", "obtainedAt": "2026-09-30T12:00:00Z", "reference": "urn:example:consent:7"},
-            }
-            env["model"]["version"] = "2026-09"
-            env["model"]["parameters"] = {"max_tokens": 1024, "temperature": 0}
-    p: dict = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=full_optional)
-    scenario("19-optional-sections-valid", "Every optional v2 section present and valid: still finalized.",
-             bundle(ident, arts), "run_finalized", {"objects": "warn"})
-
-    negatives = [
-        ("20-invalid-source-trace", "sourceTrace is a string, not an array.", 1,
-         lambda env: env.__setitem__("sourceTrace", "not an array"), "sourceTrace must be of type array"),
-        ("21-invalid-processing-metadata", "processingMetadata.tokenUsage.input is negative.", 3,
-         lambda env: env.__setitem__("processingMetadata", {"tokenUsage": {"input": -1}}),
-         "processingMetadata.tokenUsage.input must be >= 0"),
-        ("22-invalid-policy-metadata", "policyMetadata.redactionApplied is a string, not a boolean.", 3,
-         lambda env: env.__setitem__("policyMetadata", {"redactionApplied": "yes"}),
-         "policyMetadata.redactionApplied must be of type boolean"),
-        ("23-invalid-chain-member", "run_start's chain carries a member the schema does not define.", 0,
-         lambda env: env["chain"].__setitem__("unrecognized", True), "chain has unknown member 'unrecognized'"),
-    ]
-    for name, description, at, edit, finding in negatives:
-        p = {}
-        ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=lambda seq, env, at=at, edit=edit: edit(env) if seq == at else None)
-        scenario(name, description + " Signed, but not a valid v2 envelope.", bundle(ident, arts), "run_invalid",
-                 {"objects": "warn", "envelope": "bad"}, findings_contain=[finding])
+    forged = STEPS[:2] + [{"type": "human_approval", "minute": 3, "stamp": True, "cert": CERT_B,
+                           "step": {"decision": "approved", "approver": "urn:example:approver:42"}}]
+    p, control, arts = standard(steps=forged, end_cert=CERT_B)
+    scenario("22-foreign-signer-appended", "Events after seq 2 are forged and sealed by another certificate; "
+             "their links compute.", bundle(control, arts), "run_invalid", {"objects": "warn", "signatures": "bad"},
+             findings=["signed by a different certificate than the run"])
 
     p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=lambda seq, env: env["activity"].pop("correlationId"))
-    scenario("24-missing-correlation", "No step carries a signed correlationId: the run identifier is not "
-             "signed anywhere.", bundle(ident, arts), "run_invalid", {"objects": "warn", "correlation": "bad"},
-             findings_contain=["no signed correlationId"])
+    control = control_artifact(p, cert=CERT_B)
+    arts = build_run(STEPS, p, control=control)
+    scenario("23-control-other-signer", "The control basis is signed by another certificate than the run.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "signatures": "bad"},
+             findings=["control artifact: signed by a different certificate than the run"])
 
-
-def step_block_scenarios() -> None:
-    """Optional model config, the tool/authorization/approval blocks (§3.4)
-    and a human approval flow."""
-
-    # 25 — no model-config on either side: allowed (§3.2, §3.6).
-    p: dict = {}
-    ident = identity_artifact(p, without=("model-config",))
-    ident, arts = build_run(STEPS, THROUGHPUT, p, identity=ident, start_without=("model-config",))
-    scenario("25-no-model-config", "The optional model-config is bound on neither side: finalized.",
-             bundle(ident, arts), "run_finalized", {"objects": "warn"})
-
-    # 26 — model-config on the identity record only.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, start_without=("model-config",))
-    scenario("26-model-config-one-side", "The identity record binds a model-config, run_start does not.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "identity": "bad"},
-             findings_contain=["do not match the identity record"])
-
-    # 27 — tool block is a bare string.
-    def string_tool(seq, env):
-        if seq == 1:
-            env["extensions"][EXT]["tool"] = "lookup_ticket"
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=string_tool)
-    scenario("27-invalid-tool-block", "tool_call's tool block is a string, not {name, operation}.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
-             findings_contain=["tool must be an object with a non-empty string name"])
-
-    # 28 — authorization decision outside the vocabulary.
-    def odd_decision(seq, env):
-        if seq == 1:
-            env["extensions"][EXT]["authorization"]["decision"] = "maybe"
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=odd_decision)
-    scenario("28-invalid-authorization", "tool_call's authorization decision is neither allowed nor denied.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
-             findings_contain=["authorization.decision must be 'allowed' or 'denied'"])
-
-    # 29 — a write guarded by an authorization step and a human approval.
-    approval_steps = [
-        STEPS[0], STEPS[1],
-        {"type": "authorization", "minute": 3, "stamp": False,
-         "ext": {"tool": {"name": "close_ticket", "operation": "write"},
-                 "authorization": {"decision": "allowed", "policyId": "support-tools-v1",
-                                   "reason": "write requires approval"}}},
-        {"type": "human_approval", "minute": 4, "stamp": True, "consequential": True,
-         "ext": {"approval": {"decision": "approved", "approverRef": "urn:example:approver:42",
-                              "actionEvidenceId": uuid(102), "decidedAt": "2026-10-01T09:04:00Z"}},
-         "objects": [("approval-receipt", "input", "application/json", b'{"ticket":"4411","decision":"approved"}'),
-                     ("identity-assertion", "input", "application/jwt", b"eyJhbGciOiJFUzI1NiJ9.example.sig")]},
-        {"type": "tool_call", "minute": 5, "stamp": True, "consequential": True,
-         "ext": {"tool": {"name": "close_ticket", "operation": "write"},
-                 "authorization": {"decision": "allowed", "policyId": "support-tools-v1"}},
-         "objects": [("tool-arguments", "input", "application/json", b'{"ticket":"4411"}')]},
-        dict(STEPS[2], minute=6),
-    ]
-    p = {}
-    ident, arts = build_run(approval_steps, THROUGHPUT, p)
-    scenario("29-human-approval", "authorization → human_approval (receipt + identity assertion) → "
-             "consequential write: finalized.", bundle(ident, arts), "run_finalized", {"objects": "warn"})
-
-    # 30 — human_approval without a decision.
-    steps = copy.deepcopy(approval_steps)
-    steps[3]["ext"] = {"approval": {"approverRef": "urn:example:approver:42"}}
-    p = {}
-    ident, arts = build_run(steps, THROUGHPUT, p)
-    scenario("30-approval-without-decision", "A human_approval step whose approval block has no decision.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "envelope": "bad"},
-             findings_contain=["approval must be an object with a non-empty string decision"])
-
-
-def signer_and_policy_scenarios() -> None:
-    """One signer per run (§4.1), one classical signature per artifact (§4),
-    I-JSON and duplicate names (§7), and every §5 coverage branch."""
-
-    # 31 — truncate a real run and append forged steps under another certificate.
-    forged = STEPS[:2] + [
-        {"type": "human_approval", "minute": 3, "stamp": True, "consequential": True, "cert": CERT_B,
-         "ext": {"approval": {"decision": "approved", "approverRef": "urn:example:approver:42"}}},
-    ]
-    p: dict = {}
-    ident, arts = build_run(forged, THROUGHPUT, p, end_cert=CERT_B)
-    scenario("31-foreign-signer-appended", "Steps after seq 2 are forged and sealed with a different "
-             "certificate; the chain itself links correctly.", bundle(ident, arts), "run_invalid",
-             {"objects": "warn", "signatures": "bad"}, findings_contain=["signed by a different certificate than the run"])
-
-    # 32 — an artifact carrying two classical signature entries.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
+    p, control, arts = standard()
     first = arts[2]["signature"]["signatures"][0]
     arts[2]["signature"]["signatures"].append(dict(first, signature=b64u(b"another classical signature")))
-    scenario("32-two-classical-signatures", "seq 2 carries two classical signature entries: which one the chain "
-             "commits to and which one is verified is ambiguous.", bundle(ident, arts), "run_invalid",
-             {"objects": "warn", "signatures": "bad"}, findings_contain=["exactly one classical signature"])
+    scenario("24-two-classical-signatures", "seq 2 carries two classical signature entries.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "signatures": "bad"}, findings=["exactly one classical signature"])
 
-    # 33 — an integer beyond I-JSON's ±2^53.
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p,
-                            tweak=lambda seq, env: env["extensions"][EXT].update({"x-count": 2 ** 53 + 1}) if seq == 2 else None)
-    scenario("33-integer-beyond-i-json", "seq 2's envelope carries 2^53+1: not valid I-JSON; two envelopes could "
-             "share a hash. A verdict, never an exception.", bundle(ident, arts), "run_invalid",
-             {"objects": "bad", "sequence": "bad", "chain": "bad", "envelope": "bad", "signatures": "bad"},
-             missing=[2], findings_contain=["not valid I-JSON"])
+    dup = copy.deepcopy(STEPS)
+    dup[1]["dupAlg"] = True
+    p, control, arts = standard(steps=dup)
+    scenario("25-duplicate-header-member", "seq 2's protected header repeats \"alg\": no signer can be "
+             "established.", bundle(control, arts), "run_invalid", {"objects": "warn", "signatures": "bad"},
+             findings=["no readable protected header"])
 
-    # 34/35 — per-event profile.
-    per_event = dict(THROUGHPUT, profile="per-event")
-    stamped = [dict(st, stamp=True) for st in STEPS]
-    p = {}
-    ident, arts = build_run(stamped, per_event, p)
-    scenario("34-per-event", "per-event profile, every step timestamped: finalized.", bundle(ident, arts),
+    stamped = [dict(s, stamp=True) for s in STEPS]
+    per_event = dict(POLICY, profile="per-event")
+    p, control, arts = standard(policy=per_event, steps=stamped, start_stamp=True)
+    scenario("26-per-event", "per-event: every event timestamped.", bundle(control, arts), "run_finalized",
+             {"objects": "warn"})
+    p, control, arts = standard(policy=per_event, steps=[stamped[0], dict(stamped[1], stamp=False), stamped[2]],
+                                start_stamp=True)
+    scenario("27-per-event-missing", "per-event, but seq 2 carries no timestamp.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "timestamps": "bad"}, findings=["seq 2 (tool_result): a timestamp"])
+
+    checkpoint = {"type": "checkpoint", "minute": 3, "stamp": True, "step": {"detail": "idle"}}
+    p, control, arts = standard(steps=STEPS[:2] + [checkpoint, tail])
+    scenario("28-checkpoint", "A checkpoint declares and carries a timestamp.", bundle(control, arts),
              "run_finalized", {"objects": "warn"})
-    p = {}
-    ident, arts = build_run([stamped[0], dict(stamped[1], stamp=False), stamped[2]], per_event, p)
-    scenario("35-per-event-missing", "per-event profile, seq 2 without a timestamp.", bundle(ident, arts),
-             "run_invalid", {"objects": "warn", "timestamps": "bad"},
-             findings_contain=["seq 2 (tool_result): a timestamp is required"])
 
-    # 36/37 — runStart.
-    run_start_policy = dict(THROUGHPUT, runStart=True)
-    p = {}
-    ident, arts = build_run(STEPS, run_start_policy, p)
-    scenario("36-run-start-stamped", "runStart: true and run_start carries its timestamp: finalized.",
-             bundle(ident, arts), "run_finalized", {"objects": "warn"})
-    p = {}
-    ident, arts = build_run(STEPS, run_start_policy, p, start_stamp=False)
-    scenario("37-run-start-unstamped", "runStart: true but run_start carries no timestamp.", bundle(ident, arts),
-             "run_invalid", {"objects": "warn", "timestamps": "bad"},
-             findings_contain=["seq 0 (run_start): a timestamp is required"])
-
-    # 38/39 — checkpoints.
-    checkpoint = {"type": "checkpoint", "minute": 3, "stamp": True, "ext": {"checkpoint": {"reason": "idle"}}}
-    tail = dict(STEPS[2], minute=4)
-    p = {}
-    ident, arts = build_run(STEPS[:2] + [checkpoint, tail], THROUGHPUT, p)
-    scenario("38-checkpoint", "An idle checkpoint anchors the head: finalized.", bundle(ident, arts),
-             "run_finalized", {"objects": "warn"})
-    p = {}
-    ident, arts = build_run(STEPS[:2] + [dict(checkpoint, stamp=False), tail], THROUGHPUT, p)
-    scenario("39-checkpoint-unstamped", "A checkpoint without a timestamp anchors nothing.", bundle(ident, arts),
-             "run_invalid", {"objects": "warn", "timestamps": "bad"},
-             findings_contain=["seq 3 (checkpoint): a timestamp is required"])
-
-    # 40 — a step declaring timestamp "required" without one.
-    def declare_required(seq, env):
+    def declare(seq, e):
         if seq == 1:
-            env["extensions"][EXT]["timestamp"] = "required"
-    p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p, tweak=declare_required)
-    scenario("40-declared-required-unstamped", "seq 1 declares timestamp \"required\" but carries none.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
-             findings_contain=["seq 1 (tool_call): a timestamp is required"])
+            e["step"]["timestamp"] = "required"
+    p, control, arts = standard(tweak=declare)
+    scenario("29-declared-unstamped", "seq 1 declares timestamp \"required\" but carries none.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
+             findings=["seq 1 (tool_call): a timestamp is required"])
 
-    # 41/42 — everySeconds: a step exactly 300 s after the last anchor.
     late = [STEPS[0], STEPS[1], dict(STEPS[2], minute=5)]
-    p = {}
-    ident, arts = build_run([late[0], late[1], dict(late[2], stamp=True)], THROUGHPUT, p)
-    scenario("41-every-seconds", "seq 3 is exactly everySeconds (300 s) after run_start and is timestamped: "
-             "finalized.", bundle(ident, arts), "run_finalized", {"objects": "warn"})
-    p = {}
-    ident, arts = build_run(late, THROUGHPUT, p)
-    scenario("42-every-seconds-unstamped", "seq 3 is exactly 300 s after run_start but carries no timestamp.",
-             bundle(ident, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
-             findings_contain=["seq 3 (model_output): a timestamp is required"])
+    every = dict(POLICY, everySeconds=300)
+    p, control, arts = standard(policy=every, steps=[late[0], late[1], dict(late[2], stamp=True)])
+    scenario("30-every-seconds", "everySeconds=300; seq 3 is exactly 300 s after run_start and timestamped.",
+             bundle(control, arts), "run_finalized", {"objects": "warn"})
+    p, control, arts = standard(policy=every, steps=late)
+    scenario("31-every-seconds-unstamped", "everySeconds=300; seq 3 is 300 s later but unstamped.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "timestamps": "bad"},
+             findings=["seq 3 (model_output): a timestamp is required"])
 
-    # 43 — tool.useId and registeredBy.
-    with_ids = copy.deepcopy(STEPS)
-    with_ids[0]["ext"]["tool"]["useId"] = "toolu_01"
-    with_ids[1]["ext"]["tool"]["useId"] = "toolu_01"
-    p = {}
-    ident = identity_artifact(p, ext_override={"registeredBy": "urn:example:registrar:7"})
-    ident, arts = build_run(with_ids, THROUGHPUT, p, identity=ident)
-    scenario("43-use-id-and-registered-by", "tool.useId correlates call and result; the identity record names "
-             "its registrar opaquely: finalized.", bundle(ident, arts), "run_finalized", {"objects": "warn"})
+    def rebind(seq, e):
+        if seq == 2:
+            e["binds"] = {"controlArtifactSignatureSha256": "0" * 64}
+    p, control, arts = standard(tweak=rebind)
+    scenario("32-later-event-binds-other-control", "seq 2 binds another control basis than run_start.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "control": "bad"},
+             findings=["binds another control artifact"])
 
-    # 44 — a duplicate member name: the bundle does not parse.
     p = {}
-    ident, arts = build_run(STEPS, THROUGHPUT, p)
-    text = json.dumps(bundle(ident, arts), separators=(",", ":"))
+    control = control_artifact(p, policy=None)
+    arts = build_run(STEPS, p, control=control)
+    scenario("33-control-without-policy", "The control basis signs no timestampPolicy: the defaults apply, with a "
+             "warning.", bundle(control, arts), "run_finalized", {"objects": "warn"})
+
+    p, control, arts = standard(tweak=lambda seq, e: e.update(evidenceId="urn:uuid:" + e["evidenceId"]))
+    scenario("34-urn-uuid-accepted", "Events use the urn:uuid: form of evidenceId: accepted.",
+             bundle(control, arts), "run_finalized", {"objects": "warn"})
+
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1], tweak=lambda e: e["subject"].update(runEndSignatureSha256="0" * 64))
+    scenario("35-evaluation-wrong-subject", "The evaluation names another run_end. Evaluations never change the "
+             "run verdict.", bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
+             evaluations=[dict(EVAL_OK, subjectBound=False)])
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1], control_set_bytes=b'{"controls":["ticket-closed"]}')
+    scenario("36-evaluation-other-control-set", "The evaluation carries another control set under the same URI.",
+             bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
+             evaluations=[dict(EVAL_OK, controlSetDigestMatches=False)])
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1], baseline_bytes=b'{"ticket":"4411","status":"closed"}')
+    scenario("37-evaluation-other-baseline", "The evaluation's baseline differs from the one sealed before the run.",
+             bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
+             evaluations=[dict(EVAL_OK, baselineDigestMatches=False)])
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1], tweak=lambda e: e.update(
+        overall="FAIL", controls=[{"id": "ticket-closed", "result": "PASS"},
+                                  {"id": "owner-unchanged", "result": "FAIL", "detail": "owner changed"}]))
+    scenario("38-evaluation-fail-reported", "A FAIL evaluation is reported unchanged; the run itself finalizes.",
+             bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
+             evaluations=[dict(EVAL_OK, overall="FAIL")])
+
+    p, control, arts = standard()
+    text = json.dumps(bundle(control, arts), separators=(",", ":"))
     needle = '"consequential":false'
     assert needle in text
-    text = text.replace(needle, needle + ',"consequential":true', 1)
-    write("runs/44-duplicate-member.json", {
-        "description": "A step's profile block repeats \"consequential\". I-JSON forbids duplicate names; parsers "
-                       "disagree on which value wins, so the bundle must not parse at all.",
-        "bundleText": text,
+    write("runs/39-duplicate-member.json", {
+        "description": "An event repeats \"consequential\". I-JSON forbids duplicate names; parsers disagree on which "
+                       "value wins, so the bundle must not parse.",
+        "bundleText": text.replace(needle, needle + ',"consequential":true', 1),
         "expected": {"parseError": "duplicate member name"},
     })
 
 
 if __name__ == "__main__":
     main()
-    hardening_scenarios()
-    schema_scenarios()
-    step_block_scenarios()
-    signer_and_policy_scenarios()

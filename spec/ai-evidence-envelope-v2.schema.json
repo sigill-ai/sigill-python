@@ -238,7 +238,7 @@
       "type": "object",
       "additionalProperties": false,
       "required": ["seq"],
-      "description": "Cryptographic sequencing for multi-step agent runs. The mechanism and preimage are defined in spec §3.4; step semantics belong to the profile that emits it (AgentExecutionProfileV1).",
+      "description": "Cryptographic sequencing for multi-step agent runs. The mechanism and preimage are defined in spec §3.4; step semantics belong to the profile that emits it (the Agent Evidence Profiles v1).",
       "properties": {
         "seq": {
           "type": "integer",

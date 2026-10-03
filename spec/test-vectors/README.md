@@ -1,8 +1,8 @@
 # Test vectors
 
-Three reference scenarios for the envelope (agent-run vectors for
-[AgentExecutionProfileV1](../agent-execution-profile-v1.md) live in
-[`agent-run/`](agent-run/README.md)). Each SDK consumes them and asserts byte-equality of the canonical
+Three reference scenarios for the envelope (the agent-profile vectors live in
+[`agent-run/`](agent-run/README.md) and
+[`10-agent-controlled-run/`](10-agent-controlled-run/README.md)). Each SDK consumes them and asserts byte-equality of the canonical
 output and hex-equality of the envelope hash. This is what makes the spec cross-language
 deterministic in practice rather than just on paper.
 

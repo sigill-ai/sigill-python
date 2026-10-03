@@ -1,9 +1,0 @@
-{
-  "agentManifest": "eyJhZ2VudElkIjoidXJuOmV4YW1wbGU6YWdlbnQ6c3VwcG9ydC10cmlhZ2UiLCJhZ2VudFZlcnNpb24iOiIyLjQuMCIsImRpc3BsYXlOYW1lIjoiU3VwcG9ydCB0cmlhZ2UiLCJtb2RlbCI6eyJuYW1lIjoiZXhhbXBsZS1tb2RlbC0xIiwicHJvdmlkZXIiOiJleGFtcGxlLWFpIn19",
-  "instructionSet": "WW91IHRyaWFnZSBzdXBwb3J0IHRpY2tldHMuIE5ldmVyIGNsb3NlIGEgdGlja2V0IHdpdGhvdXQgYXBwcm92YWwu",
-  "toolManifest": "eyJ0b29scyI6W3sibmFtZSI6Imxvb2t1cF90aWNrZXQifSx7Im5hbWUiOiJjbG9zZV90aWNrZXQifV19",
-  "modelConfig": "eyJtYXhfdG9rZW5zIjoxMDI0LCJ0ZW1wZXJhdHVyZSI6MH0=",
-  "executionPolicy": "eyJhbGxvdyI6WyJsb29rdXBfdGlja2V0IiwiY2xvc2VfdGlja2V0Il0sIndyaXRlUmVxdWlyZXNBcHByb3ZhbCI6dHJ1ZX0=",
-  "expected": "d8c95c6beddb2d1e5a2e94f85c2dc3ea3587772a810578020b71f81640f8d22e",
-  "expectedWithoutModelConfig": "e5b8c6e60639fe0c70d13d64508d386858f0a8811566926c7ad2526ad177d180"
-}

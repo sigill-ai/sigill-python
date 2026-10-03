@@ -1,0 +1,398 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sigill.ai/agent-execution-evidence/v1.json",
+  "title": "AgentExecutionEvidence",
+  "description": "Sibling profile of AiEvidenceEnvelopeV2: one artifact per event in an agent run, chained by seq and prevSignatureSha256. See agent-execution-evidence-v1.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "evidenceId",
+    "createdAt",
+    "actor",
+    "activity",
+    "chain",
+    "step",
+    "objects"
+  ],
+  "properties": {
+    "schemaName": {
+      "type": "string",
+      "const": "AgentExecutionEvidence"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "1"
+    },
+    "evidenceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "A bare UUID, as the v2 family core requires. Verifiers also accept the urn:uuid: form (common rules §1)."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Producer's clock, RFC 3339 UTC. Seal time is proven by sigTst."
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "service",
+            "system",
+            "agent"
+          ],
+          "description": "Who produced this artifact."
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier. Not a display name, not PII."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the producing component."
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "displayHint": {
+          "type": "string"
+        }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "correlationId"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The run identifier; identical in every artifact of one run."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "description": "Producer-private data, as AiEvidenceEnvelopeV2 §2."
+    },
+    "chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prevSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "if": {
+        "properties": {
+          "seq": {
+            "const": 0
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "prevSignatureSha256"
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "prevSignatureSha256"
+        ]
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "eventTime"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "run_start",
+            "retrieval",
+            "tool_call",
+            "authorization",
+            "human_approval",
+            "tool_result",
+            "model_output",
+            "checkpoint",
+            "run_end"
+          ]
+        },
+        "eventTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "operation": {
+              "type": "string"
+            },
+            "useId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Correlates a tool_call with its tool_result."
+            }
+          }
+        },
+        "decision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policyId": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string",
+          "description": "An identifier, not a name."
+        },
+        "finalSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finalPrevSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "runDisposition": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "aborted",
+            "failed"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "consequential": {
+          "type": "boolean",
+          "description": "The event had an external side effect. Timestamped when the Control Artifact's policy says consequential: true (common rules §4)."
+        },
+        "timestamp": {
+          "type": "string",
+          "enum": [
+            "required",
+            "none"
+          ],
+          "description": "The producer's timestamp decision; the verifier recomputes the requirement from the signed policy and also honours 'required'."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "tool_call"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tool"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "authorization"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "decision"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "human_approval"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "decision"
+            ],
+            "properties": {
+              "decision": {
+                "enum": [
+                  "approved",
+                  "rejected"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "run_end"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "finalSeq",
+              "finalPrevSignatureSha256",
+              "runDisposition"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "finalSeq"
+                  ]
+                },
+                {
+                  "required": [
+                    "finalPrevSignatureSha256"
+                  ]
+                },
+                {
+                  "required": [
+                    "runDisposition"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "binds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "controlArtifactSignatureSha256"
+      ],
+      "properties": {
+        "controlArtifactSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "objects": {
+      "type": "array",
+      "description": "May be empty.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri",
+          "role"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque, byte-exact match with sigD.pars; never 'urn:sigill:envelope'."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "tool-arguments",
+              "tool-result",
+              "approval-receipt",
+              "identity-assertion",
+              "retrieved-context",
+              "model-output",
+              "model-input"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf-8",
+              "binary"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "step": {
+            "properties": {
+              "type": {
+                "const": "run_start"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "binds"
+        ]
+      }
+    }
+  ]
+}

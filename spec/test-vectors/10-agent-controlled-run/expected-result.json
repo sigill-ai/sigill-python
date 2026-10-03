@@ -1,0 +1,26 @@
+{
+  "controlArtifact": "verified",
+  "runVerdict": "run_finalized",
+  "chainValid": true,
+  "signaturesValid": null,
+  "timestampsValid": null,
+  "objectsComplete": true,
+  "missingObjects": [],
+  "binding": "bound",
+  "controlSealedBeforeRun": true,
+  "eventTimesPlausible": true,
+  "foreignArtifacts": [],
+  "issues": [],
+  "finalSeq": 6,
+  "runDisposition": "completed",
+  "evaluations": [
+    {
+      "verifier": "urn:acme:verifier:crm-state",
+      "verifierVersion": "1.3.0",
+      "overall": "FAIL",
+      "subjectBound": true,
+      "controlSetDigestMatches": true,
+      "baselineDigestMatches": true
+    }
+  ]
+}
