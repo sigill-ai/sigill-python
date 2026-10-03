@@ -48,7 +48,7 @@ with a digests-only verifier: it compares every `hashV` with the supplied
 digests and reads `genTime` from each timestamp token, but treats signature
 values and timestamp tokens as valid without checking them. To verify the
 signatures, submit the artifacts to the blind `POST /seal/verify-objects`
-(`AgentRunVerifier.Remote`). CI regenerates `canonical/` and runs
+(each SDK's remote verifier). CI regenerates `canonical/` and runs
 `_validate.py`. The set is frozen: refreshing it means sealing a new
 run with the SDK against the Sigill test tenant and replacing the directory.
 

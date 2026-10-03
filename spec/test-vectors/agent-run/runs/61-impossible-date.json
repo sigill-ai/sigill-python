@@ -1,5 +1,5 @@
 {
-  "description": "Every optional field the schemas allow is present and valid.",
+  "description": "seq 2 claims February 30th: not an RFC 3339 date-time.",
   "bundle": {
     "format": "AgentRunBundle",
     "bundleVersion": "1",
@@ -12,8 +12,7 @@
         "createdAt": "2026-10-01T08:59:00.000Z",
         "actor": {
           "type": "system",
-          "id": "urn:example:harness:prod",
-          "displayHint": "Production harness"
+          "id": "urn:example:harness:prod"
         },
         "activity": {
           "name": "support-ticket-close",
@@ -21,8 +20,7 @@
         },
         "agent": {
           "id": "urn:example:agent:support-triage",
-          "version": "2.4.0",
-          "identityRef": "urn:example:identity:support-triage"
+          "version": "2.4.0"
         },
         "controlSet": {
           "id": "ticket-close-v2",
@@ -33,11 +31,7 @@
             "uri": "urn:example:obj:instruction-set",
             "role": "instruction-set",
             "contentType": "text/plain",
-            "sizeBytes": 53,
-            "encoding": "utf-8",
-            "metadata": {
-              "lines": 1
-            }
+            "sizeBytes": 53
           },
           {
             "uri": "urn:example:obj:tool-manifest",
@@ -80,8 +74,8 @@
       "signature": {
         "signatures": [
           {
-            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiIsInRleHQvcGxhaW4iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiIsImFwcGxpY2F0aW9uL2pzb24iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJ1WTdWb283MkdwT3FuTnItVldPVmR0WjROOWFWV0RZZ21CMkhhWjVIYjFvIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
-            "signature": "t3VLA2CUeZC_Q9RamE1N_fLoM_siSJ59O1XAQ-T-t-k",
+            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiIsInRleHQvcGxhaW4iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiIsImFwcGxpY2F0aW9uL2pzb24iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyIwTG85dHZoa2JSdXFsbmJuLURhdWIydml3MVpCaW1jMzgycmRaY0o3cERBIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+            "signature": "KN22wBUlukwfmcOMCfBDwSKFMiAIcVJ_MXZkOV0oBm4",
             "header": {
               "stubTimestamp": {
                 "genTime": "2026-10-01T08:59:01Z",
@@ -130,24 +124,18 @@
               "uri": "urn:example:obj:s0-model-input",
               "role": "model-input",
               "contentType": "text/plain",
-              "sizeBytes": 37,
-              "encoding": "binary",
-              "metadata": {
-                "producer": {
-                  "version": 1
-                }
-              }
+              "sizeBytes": 37
             }
           ],
           "binds": {
-            "controlArtifactSignatureSha256": "7627be54a98290f99ca19ad0e3c2e1699de16e247c211f4b3d21f7f30b73a1e0"
+            "controlArtifactSignatureSha256": "17d1995c1a797e69493e49a4b324918eaac0ec8d502e2ead323c2bd3923c39f3"
           }
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJwbjljWFdlOFc1RVZTY0RhWHU1ZnpxME1vWnRsQUdVTTEwWEFhQ25odkVJIiwiVGhuZmRpdV90ZkdUZzlMamY3RXNGdWY4T3lETnZGWnpXRDZfS2dFZ3ZKMCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czAtbW9kZWwtaW5wdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
-              "signature": "oOfsKyBFBN5A5zFy8wtwYvC669mY_7Cr5DX_PY8rARc"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJuSlVNSUIxakRjOEtuWWh3RmJhODJjSWktMUE2OTVDM0V2YmxHeWJVbmR3IiwiVGhuZmRpdV90ZkdUZzlMamY3RXNGdWY4T3lETnZGWnpXRDZfS2dFZ3ZKMCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czAtbW9kZWwtaW5wdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "gjF2xZbadjjF_kuF00rB1RnRrxZhTYcShrzv47HON24"
             }
           ]
         },
@@ -172,7 +160,7 @@
           },
           "chain": {
             "seq": 1,
-            "prevSignatureSha256": "e8970cad9543f8bb432bf937eb8885ca14c899c6d77a80939d84f0e912c91eb4"
+            "prevSignatureSha256": "0f7488005a2546d54860a27132cfee6f2e3c2e502cc956fd6c550642d947ecb9"
           },
           "step": {
             "type": "tool_call",
@@ -189,21 +177,15 @@
               "uri": "urn:example:obj:s1-tool-arguments",
               "role": "tool-arguments",
               "contentType": "application/json",
-              "sizeBytes": 17,
-              "encoding": "binary",
-              "metadata": {
-                "producer": {
-                  "version": 1
-                }
-              }
+              "sizeBytes": 17
             }
           ]
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJsV1lXUXRTVnFzOURrbUpndks1UWJOMlRTVHFERXFOMXlReDJUdlQyM2lZIiwiZ2VONndFWU5zY2szNUVVNzBlV1lIVHNwVjhsVE0yZXVlZGk0c1hNcF9FZyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czEtdG9vbC1hcmd1bWVudHMiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
-              "signature": "R6rQOO7T2lesp_3868qpcaj5BKWqhGZQbrxEwG_zLYI"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJEWlpmYmxVeTg5YXZHSWYxN3RBdHhWLV9MUEozc0lGNUhTdGkyM2FVd2dRIiwiZ2VONndFWU5zY2szNUVVNzBlV1lIVHNwVjhsVE0yZXVlZGk0c1hNcF9FZyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czEtdG9vbC1hcmd1bWVudHMiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "pijMi5i-TqFnhCsryKWmJsmXx6-Ehqr54A7HCY-IEa8"
             }
           ]
         },
@@ -228,11 +210,11 @@
           },
           "chain": {
             "seq": 2,
-            "prevSignatureSha256": "eb0c64d0dd8d7ee884a00c5706a8bf3586bf7b95af65f9e825dae4caf7c4206c"
+            "prevSignatureSha256": "b9282b474a062a5de0a663b623a56d8b165c15274747d2fcf1f87b78bb379c72"
           },
           "step": {
             "type": "tool_result",
-            "eventTime": "2026-10-01T09:02:00.000Z",
+            "eventTime": "2026-02-30T09:02:00.000Z",
             "consequential": false,
             "timestamp": "none",
             "tool": {
@@ -244,21 +226,15 @@
               "uri": "urn:example:obj:s2-tool-result",
               "role": "tool-result",
               "contentType": "application/json",
-              "sizeBytes": 17,
-              "encoding": "binary",
-              "metadata": {
-                "producer": {
-                  "version": 1
-                }
-              }
+              "sizeBytes": 17
             }
           ]
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJXM1BQVk10ZWlPdE1YMjl5Ri1yR1ZVa0JBcmxMdEFYSXJ3bjlHOEVjMmdFIiwidkprR2FvdUJQbll5QWNFVTFIM1pNQWNRdWdyUEhFNVNLdWVPTEZ4SE80YyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czItdG9vbC1yZXN1bHQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
-              "signature": "cu0dWvocdTCqZG_Vt7-ye3ION4_sUtE6a9xJLr_v_L4"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyIxSzZiRE1YeWJaM193c3lCREIzdExXSDNlVFh5Z19JLXJCY0t1NldvcjBFIiwidkprR2FvdUJQbll5QWNFVTFIM1pNQWNRdWdyUEhFNVNLdWVPTEZ4SE80YyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czItdG9vbC1yZXN1bHQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "Fc6OFHZyQydMhUoeqCaWsL8kUwZG1fUp-zWT7jlW05g"
             }
           ]
         },
@@ -283,7 +259,7 @@
           },
           "chain": {
             "seq": 3,
-            "prevSignatureSha256": "d962bfca06b4b3ab2df4cf7794181971e9d6a20f1a6a26123a7803b92186c571"
+            "prevSignatureSha256": "37eb69145579ce24b7edf938a29ef0dbb7df2289f638b8e96ec7dc6442e24afe"
           },
           "step": {
             "type": "model_output",
@@ -296,21 +272,15 @@
               "uri": "urn:example:obj:s3-model-output",
               "role": "model-output",
               "contentType": "text/plain",
-              "sizeBytes": 34,
-              "encoding": "binary",
-              "metadata": {
-                "producer": {
-                  "version": 1
-                }
-              }
+              "sizeBytes": 34
             }
           ]
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJfa0FWbnh3cnZVYks5ZDFDQWtZMlA0bk9Ya2tnbXE4OEpSODFGS1Q5aHEwIiwiLURZVHZDWjEtcUpNdVE2b0ZuRUVHakFndUpMS09LalB6VGk0NWt3T0RBayJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czMtbW9kZWwtb3V0cHV0Il19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
-              "signature": "01bjV_Bxyc9pAfDy9OwhIxx07FRqRU3FnWFgKWOhlKM"
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJsU21aVWF4Vzh1TlFCVThabS16NFJfZWJWdnUyQWpNdlZCckV3cDFaNHcwIiwiLURZVHZDWjEtcUpNdVE2b0ZuRUVHakFndUpMS09LalB6VGk0NWt3T0RBayJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6czMtbW9kZWwtb3V0cHV0Il19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+              "signature": "zCZ5lljsOj90tDBDo08JLl88ki--j51gFoVcbtfFJos"
             }
           ]
         },
@@ -335,7 +305,7 @@
           },
           "chain": {
             "seq": 4,
-            "prevSignatureSha256": "7c32c73571a634cdd9fec0cde4268fc740f21ab702ce291b4f7517df69bfde0a"
+            "prevSignatureSha256": "c7267db244351770c9e07d9c386a6d314b53c523d22b991cee7b16aa006239d6"
           },
           "step": {
             "type": "run_end",
@@ -344,15 +314,15 @@
             "timestamp": "required",
             "runDisposition": "completed",
             "finalSeq": 4,
-            "finalPrevSignatureSha256": "7c32c73571a634cdd9fec0cde4268fc740f21ab702ce291b4f7517df69bfde0a"
+            "finalPrevSignatureSha256": "c7267db244351770c9e07d9c386a6d314b53c523d22b991cee7b16aa006239d6"
           },
           "objects": []
         },
         "signature": {
           "signatures": [
             {
-              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIkRpUHFPMlFkakdqcE5VQ05sZy1DbU1ZQlNyRkhwZHNLZ0d3MnVqeWpncGMiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
-              "signature": "W1VQIHnahsL1pTXDe0nuxTVZY98rjukbM9iMATlbMs8",
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjR5ckc3XzF4b29KTVZWblE3WDNBbkZCSEc2eEI5aDZKZWQtNTBoS0RJNWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+              "signature": "nh3MvpR_ToIENWpciqDoBQh0eGQf_8i2esGZlgJdQSI",
               "header": {
                 "stubTimestamp": {
                   "genTime": "2026-10-01T09:04:00Z",
@@ -364,37 +334,27 @@
         },
         "objectDigests": {}
       }
-    ],
-    "payloads": {
-      "urn:example:obj:baseline-state": "eyJ0aWNrZXQiOiI0NDExIiwic3RhdHVzIjoib3BlbiIsIm93bmVyIjoidGVhbS1hIn0=",
-      "urn:example:obj:control-set": "eyJjb250cm9scyI6WyJ0aWNrZXQtY2xvc2VkIiwib3duZXItdW5jaGFuZ2VkIl19",
-      "urn:example:obj:execution-policy": "eyJhbGxvdyI6WyJsb29rdXBfdGlja2V0IiwiY2xvc2VfdGlja2V0Il19",
-      "urn:example:obj:instruction-set": "WW91IHRyaWFnZSBzdXBwb3J0IHRpY2tldHMuIENsb3NlIG9ubHkgd2l0aCBhcHByb3ZhbC4=",
-      "urn:example:obj:model-config": "eyJ0ZW1wZXJhdHVyZSI6MH0=",
-      "urn:example:obj:s0-model-input": "VGlja2V0IDQ0MTE6IGxvZ2luIGZhaWxzIGFmdGVyIHJlc2V0Lg==",
-      "urn:example:obj:s1-tool-arguments": "eyJ0aWNrZXQiOiI0NDExIn0=",
-      "urn:example:obj:s2-tool-result": "eyJzdGF0dXMiOiJvcGVuIn0=",
-      "urn:example:obj:s3-model-output": "UmVzZXQgdGhlIHNlc3Npb24gY2FjaGUgYW5kIHJldHJ5Lg==",
-      "urn:example:obj:tool-manifest": "eyJ0b29scyI6WyJsb29rdXBfdGlja2V0IiwiY2xvc2VfdGlja2V0Il19"
-    }
+    ]
   },
   "expected": {
-    "verdict": "run_finalized",
+    "verdict": "run_invalid",
     "checks": {
       "correlation": "ok",
       "sequence": "ok",
       "chain": "ok",
-      "envelope": "ok",
+      "envelope": "bad",
       "signatures": "ok",
       "timestamps": "ok",
-      "objects": "ok",
+      "objects": "warn",
       "finalization": "ok",
       "control": "ok"
     },
     "binding": "bound",
     "missingSeqs": [],
-    "fingerprint": "94cf2b5b641ee6e633bf1292432c55a36f2fc525354b858855b0133998400102",
-    "findingsContain": [],
+    "fingerprint": "e4e7e9acf91478189141595f52b6bd8d0f316e68b25477672c6094e9d06d3616",
+    "findingsContain": [
+      "step.eventTime is not a valid date-time"
+    ],
     "warningsContain": [],
     "warningCount": 0,
     "controlSealedBeforeRun": true,

@@ -20,6 +20,7 @@ from typing import Any, Mapping, Optional
 
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._schema import validate_profile
+from sigill_sdk._sign_objects import ENVELOPE_URI
 
 BUNDLE_FORMAT = "AgentRunBundle"
 """The bundle's ``format`` value (§7)."""
@@ -41,6 +42,8 @@ MAX_EVALUATIONS = 64
 """Upper bound on Control Evaluations per bundle; each costs one signature check."""
 MAX_PAYLOADS = 20000
 """Upper bound on supplied payloads per bundle."""
+MAX_DEPTH = 64
+"""Upper bound on JSON nesting depth."""
 
 _B64URL = re.compile(r"^[A-Za-z0-9_-]*$")
 _I_JSON_MAX_INT = 2 ** 53
@@ -151,8 +154,10 @@ def _classical_entries(signature: Mapping[str, Any]) -> list[tuple[dict, Optiona
         header = None
         try:
             # A repeated member name makes the header unreadable (§1): parsers disagree on which value wins.
-            parsed = json.loads(_b64u_decode(e.get("protected")), object_pairs_hook=_reject_duplicates)
-            header = parsed if isinstance(parsed, dict) else None
+            # §1 applies to the header too: strict UTF-8, no repeated names, I-JSON throughout.
+            text = _b64u_decode(e.get("protected")).decode("utf-8", errors="strict")
+            parsed = json.loads(text, object_pairs_hook=_reject_duplicates, parse_constant=_reject_constant)
+            header = parsed if isinstance(parsed, dict) and _is_i_json(parsed) else None
         except Exception:  # noqa: BLE001 — unreadable protected header: counts as classical (§2)
             pass
         alg = header.get("alg") if header else None
@@ -213,7 +218,40 @@ def _content_type_problem(jws: Mapping[str, Any], expected: str) -> Optional[str
     ctys = (_obj(classical[0][1].get("sigD")) or {}).get("ctys")
     actual = _str(ctys[0]) if isinstance(ctys, list) and ctys else None
     return None if actual == expected else \
-        f"its signed content type (sigD.ctys[0]) is '{actual or 'absent'}', not '{expected}'"
+        f"its signed content type (sigD.ctys[0]) is '{actual if actual is not None else 'absent'}', not '{expected}'"
+
+
+def _layout_problem(envelope: Mapping[str, Any], jws: Mapping[str, Any]) -> Optional[str]:
+    """§1 / v2 §5.2: the signed ``sigD`` must list the envelope's objects in order — ``pars[0]`` the
+    envelope, ``pars[i+1]`` = ``objects[i].uri``, one ``hashV`` and one ``ctys`` entry each, and
+    ``ctys[i+1]`` = ``objects[i].contentType`` ("" when absent). A blind verifier matches digests by URI
+    and never sees the envelope, so only the profile layer can check this. None when it holds or the header
+    is unreadable (the signer check reports that)."""
+    classical = _classical_entries(jws)
+    if len(classical) != 1 or classical[0][1] is None:
+        return None
+    sig_d = classical[0][1].get("sigD")
+    if not isinstance(sig_d, dict):
+        return "the signature carries no sigD object"
+    raw = envelope.get("objects")
+    objects = [o if isinstance(o, dict) else None for o in raw] if isinstance(raw, list) else []
+    expected = [ENVELOPE_URI] + [_str(o.get("uri")) if o is not None else None for o in objects]
+    pars = sig_d.get("pars")
+    if not isinstance(pars, list) or [_str(p) for p in pars] != expected:
+        return "sigD.pars is not the envelope followed by objects[] in order"
+    hash_v = sig_d.get("hashV")
+    if not isinstance(hash_v, list) or len(hash_v) != len(pars):
+        return "sigD.hashV does not have one entry per signed object"
+    ctys = sig_d.get("ctys")
+    if not isinstance(ctys, list) or len(ctys) != len(pars):
+        return "sigD.ctys does not have one entry per signed object"
+    for i, o in enumerate(objects):
+        signed_type = _str(ctys[i + 1])
+        envelope_type = (_str(o.get("contentType")) if o is not None else None) or ""
+        if signed_type != envelope_type:
+            shown = signed_type if signed_type is not None else ""
+            return f"sigD.ctys[{i + 1}] is '{shown}', but objects[{i}].contentType is '{envelope_type}'"
+    return None
 
 
 def _prevalidate(envelope: dict, schema_name: str) -> None:

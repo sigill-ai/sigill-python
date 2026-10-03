@@ -14,12 +14,13 @@ cross-language vectors.
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
 import threading
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 from sigill_sdk._agent_profiles import (
     CONTROL_ARTIFACT_CONTENT_TYPE,
@@ -28,6 +29,7 @@ from sigill_sdk._agent_profiles import (
     CONTROL_EVALUATION_SCHEMA,
     EXECUTION_EVIDENCE_CONTENT_TYPE,
     EXECUTION_EVIDENCE_SCHEMA,
+    MAX_ARTIFACTS,
     _format_time,
     _prevalidate,
     _str,
@@ -153,6 +155,7 @@ class AgentRun:
         self._in_callback = threading.local()
         self._artifacts: list[AgentRunArtifact] = []
         self._payloads: dict[str, bytes] = {}
+        self._sealed_digests: dict[str, str] = {}
         self._coverage = _TimestampCoverage(_policy)
         self._prev_signature_sha256: Optional[str] = None
         self._signer: Optional[str] = None
@@ -247,18 +250,19 @@ class AgentRun:
             raise SigillError(f"The sealing service returned a signature whose signer cannot be established: {problem}.")
         run._signer = signer
         run.control_artifact = AgentRunArtifact(envelope, result.signature, digests)
+        run._sealed_digests.update(digests)
         if retain_payloads:
             run._payloads.update({o.uri: o.data for o in objects})
 
         # Seal run_start before any callback runs, so a failing callback cannot strand a sealed control basis.
         start = run._seal_event("run_start", list(start_objects or []), {}, consequential=False)
         # Both are delivered even when the first callback fails: later events wait for their turn in order.
-        failure: Optional[Exception] = None
+        failure: Optional[BaseException] = None
         for artifact, seq in ((run.control_artifact, -1), (start, 0)):
             try:
                 run._notify(artifact, seq)
-            except Exception as ex:  # noqa: BLE001 — surfaced below with the started run
-                if failure is None:
+            except (Exception, asyncio.CancelledError) as ex:  # noqa: BLE001 — every failure, a cancellation
+                if failure is None:                                 # included, surfaces with the started run
                     failure = ex
         if failure is not None:
             raise AgentRunCallbackError(run, failure) from failure
@@ -304,6 +308,10 @@ class AgentRun:
             raise ValueError(f"fields uses reserved step member(s): {', '.join(reserved)}")
         with self._lock:
             self._ensure_open()
+            # Keep the last slot for run_end, so a bundle always fits MAX_ARTIFACTS and can finish.
+            if len(self._artifacts) >= MAX_ARTIFACTS - 1:
+                raise RuntimeError(f"The run has {len(self._artifacts)} events; only run_end fits within the bundle "
+                                   f"limit of {MAX_ARTIFACTS}. Finish the run.")
             step = json.loads(json.dumps(fields or {}))
             if require_timestamp:
                 step["timestamp"] = "required"
@@ -432,6 +440,7 @@ class AgentRun:
             envelope["binds"] = {"controlArtifactSignatureSha256": self.control_artifact.signature_sha256}
         envelope["objects"] = _objects_block(objects)
         digests = _digests(objects)
+        self._check_uri_reuse(digests)
         _prevalidate(envelope, EXECUTION_EVIDENCE_SCHEMA)  # raises before anything is sealed
         try:
             result = _seal(self._client, envelope, _signed_digests(objects), EXECUTION_EVIDENCE_CONTENT_TYPE,
@@ -446,6 +455,7 @@ class AgentRun:
                 raise SigillError("The event was sealed with a different certificate than the run's Control Artifact "
                                   "(certificate rotated?); a run has one signer.")
             artifact = AgentRunArtifact(envelope, result.signature, digests)
+            self._sealed_digests.update(digests)
             link = artifact.signature_sha256
             if link is None:
                 raise SigillError("The seal returned no classical signature to chain to.")
@@ -460,6 +470,13 @@ class AgentRun:
             self._broken = True
             raise
         return artifact
+
+    def _check_uri_reuse(self, digests: Mapping[str, str]) -> None:
+        """§5: a URI used again in this run must name the same content (the verifier fails it otherwise)."""
+        for uri, hex_ in digests.items():
+            earlier = self._sealed_digests.get(uri)
+            if earlier is not None and earlier != hex_:
+                raise ValueError(f"Object URI '{uri}' was already sealed in this run with different content.")
 
     def _notify(self, artifact: AgentRunArtifact, seq: int) -> None:
         """Runs the callback outside the lock, so it may call back into the
@@ -501,7 +518,7 @@ class AgentRunCallbackError(SigillError):
     ``__cause__``.
     """
 
-    def __init__(self, run: "AgentRun", cause: Exception) -> None:
+    def __init__(self, run: "AgentRun", cause: BaseException) -> None:
         super().__init__(f"The run started, but an on_artifact_sealed callback failed: {cause}")
         self.run = run
 

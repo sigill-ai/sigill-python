@@ -24,7 +24,8 @@ Stub signer, per artifact:
 
 - `pars = ["urn:sigill:envelope", objects[].uri…]`;
   `hashV = [b64url(SHA-256(JCS(envelope))), b64url(SHA-256(object))…]`;
-  `ctys = [<profile content type>]`.
+  `ctys = [<profile content type>, objects[].contentType…]` (`""` when absent),
+  index-aligned with `pars` as the platform signs it.
 - `protected = b64url(JCS({"alg": "ES256", "sigD": {"pars", "hashV", "ctys"},
   "x5c": [base64(cert)], "x5t#S256": b64url(SHA-256(cert))}))`. The run's
   artifacts use certificate A; the Control Evaluation uses certificate V (its

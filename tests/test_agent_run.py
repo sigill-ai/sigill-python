@@ -46,12 +46,14 @@ from sigill_sdk import (
     SignerCertificateInfo,
     bundle_fingerprint,
     signature_sha256,
+    signer_of,
     verify_agent_run,
 )
 from sigill_sdk._agent_profiles import (
     CONTROL_ARTIFACT_SCHEMA,
     MAX_ARTIFACTS,
     MAX_EVALUATIONS,
+    MAX_PAYLOADS,
     CONTROL_ARTIFACT_CONTENT_TYPE,
     CONTROL_EVALUATION_CONTENT_TYPE,
     EXECUTION_EVIDENCE_CONTENT_TYPE,
@@ -84,11 +86,12 @@ def thumbprint(cert: bytes) -> str:
 
 def stub_sign(envelope_hash_hex: str, objects, cty, *, timestamp: bool, gen_time: str = "2026-10-01T09:00:00Z",
               cert: bytes = CERT_A, with_signer: bool = True) -> dict:
-    pars = ["urn:sigill:envelope"] + [u for u, _ in objects]
-    hash_v = [_b64u(bytes.fromhex(envelope_hash_hex))] + [_b64u(bytes.fromhex(h)) for _, h in objects]
+    pars = ["urn:sigill:envelope"] + [u for u, _, _ in objects]
+    hash_v = [_b64u(bytes.fromhex(envelope_hash_hex))] + [_b64u(bytes.fromhex(h)) for _, h, _ in objects]
     sig_d: dict = {"pars": pars, "hashV": hash_v}
     if cty is not None:
-        sig_d["ctys"] = [cty]
+        # index-aligned, "" when absent — as the platform signs it
+        sig_d["ctys"] = [cty] + [t if t is not None else "" for _, _, t in objects]
     header: dict = {"alg": "ES256", "sigD": sig_d}
     if with_signer:
         header.update({"x5c": [base64.b64encode(cert).decode()], "x5t#S256": thumbprint(cert)})
@@ -146,7 +149,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 56
+    assert len(RUN_VECTORS) == 64
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -183,6 +186,8 @@ def test_run_vector_reproduces_expected_verdict(name: str) -> None:
         assert r.baseline_digest_matches == e["baselineDigestMatches"], r.findings
         assert r.signature_valid == e["signatureValid"], r.findings
         assert r.timestamp_valid == e["timestampValid"], r.findings
+        assert r.objects_complete == e["objectsComplete"], r.findings
+        assert r.valid == e["valid"], r.findings
         assert r.overall == e["overall"]
 
 
@@ -429,6 +434,8 @@ class StubSealer:
         self.drop_timestamps = False
         self.cert = CERT_A
         self.omit_signer = False
+        self.gen_time = lambda: "2026-10-01T09:00:00Z"
+        """The TSA's genTime; by default a fixed instant, or the test clock's latest reading."""
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/seal/sign-hashes"
@@ -437,8 +444,9 @@ class StubSealer:
         if len(self.requests) - 1 == self.fail_on_call:
             return httpx.Response(503, text="busy")
         stamp = body.get("timestamp", True) and not self.drop_timestamps
-        sig = stub_sign(body["envelopeHashHex"], [(o["uri"], o["hashHex"]) for o in body["objects"]],
-                        body.get("envelopeContentType"), timestamp=stamp, cert=self.cert,
+        sig = stub_sign(body["envelopeHashHex"],
+                        [(o["uri"], o["hashHex"], o.get("contentType")) for o in body["objects"]],
+                        body.get("envelopeContentType"), timestamp=stamp, gen_time=self.gen_time(), cert=self.cert,
                         with_signer=not self.omit_signer)
         return httpx.Response(200, json={
             "signature": sig, "operationId": "0be049c7-0000-0000-0000-000000000000",
@@ -505,11 +513,18 @@ def _stamped(request: dict) -> bool:
 
 
 def test_recorded_run_with_evaluation_verifies_with_three_timestamps_and_no_content_travels() -> None:
+    # The stub TSA reads the same clock the recorder does, so the seal-time checks see plausible times.
+    state = {"now": datetime(2026, 10, 1, 9, 0, tzinfo=timezone.utc)}
+
+    def tick() -> datetime:
+        state["now"] += timedelta(minutes=1)
+        return state["now"]
     sealer = StubSealer()
+    sealer.gen_time = lambda: state["now"].strftime("%Y-%m-%dT%H:%M:%SZ")
     client = _client(sealer)
     sealed_order: list = []
     run = _start(client, start_objects=[AgentRunObject("model-input", SECRET, "text/plain")],
-                 on_artifact_sealed=lambda a: sealed_order.append(a.step_type or a.schema_name))
+                 on_artifact_sealed=lambda a: sealed_order.append(a.step_type or a.schema_name), _clock=tick)
     run.record_tool_call("lookup_ticket", b'{"ticket":"4411"}', operation="read", use_id="call-1")
     run.record_tool_result("lookup_ticket", b'{"status":"open"}', use_id="call-1")
     run.record_tool_call("close_ticket", b'{"ticket":"4411"}', operation="write", consequential=True)
@@ -522,7 +537,7 @@ def test_recorded_run_with_evaluation_verifies_with_three_timestamps_and_no_cont
         control_artifact=run.control_artifact, run_end=bundle.artifacts[-1],
         observed_state=[AgentRunObject.json("observed-state", {"ticket": "4411", "status": "closed"})],
         controls=[ControlResult("ticket-closed", "PASS"), ControlResult("owner-unchanged", "PASS")],
-        overall="PASS"), _clock=_clock())
+        overall="PASS"), _clock=tick)
     bundle = bundle.with_evaluations(evaluation)
 
     result = verify_agent_run(AgentRunBundle.parse(bundle.to_json()), stub_verify)
@@ -538,6 +553,10 @@ def test_recorded_run_with_evaluation_verifies_with_three_timestamps_and_no_cont
     assert ev.control_set_digest_matches and ev.baseline_digest_matches
     assert ev.signature_valid and ev.timestamp_valid
     assert ev.signer == thumbprint(CERT_V) != result.signer
+    assert ev.valid, ev.findings
+    assert result.warnings == []
+    assert result.event_times_plausible is True
+    assert result.control_sealed_before_run is True
     assert sealed_order == ["AgentControlArtifact", "run_start", "tool_call", "tool_result", "tool_call",
                             "model_output", "run_end"]
 
@@ -851,6 +870,81 @@ def test_start_callback_failure_still_hands_back_the_started_run() -> None:
     assert not run.is_broken
     run.record_model_output(b"carries on")
     assert verify_agent_run(run.finish(), stub_verify).verdict == "run_finalized"
+
+
+def test_start_callback_cancellation_still_hands_back_the_started_run() -> None:
+    import asyncio
+
+    def persist(a):
+        if a.step_type == "run_start":
+            raise asyncio.CancelledError("http timeout")
+
+    with pytest.raises(AgentRunCallbackError) as ei:
+        _start(_client(StubSealer()), on_artifact_sealed=persist)
+    assert isinstance(ei.value.__cause__, asyncio.CancelledError)
+    assert len(ei.value.run.artifacts) == 1
+
+
+def test_recorder_refuses_conflicting_uri_reuse_and_accepts_identical_reuse() -> None:
+    sealer = StubSealer()
+    run = _start(_client(sealer), retain_payloads=True)
+    uri = "urn:example:obj:shared"
+    run.record("model_output", [AgentRunObject("model-output", b"first", uri=uri)])
+    run.record("model_output", [AgentRunObject("model-output", b"first", uri=uri)])
+    sealed_before = len(sealer.requests)
+    with pytest.raises(ValueError, match="already sealed in this run with different content"):
+        run.record("model_output", [AgentRunObject("model-output", b"second", uri=uri)])
+    assert len(sealer.requests) == sealed_before
+    assert not run.is_broken
+    result = verify_agent_run(run.finish(), stub_verify)
+    assert result.verdict == "run_finalized", result.findings
+    assert result.checks["objects"] == "ok"
+
+
+def test_recorder_keeps_the_last_slot_for_run_end() -> None:
+    run = _start(_client(StubSealer()))
+    for _ in range(1, MAX_ARTIFACTS - 1):
+        run.record("checkpoint", require_timestamp=False)
+    with pytest.raises(RuntimeError, match="only run_end fits"):
+        run.record_model_output(b"one too many")
+    assert not run.is_broken
+    bundle = run.finish()
+    assert len(bundle.artifacts) == MAX_ARTIFACTS
+    assert len(AgentRunBundle.parse(bundle.to_json()).artifacts) == MAX_ARTIFACTS
+
+
+def test_bundle_limits_hold_for_bundles_built_in_code() -> None:
+    b = _bundle_from_vector("01-finalized-digests-only.json")
+    with pytest.raises(ValueError, match="evaluations"):
+        b.with_evaluations(*([b.evaluations[0]] * (MAX_EVALUATIONS + 1)))
+    payloads = {f"urn:x:{i}": b"\x01" for i in range(MAX_PAYLOADS + 1)}
+    with pytest.raises(ValueError, match="payloads"):
+        b.with_payloads(payloads)
+    d = b.to_dict()
+    d["payloads"] = {k: "AQ==" for k in payloads}
+    with pytest.raises(AgentRunBundleFormatError) as ei:
+        AgentRunBundle.parse(d)
+    assert any(f"more than {MAX_PAYLOADS} payloads" in e for e in ei.value.errors)
+
+
+def _with_header_member(member: str) -> dict:
+    """Vector 01 with seq 1's protected header carrying an extra member, re-signed by the stub."""
+    v = json.loads((VECTORS / "runs" / "01-finalized-digests-only.json").read_text(encoding="utf-8"))["bundle"]
+    entry = v["artifacts"][1]["signature"]["signatures"][0]
+    header = _b64u_decode(entry["protected"]).decode("ascii")
+    prot = _b64u(header.replace('{"alg":"ES256"', '{"alg":"ES256",' + member, 1).encode("ascii"))
+    entry["protected"] = prot
+    entry["signature"] = _b64u(hashlib.sha256(prot.encode()).digest())
+    return v
+
+
+@pytest.mark.parametrize("member", ['"private":"\\ud800"', '"private":NaN'], ids=["lone-surrogate", "nan"])
+def test_protected_header_that_is_not_i_json_has_no_readable_signer(member: str) -> None:
+    v = _with_header_member(member)
+    _, problem = signer_of(v["artifacts"][1]["signature"])
+    assert problem is not None and "no readable protected header" in problem
+    r = verify_agent_run(AgentRunBundle.parse(v), stub_verify)
+    assert r.checks["signatures"] == "bad"
 
 
 def test_control_evaluation_refuses_anything_but_a_run_end() -> None:

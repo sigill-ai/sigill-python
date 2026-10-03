@@ -68,7 +68,9 @@ def stub_sign(envelope: dict, digests: dict, cty: str, *, timestamp: str | None,
     pars = [ENVELOPE_URI] + [o["uri"] for o in envelope["objects"]]
     hash_v = [b64u(hashlib.sha256(jcs.canonicalize(envelope)).digest())] + \
              [b64u(bytes.fromhex(digests[u])) for u in pars[1:]]
-    header = jcs.canonicalize({"alg": "ES256", "sigD": {"pars": pars, "hashV": hash_v, "ctys": [cty]},
+    # ctys is index-aligned with pars: the profile type, then each object's contentType ("" when absent).
+    ctys = [cty] + [o.get("contentType", "") for o in envelope["objects"]]
+    header = jcs.canonicalize({"alg": "ES256", "sigD": {"pars": pars, "hashV": hash_v, "ctys": ctys},
                                **signer_header(cert)})
     if dup_alg:  # a repeated member name: parsers disagree on which value wins, so the header is unreadable
         header = header.replace(b'{"alg":"ES256"', b'{"alg":"ES256","alg":"ES256"', 1)
@@ -296,7 +298,10 @@ def fingerprint(b: dict) -> str | None:
 
 def _time(v):
     from datetime import datetime
-    return datetime.fromisoformat(v.replace("Z", "+00:00")) if isinstance(v, str) else None
+    try:
+        return datetime.fromisoformat(v.replace("Z", "+00:00")) if isinstance(v, str) else None
+    except ValueError:  # not a real date-time: the verifier does not read it either
+        return None
 
 
 def seal_time(b: dict):
@@ -327,7 +332,7 @@ CHECKS = ("correlation", "sequence", "chain", "envelope", "signatures", "timesta
           "control")
 ALL_OK = {k: "ok" for k in CHECKS}
 EVAL_OK = {"subjectBound": True, "controlSetDigestMatches": True, "baselineDigestMatches": True,
-           "signatureValid": True, "timestampValid": True, "overall": "PASS"}
+           "signatureValid": True, "timestampValid": True, "objectsComplete": True, "valid": True, "overall": "PASS"}
 
 
 def scenario(name, description, b, verdict, checks, *, binding="bound", missing=None, findings=None,
@@ -583,17 +588,17 @@ def main() -> None:
     ev = evaluation(p, control, arts[-1], tweak=lambda e: e["subject"].update(runEndSignatureSha256="0" * 64))
     scenario("35-evaluation-wrong-subject", "The evaluation names another run_end. Evaluations never change the "
              "run verdict.", bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
-             evaluations=[dict(EVAL_OK, subjectBound=False)])
+             evaluations=[dict(EVAL_OK, subjectBound=False, valid=False)], warnings=["which is not in the bundle"])
     p, control, arts = standard()
     ev = evaluation(p, control, arts[-1], control_set_bytes=b'{"controls":["ticket-closed"]}')
     scenario("36-evaluation-other-control-set", "The evaluation carries another control set under the same URI.",
              bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
-             evaluations=[dict(EVAL_OK, controlSetDigestMatches=False)])
+             evaluations=[dict(EVAL_OK, controlSetDigestMatches=False, valid=False)])
     p, control, arts = standard()
     ev = evaluation(p, control, arts[-1], baseline_bytes=b'{"ticket":"4411","status":"closed"}')
     scenario("37-evaluation-other-baseline", "The evaluation's baseline differs from the one sealed before the run.",
              bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
-             evaluations=[dict(EVAL_OK, baselineDigestMatches=False)])
+             evaluations=[dict(EVAL_OK, baselineDigestMatches=False, valid=False)])
     p, control, arts = standard()
     ev = evaluation(p, control, arts[-1], tweak=lambda e: e.update(
         overall="FAIL", controls=[{"id": "ticket-closed", "result": "PASS"},
@@ -709,7 +714,7 @@ def main() -> None:
     ev["envelope"]["controls"][1] = {"id": "owner-unchanged", "result": "PASS"}
     scenario("54-evaluation-envelope-edited", "A FAIL evaluation edited to PASS after signing: its signature no longer "
              "covers its envelope, so it is not valid.", bundle(control, arts, [ev]), "run_finalized",
-             {"objects": "warn"}, evaluations=[dict(EVAL_OK, signatureValid=False)])
+             {"objects": "warn"}, evaluations=[dict(EVAL_OK, signatureValid=False, objectsComplete=False, valid=False)])
 
     steps = [STEPS[0], dict(STEPS[1], minute=2), {"type": "model_output", "minute": 3, "step": {},
              "objects": [("model-output", "text/plain", b"Done.")]}]
@@ -723,6 +728,85 @@ def main() -> None:
              "window between the control basis and run_end's timestamp.", bundle(control, arts), "run_finalized",
              {"objects": "warn"}, warnings=["earlier than the Control Artifact's timestamp",
                                             "later than the timestamp that bounds it"])
+
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1])
+    p["urn:example:obj:observed-state"] = b'{"ticket":"4411","status":"closed","note":"all good"}'
+    scenario("56-evaluation-observed-state-replaced", "The evaluation's observed state is swapped for other bytes: "
+             "the evaluation is not valid; the run is unaffected.", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(EVAL_OK, objectsComplete=False, valid=False)])
+
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1], control_set_bytes=b'{"controls":["ticket-closed"]}')
+    cs_uri = "urn:example:obj:control-set"
+    ev["objectDigests"][cs_uri] = control["objectDigests"][cs_uri]  # unsigned metadata lies; the signed hashV does not
+    scenario("57-evaluation-unsigned-basis", "An evaluation signed over another control set, whose unsigned "
+             "objectDigests claim the sealed one: only signed digests count.", bundle(control, arts, [ev]),
+             "run_finalized", {"objects": "warn"},
+             evaluations=[dict(EVAL_OK, controlSetDigestMatches=False, objectsComplete=False, valid=False)])
+
+    p, control, arts = standard()
+    reused = arts[0]["envelope"]["objects"][0]["uri"]
+    own = arts[1]["envelope"]["objects"][0]["uri"]
+    arts[1]["envelope"]["objects"][0]["uri"] = reused
+    arts[1]["objectDigests"] = {reused: arts[1]["objectDigests"][own]}
+    resign(arts[1], CTY["event"])
+    rechain(arts, 2)
+    scenario("58-same-uri-different-content", "seq 1 reuses seq 0's object URI for different content.",
+             bundle(control, arts), "run_invalid", {"objects": "bad"},
+             findings=[f"Object '{reused}' is signed with different content in seq 0 and seq 1"])
+
+    def reorder(a: dict) -> None:
+        """Swap the first two signed objects in sigD (pars, hashV, ctys alike), leaving the envelope's order."""
+        e = a["signature"]["signatures"][0]
+        h = json.loads(base64.urlsafe_b64decode(e["protected"] + "=" * (-len(e["protected"]) % 4)))
+        for k in ("pars", "hashV", "ctys"):
+            h["sigD"][k][1], h["sigD"][k][2] = h["sigD"][k][2], h["sigD"][k][1]
+        e["protected"] = b64u(jcs.canonicalize(h))
+        e["signature"] = b64u(hashlib.sha256(e["protected"].encode()).digest())
+    p = {}
+    control = control_artifact(p)
+    reorder(control)
+    arts = build_run(STEPS, p, control=control)
+    scenario("59-signed-object-order", "The Control Artifact's sigD lists its objects in another order than the "
+             "envelope: every URI/digest pair matches, their positions do not.", bundle(control, arts), "run_invalid",
+             {"objects": "bad", "control": "bad"}, findings=["sigD.pars is not the envelope followed by objects[] in order"])
+
+    p, control, arts = standard()
+    e = arts[-1]["signature"]["signatures"][0]
+    h = base64.urlsafe_b64decode(e["protected"] + "=" * (-len(e["protected"]) % 4))
+    # Written as a literal: JCS serializes numbers as IEEE doubles and would round 2^53+1 to 2^53.
+    e["protected"] = b64u(h.replace(b'{"alg":"ES256"', b'{"alg":"ES256","private":9007199254740993', 1))
+    e["signature"] = b64u(hashlib.sha256(e["protected"].encode()).digest())
+    scenario("60-header-integer-beyond-i-json", "run_end's protected header carries 2^53+1: the header is not I-JSON, "
+             "so no signer can be established.", bundle(control, arts), "run_invalid",
+             {"objects": "warn", "signatures": "bad"}, findings=["no readable protected header"])
+
+    def impossible(seq, e):
+        if seq == 2:
+            e["step"]["eventTime"] = "2026-02-30T09:02:00.000Z"
+    p, control, arts = standard(tweak=impossible)
+    scenario("61-impossible-date", "seq 2 claims February 30th: not an RFC 3339 date-time.", bundle(control, arts),
+             "run_invalid", {"objects": "warn", "envelope": "bad"}, findings=["step.eventTime is not a valid date-time"])
+
+    p, control, arts = standard()
+    ev = evaluation(p, control, arts[-1])
+    scenario("62-control-only-run-withheld", "A control basis and an evaluation of its finished run, but no events: "
+             "the evaluation proves the run exists.", bundle(control, [], [ev]), "run_open",
+             {"objects": "warn", "timestamps": "warn", "finalization": "warn"}, binding="control_only",
+             evaluations=[dict(EVAL_OK, subjectBound=False, valid=False)], warnings=["which is not in the bundle"])
+
+    p, control, arts = standard()
+    deep: dict = {}
+    for _ in range(70):
+        deep = {"a": deep}
+    nested = bundle(control, arts)
+    nested["artifacts"][2]["envelope"]["extensions"] = {"com.example.deep": deep}
+    write("runs/63-nesting-too-deep.json", {
+        "description": "An envelope nests 70 levels deep: beyond the 64 every implementation accepts.",
+        "bundleText": json.dumps(nested, separators=(",", ":")),
+        "expected": {"parseError": "nests deeper than 64 levels"},
+    })
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))

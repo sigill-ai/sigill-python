@@ -22,6 +22,7 @@ from sigill_sdk._agent_profiles import (
     EXECUTION_EVIDENCE_CONTENT_TYPE,
     EXECUTION_EVIDENCE_SCHEMA,
     _content_type_problem,
+    _layout_problem,
     _format_time,
     _int,
     _is_i_json,
@@ -241,6 +242,10 @@ class AgentEvaluationVerdict:
     """Same control set (id, version, URI and digest) as the Control Artifact."""
     baseline_digest_matches: Optional[bool] = None
     """Same baseline (URI and digest) as the Control Artifact; None unless the evaluation carries one."""
+    valid: bool = False
+    """The one field to read: a valid, timestamped, well-formed evaluation of this run, every object of it
+    intact, against the pre-sealed control set (and baseline, when carried). Only then is :attr:`overall`
+    the named verifier's claim about this run."""
     signature_valid: bool = False
     """Valid signature over this very envelope, with an established signer (and an expected one, when given)."""
     timestamp_valid: bool = False
@@ -380,6 +385,14 @@ class _ArtifactCheck:
     certificate: Optional[SignerCertificateInfo] = None
     objects: list[AgentObjectVerdict] = field(default_factory=list)
     findings: list[str] = field(default_factory=list)
+    confirmed: set = field(default_factory=set)
+    """URIs whose supplied digest the signature service confirmed against the signed hashV."""
+
+    def signed_digest(self, uri: str) -> Optional[str]:
+        """The digest of a signed object, only when the signature confirmed it."""
+        if uri not in self.confirmed:
+            return None
+        return next((o.hash_hex for o in self.objects if o.signed and o.uri == uri), None)
 
     @property
     def all_retained(self) -> bool:
@@ -438,6 +451,8 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
         for uri, hm in r.objects:
             matches.setdefault(uri, hm)
         for i, o in enumerate(c.objects):
+            if o.signed and matches.get(o.uri) is True:
+                c.confirmed.add(o.uri)
             if o.signed and matches.get(o.uri) is False:
                 c.objects[i] = replace(o, hash_match=False)
                 c.findings.append(f"{label}: object '{o.uri}' ({o.role}) no longer matches its signed digest.")
@@ -445,6 +460,10 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
         if matches.get(ENVELOPE_URI) is not True:
             c.objects_complete = False
             c.findings.append(f"{label}: the signature does not cover this envelope.")
+        layout = _layout_problem(sa.env, sa.jws)
+        if layout is not None:
+            c.objects_complete = False
+            c.findings.append(f"{label}: the signature and envelope disagree on the object list: {layout}.")
         if r.timestamp is not None:
             c.timestamp_present = True
             c.timestamp_valid = r.timestamp.signature_valid
@@ -600,6 +619,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     prev_seq = -1
     coverage = _TimestampCoverage(policy)
     timeline: list[tuple[int, Optional[datetime], Optional[datetime]]] = []
+    sealed_objects: list[tuple[str, _ArtifactCheck]] = []
 
     for art, index, sa, error in arts:
         if sa is None:
@@ -654,6 +674,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         findings.extend(c.findings)
         if not c.all_retained:
             obj_warn = True
+        sealed_objects.append((label, c))
         if not c.signature_valid:
             sig_ok = False
         if not c.objects_complete:
@@ -725,6 +746,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         findings.extend(ctl_check.findings)
         if not ctl_check.all_retained:
             obj_warn = True
+        sealed_objects.insert(0, (label, ctl_check))
         if not ctl_check.objects_complete:
             obj_ok = control_ok = False
         if not ctl_check.signature_valid:
@@ -801,6 +823,21 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     if late:
         warnings.append(f"eventTime later than the timestamp that bounds it (seq {', '.join(str(x) for x in late)}).")
 
+    # ── §5: one URI names one content throughout the run (Control Artifact and events)
+    first_seen: dict[str, tuple[str, str]] = {}
+    for label, check in sealed_objects:
+        for o in check.objects:
+            if not o.signed or not o.hash_hex:
+                continue
+            seen = first_seen.get(o.uri)
+            if seen is None:
+                first_seen[o.uri] = (label, o.hash_hex)
+                continue
+            if seen[1] == o.hash_hex:
+                continue
+            obj_ok = False
+            findings.append(f"Object '{o.uri}' is signed with different content in {seen[0]} and {label}.")
+
     # ── every payload must be a signed object of some artifact (§7)
     eval_parsed = [_parse_signed(e.envelope, e.signature, CONTROL_EVALUATION_SCHEMA) for e in bundle.evaluations]
     signed_uris = {o.uri for s in good for o in s.objects}
@@ -854,11 +891,6 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     evaluations: list[AgentEvaluationVerdict] = []
     run_end_sig = signature_sha256(end.jws) if end is not None else None
 
-    def effective(uri: str, a: AgentRunArtifact) -> Optional[str]:
-        if uri in bundle.payloads:
-            return hash_bytes(bundle.payloads[uri])
-        return a.object_digests.get(uri)
-
     def with_role(s: _Signed, role: str) -> list[_SignedObject]:
         return [o for o in s.objects if o.role == role]
 
@@ -904,19 +936,24 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         control_set_matches = False
         baseline_matches: Optional[bool] = None
         if ctl is not None and bundle.control_artifact is not None:
-            ctl_art = bundle.control_artifact
             e_set, c_set = with_role(sa, "control-set"), with_role(ctl, "control-set")
-            eh = effective(e_set[0].uri, art) if len(e_set) == 1 else None
+            # Only digests both signatures confirmed count: the bundle's objectDigests are unsigned.
+            eh = c.signed_digest(e_set[0].uri) if len(e_set) == 1 else None
             control_set_matches = (len(e_set) == 1 and len(c_set) == 1 and e_set[0].uri == c_set[0].uri
-                                   and eh is not None and eh == effective(c_set[0].uri, ctl_art)
+                                   and eh is not None and eh == ctl_check.signed_digest(c_set[0].uri)
                                    and _json_equal(sa.env.get("controlSet"), ctl.env.get("controlSet")))
             e_base, c_base = with_role(sa, "baseline-state"), with_role(ctl, "baseline-state")
             if e_base:
-                bh = effective(e_base[0].uri, art) if len(e_base) == 1 else None
+                bh = c.signed_digest(e_base[0].uri) if len(e_base) == 1 else None
                 baseline_matches = (len(e_base) == 1 and len(c_base) == 1 and e_base[0].uri == c_base[0].uri
-                                    and bh is not None and bh == effective(c_base[0].uri, ctl_art))
+                                    and bh is not None and bh == ctl_check.signed_digest(c_base[0].uri))
         if not control_set_matches:
             ef.append(f"{label}: its control set is not the one sealed in the Control Artifact.")
+        subject_run_end = _str(subject.get("runEndSignatureSha256"))
+        if (ctl_sig is not None and _str(subject.get("controlArtifactSignatureSha256")) == ctl_sig
+                and subject_run_end is not None and subject_run_end != run_end_sig):
+            warnings.append(f"{label} names run_end {subject_run_end} of this control basis, which is not in the "
+                            f"bundle: events may have been withheld.")
         if baseline_matches is False:
             ef.append(f"{label}: its baseline is not the one sealed in the Control Artifact.")
 
@@ -928,6 +965,8 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             subject_bound=subject_bound, control_set_digest_matches=control_set_matches,
             baseline_digest_matches=baseline_matches, signature_valid=signature_valid,
             timestamp_valid=c.timestamp_ok, timestamp_gen_time=c.gen_time, objects_complete=c.objects_complete,
+            valid=(signature_valid and c.timestamp_ok and c.objects_complete and not sa.conformance
+                   and subject_bound and control_set_matches and baseline_matches is not False),
             well_formed=not sa.conformance, signer=signer, certificate=c.certificate,
             overall=_str(sa.env.get("overall")), controls=controls, findings=ef))
 

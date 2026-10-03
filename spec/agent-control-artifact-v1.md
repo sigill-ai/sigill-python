@@ -70,5 +70,6 @@ the configuration in force is fixed before the first event.
 The Control Artifact MUST be sealed before `run_start` is sealed. This is
 provable, not asserted: `run_start` carries `signatureSha256` of the Control
 Artifact, which exists only after sealing. The Control Artifact is always
-timestamped; when `run_start` is timestamped too (not the default), the two
-`sigTst` values also give the order in time (`controlSealedBeforeRun`).
+timestamped; its `sigTst` compared with the run's first timestamp (`run_start`'s
+when it has one, otherwise usually `run_end`'s) gives the order in time as a
+seal-time warning (`controlSealedBeforeRun`, common rules §8).

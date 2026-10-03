@@ -18,6 +18,7 @@ from sigill_sdk._agent_profiles import (
     MAX_ARTIFACTS,
     MAX_EVALUATIONS,
     MAX_PAYLOADS,
+    MAX_DEPTH,
     _DuplicateMember,
     _int,
     _obj,
@@ -242,6 +243,15 @@ class AgentRunBundleFormatError(SigillError):
         self.errors = errors
 
 
+def _depth(v: Any) -> int:
+    """Nesting depth: a scalar is 0, an object or array one more than its deepest member."""
+    if isinstance(v, dict):
+        return 1 + max((_depth(x) for x in v.values()), default=0)
+    if isinstance(v, list):
+        return 1 + max((_depth(x) for x in v), default=0)
+    return 0
+
+
 @dataclass(frozen=True)
 class AgentRunBundle:
     """The portable form of a controlled agent run (common rules §7): the
@@ -271,6 +281,13 @@ class AgentRunBundle:
         for uri, data in self.payloads.items():
             if not isinstance(uri, str) or not isinstance(data, (bytes, bytearray)):
                 raise TypeError("payloads must map str URIs to bytes")
+        # The limits are properties of a bundle (§7), not only of its parser: a bundle built here must parse again.
+        if len(self.artifacts) > MAX_ARTIFACTS:
+            raise ValueError(f"more than {MAX_ARTIFACTS} artifacts")
+        if len(self.evaluations) > MAX_EVALUATIONS:
+            raise ValueError(f"more than {MAX_EVALUATIONS} evaluations")
+        if len(self.payloads) > MAX_PAYLOADS:
+            raise ValueError(f"more than {MAX_PAYLOADS} payloads")
 
     def with_payloads(self, payloads: Optional[Mapping[str, bytes]]) -> "AgentRunBundle":
         """The same bundle with (other) payload bytes, e.g. to share content with an auditor."""
@@ -310,8 +327,12 @@ class AgentRunBundle:
                 value = json.loads(value, object_pairs_hook=_reject_duplicates, parse_constant=_reject_constant)
             except _DuplicateMember as ex:
                 raise AgentRunBundleFormatError([f"bundle repeats a duplicate member name '{ex.name}'"]) from None
+            except RecursionError:
+                raise AgentRunBundleFormatError([f"bundle nests deeper than {MAX_DEPTH} levels"]) from None
             except ValueError as ex:
                 raise AgentRunBundleFormatError([f"bundle is not valid JSON: {ex}"]) from None
+            if _depth(value) > MAX_DEPTH:
+                raise AgentRunBundleFormatError([f"bundle nests deeper than {MAX_DEPTH} levels"])
         if not isinstance(value, dict):
             raise AgentRunBundleFormatError(["bundle must be a JSON object"])
         errors: list[str] = []

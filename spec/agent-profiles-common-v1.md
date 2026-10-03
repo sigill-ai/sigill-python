@@ -36,9 +36,13 @@ Every profile envelope carries the v2 family core:
 
 **Conformance.** Every envelope MUST validate against its profile's complete
 schema — optional fields are optional to supply, never exempt from validation
-when present — and MUST be valid I-JSON: no repeated member names anywhere
-(including inside the base64url protected header of its signature), no
-integers beyond ±2^53, no lone surrogates, no NaN or Infinity. Schemas are
+when present — and MUST be valid I-JSON: no repeated member names anywhere, no integers
+beyond ±2^53, no lone surrogates, no NaN or Infinity. The decoded protected
+header of its signature is held to the same rules and MUST be strict UTF-8;
+a header that is not cannot name a signer (§3). The header's `sigD` lists
+the envelope first and then `objects[]` in order: `pars`, `hashV` and `ctys`
+each have one entry per signed object, and `ctys[i+1]` equals
+`objects[i].contentType` (`""` when absent). Schemas are
 `additionalProperties: false` throughout; the only open fields are
 `extensions` and per-object `metadata`.
 
@@ -205,7 +209,9 @@ The portable form of a controlled run:
 ```
 
 - `artifacts[]` holds the Execution Evidence, at most 2000; `evaluations[]`
-  at most 64; `payloads` at most 20000 entries. `controlArtifact`
+  at most 64; `payloads` at most 20000 entries; JSON nesting at most 64
+  levels. These are properties of a bundle: producers stop a run at 1999
+  events so `run_end` always fits. `controlArtifact`
   MAY be null; `evaluations` and `payloads` MAY be absent.
 - `objectDigests` carries each object's SHA-256 as recorded by the producer;
   a blind verification needs only these. A supplied payload is hashed and
@@ -231,7 +237,7 @@ Later checks run even when earlier ones fail, so the report is complete.
 | `envelope` | An artifact fails its profile schema or §1 conformance, or its signed actor/version differs from `run_start`'s. |
 | `signatures` | A signature fails; an artifact does not carry exactly one classical signature; an event's or the Control Artifact's signer differs from the run's or cannot be established; the run's signer is not among the expected signers; or a hybrid seal's ML-DSA commitment is anything but `absent` or `verified`. |
 | `timestamps` | An artifact required by §4 lacks a valid timestamp, a present timestamp is invalid, or the signed policy is malformed. `warn` while no valid `run_end` anchor exists, or without the Control Artifact. |
-| `objects` | A signed object was not supplied, no longer matches, a supplied payload contradicts its supplied digest, the signature and envelope disagree on the object list, or unsigned data was supplied. `warn` when every object matched by digest but some payloads were not supplied. |
+| `objects` | A signed object was not supplied, no longer matches, a supplied payload contradicts its supplied digest, the signature and envelope disagree on the object list (`sigD.pars`, `hashV` and `ctys` must be index-aligned with `objects[]`, §1), one URI is signed with different content in two artifacts of the run (§5), or unsigned data was supplied. `warn` when every object matched by digest but some payloads were not supplied. |
 | `finalization` | More than one `run_end`; `run_end` is not last; it has no valid `runDisposition`; its `finalSeq` is not its own `seq`, or its `finalPrevSignatureSha256` is not its own `chain.prevSignatureSha256`; or it lacks a valid timestamp. `warn` when there is no `run_end`. |
 | `control` | The Control Artifact the run binds is not supplied (`run_only`): `run_start` must bind one, so a bundle without it is always incomplete, and omitting it would otherwise hide a broken control basis or a stricter policy; `run_start`'s `binds.controlArtifactSignatureSha256` is not `signatureSha256` of the supplied Control Artifact, or a later event binds another; the Control Artifact fails its own signature, objects or timestamp, its `correlationId` is not the run's, or its `agent` is not the run's actor. |
 
@@ -262,8 +268,14 @@ that order already.
 verdict: `subjectBound` (its `subject` names this run's `run_end` and Control
 Artifact), `controlSetDigestMatches`, `baselineDigestMatches` (when the
 evaluation carries a `baseline-state`), its own signature — valid only when it
-covers this very envelope — timestamp, signer and chain trust, and `overall` and `controls[]` **unchanged**. A verifier never
-evaluates controls.
+covers this very envelope — timestamp, signer and chain trust, and `overall` and `controls[]` **unchanged**. `valid` combines them: signature over this very
+envelope, timestamp, intact objects, schema, subject, control set and baseline
+(when carried); `overall` is meaningful only when `valid` is true. Only
+digests the signatures confirmed count for `controlSetDigestMatches` and
+`baselineDigestMatches`: a bundle's `objectDigests` are unsigned. An
+evaluation that names this Control Artifact and a `run_end` the bundle does
+not contain is reported as a warning (events may have been withheld). A
+verifier never evaluates controls.
 
 **Signature verification** of each artifact is the v2 object-level verdict
 (v2 §7): the verifier supplies the JCS digest of its own copy of the envelope
