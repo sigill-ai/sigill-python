@@ -409,6 +409,13 @@ What to know:
   (instructions, tools, execution policy and, optionally, model config). Store `run.identity`
   and pass it as `identity=` while the configuration is unchanged; a changed
   configuration needs a new one.
+- **One certificate per run.** Every step and the identity record must be
+  sealed with the same certificate; the verifier fails a run that mixes
+  signers, so steps forged by anyone else cannot be appended. Pass the
+  thumbprints of your sealing certificates to pin them:
+  `client.verify_agent_run(bundle, expected_signers=[thumbprint])`
+  (`result.signer` shows the run's). After rotating the certificate, register
+  a new identity record.
 - **Persist as you go.** `on_artifact_sealed` runs after each step is sealed. A
   sealing failure stops the chain; the partial bundle (`run.to_bundle()`)
   verifies as open or invalid, never as finalized.

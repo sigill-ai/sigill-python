@@ -54,8 +54,10 @@ jobs:
           for vec in spec/test-vectors/01-complete-ai-call spec/test-vectors/02-pii-redacted spec/test-vectors/agent-run; do
             python "$vec/_generate.py"
           done
-          if ! git diff --quiet -- spec/test-vectors; then
-            echo "::error::Test vector bytes drifted from committed values:"
+          # status, not diff: also catches vectors the generator adds or no longer produces.
+          if [ -n "$(git status --porcelain -- spec/test-vectors)" ]; then
+            echo "::error::Test vectors drifted from committed values:"
+            git status --porcelain -- spec/test-vectors
             git diff -- spec/test-vectors
             exit 1
           fi

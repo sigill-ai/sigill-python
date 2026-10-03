@@ -4,12 +4,12 @@
     "signature": {
       "signatures": [
         {
-          "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
-          "signature": "_ND8j_F44YVYgkayZxU4HsSEn2lxxmRh93P4zdl5CGE"
+          "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+          "signature": "Ol7yZ5HKmkpTSSaLF9HWIODYVQp1_EDLGabivffBeHs"
         }
       ]
     },
-    "expected": "663e33b53636f00718d9f6424805571f20cb87ce1e0fbf8c812511557688c079"
+    "expected": "9bbc87d56e6ec7a4d313d9357bb96bf9512fd25565508da12d38cddb08a1141e"
   },
   {
     "name": "hybrid-mldsa-first",
@@ -21,8 +21,8 @@
           "signature": "cG9zdC1xdWFudHVtIHNpZ25hdHVyZSB2YWx1ZQ"
         },
         {
-          "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
-          "signature": "_ND8j_F44YVYgkayZxU4HsSEn2lxxmRh93P4zdl5CGE",
+          "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+          "signature": "Ol7yZ5HKmkpTSSaLF9HWIODYVQp1_EDLGabivffBeHs",
           "header": {
             "stubTimestamp": {
               "genTime": "2026-10-01T09:00:00Z",
@@ -32,14 +32,27 @@
         }
       ]
     },
-    "expected": "663e33b53636f00718d9f6424805571f20cb87ce1e0fbf8c812511557688c079"
+    "expected": "9bbc87d56e6ec7a4d313d9357bb96bf9512fd25565508da12d38cddb08a1141e"
   },
   {
     "name": "flattened-jws",
     "signature": {
-      "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX19",
-      "signature": "_ND8j_F44YVYgkayZxU4HsSEn2lxxmRh93P4zdl5CGE"
+      "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+      "signature": "Ol7yZ5HKmkpTSSaLF9HWIODYVQp1_EDLGabivffBeHs"
     },
-    "expected": "663e33b53636f00718d9f6424805571f20cb87ce1e0fbf8c812511557688c079"
+    "expected": "9bbc87d56e6ec7a4d313d9357bb96bf9512fd25565508da12d38cddb08a1141e"
+  },
+  {
+    "name": "non-base64url-signature",
+    "description": "Characters outside the base64url alphabet: no digest.",
+    "signature": {
+      "signatures": [
+        {
+          "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiaGFzaFYiOlsiSnI4WE5wSWtUY0pBQkZqdmQ5aFpoVTlaNEVHTFJZa25hb2U0NDRmcFZSNCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+          "signature": "Ol7yZ5HKmkpTSSaLF9HWIODYVQp1_EDLGabivffBeHs!!"
+        }
+      ]
+    },
+    "expected": null
   }
 ]

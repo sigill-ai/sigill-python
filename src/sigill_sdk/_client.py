@@ -777,11 +777,14 @@ class SigillClient:
         :meth:`AgentRun.start`."""
         return AgentRun.start(self, agent, certificate_id=certificate_id, **options)
 
-    def verify_agent_run(self, bundle: AgentRunBundle) -> AgentRunVerificationResult:
+    def verify_agent_run(self, bundle: AgentRunBundle, *,
+                         expected_signers: list[str] | None = None) -> AgentRunVerificationResult:
         """Verifies an agent run bundle (spec §8). The envelopes are read
         locally; each artifact's signature is checked through the blind
-        ``POST /seal/verify-objects`` endpoint — digests only, never content."""
-        return verify_agent_run(bundle, remote_verifier(self))
+        ``POST /seal/verify-objects`` endpoint — digests only, never content.
+        ``expected_signers`` pins the run to your sealing certificates'
+        ``x5t#S256`` thumbprints (spec §4.1)."""
+        return verify_agent_run(bundle, remote_verifier(self), expected_signers=expected_signers)
 
     # ------------------------------------------------------------- seal_pades
 

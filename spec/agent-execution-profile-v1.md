@@ -96,7 +96,7 @@ chain head:
 | `finalSeq` | `chain.seq` of the step immediately before `run_end`. |
 | `finalPrevSignatureSha256` | The chain digest (§4) of that step. Equal to `run_end`'s own `chain.prevSignatureSha256`; repeated here as an explicit commitment. |
 | `runDisposition` | `"completed"`, `"failed"` or `"aborted"`. |
-| `usage` | OPTIONAL free object (e.g. token counts). |
+| `usage` | OPTIONAL object (e.g. token counts). |
 
 `run_end` MUST carry a valid signature timestamp. Because it commits to the
 head, that single token anchors every signature before it.
@@ -194,17 +194,47 @@ order of execution; in concurrent or distributed agents a verifier MUST NOT
 infer strict causality from `seq`. `chain.prevSignatureSha256`
 is absent at `seq: 0` and present on every later step.
 
+**One classical signature per artifact (normative).** Every artifact's JWS
+MUST carry exactly one classical signature entry — one `signatures[]` entry
+whose readable protected header has an `alg` not starting with `ML-DSA`, or a
+flattened JWS — plus at most the hybrid ML-DSA entry. An entry whose
+protected header cannot be read counts as a classical entry. This makes the
+signature the chain commits to and the signature that is verified the same
+one.
+
 **Preimage (normative — this closes v2 §3.4):** `prevSignatureSha256` is the
 lowercase hex SHA-256 over the **base64url-decoded JWS Signature Value** of
 the previous artifact's **classical** signature — the first entry of the
 General JWS `signatures[]` whose protected header `alg` does not start with
 `ML-DSA` (for a flattened JWS: its `signature` member).
 
+The signature value MUST be strict base64url (alphabet `A–Z a–z 0–9 - _`, no
+padding, no other characters); otherwise the artifact has no chain digest.
 Only the signature value is hashed. Unprotected headers (signature
 timestamps, revocation values) are excluded, so later augmentation of an
 artifact never breaks the chain. Because the signature value commits to the
 whole envelope via `sigD`, each link commits to everything the previous step
 signed, including its own link.
+
+### 4.1 One signer per run
+
+The chain protects the order of steps against the producer, but not against
+anyone else who can produce a valid signature. A run is therefore bound to
+**one signing certificate**:
+
+- The **signer** of an artifact is the `x5t#S256` value in the protected
+  header of its classical signature entry. That header MUST also carry `x5c`,
+  and `x5t#S256` MUST equal the base64url SHA-256 of the DER certificate
+  `x5c[0]`. Because the header is signed and the signature is verified
+  against `x5c[0]`, the signer cannot be claimed without the key.
+- Every step of a run and its identity record MUST have the same signer.
+- Rotating the sealing certificate therefore means registering a new identity
+  record; a run never spans two certificates.
+- A verifier MAY be given the signer(s) it expects (for example the
+  thumbprints of the producer's sealing certificates) and then fails runs
+  signed by anyone else.
+- A self-signed signing certificate is reported as a warning: it proves
+  consistency, not who the signer is.
 
 ## 5. Timestamp policy
 
@@ -264,8 +294,20 @@ checkpoints are always required to carry a timestamp.
    failed rather than continue the chain without it.
 3. After any sealing failure the producer MUST NOT continue the chain. The
    run then verifies as `run_open` or `run_invalid`, never as finalized.
-4. Payload bytes stay with the producer. Only digests and opaque URIs reach
-   the sealing service (v2 §8).
+4. Payload bytes stay with the producer. Only digests, opaque URIs and object
+   content types reach the sealing service (v2 §8); producers SHOULD NOT send
+   operation labels derived from step types.
+5. All steps and the identity record are sealed with one certificate (§4.1).
+6. A producer SHOULD validate each envelope against §2–§3 before sealing it,
+   so it never seals a step its own verifier would reject. Producer extension
+   members MUST NOT use the profile's reserved names (`stepType`,
+   `agentVersion`, `eventTime`, `consequential`, `timestamp`, `objectKinds`,
+   `agentIdentityEvidenceId`, `assuranceProfile`, `timestampPolicy`,
+   `finalSeq`, `finalPrevSignatureSha256`, `runDisposition`, `recordType`,
+   `agentId`, `configSha256`, `registeredBy`, `delegation`, `parentRun`).
+7. `eventTime` is signed with millisecond precision; the producer's own
+   timestamp decision (§5) MUST use that same, truncated value, so the
+   verifier's recomputation agrees exactly.
 
 ## 7. The bundle
 
@@ -297,8 +339,11 @@ The portable form of a run:
 - `agentIdentity` MAY be `null` or absent; the `identity` check then reports
   the gap.
 
-Parsing is strict: a malformed entry, a non-hex digest or invalid base64
-invalidates the whole bundle. Nothing is skipped silently.
+Parsing is strict: a malformed entry, a non-hex digest, invalid base64, or a
+duplicate member name anywhere in the bundle (I-JSON forbids them) invalidates
+the whole bundle and lists every problem found. Nothing is skipped silently.
+Envelopes and signatures MUST also be valid I-JSON: no integers beyond ±2^53,
+no lone surrogates; an artifact that is not is unparseable (`run_invalid`).
 
 ## 8. Verification
 
@@ -310,11 +355,11 @@ A run verifier runs nine checks and reports each as `ok`, `warn` or `bad`:
 | `sequence` | A `seq` is missing, duplicated or a step has no `chain`; or the run does not have exactly one `run_start`, at `seq` 0. Missing positions are listed. |
 | `chain` | Any `prevSignatureSha256` does not match the chain digest (§4) of the step before it, or `seq` 0 carries one. |
 | `envelope` | A step does not validate against the complete v2 schema or is not valid I-JSON (§2), lacks a profile block, breaks the §2 conventions (`actor.type`, `purpose.category`, `activity.name` = step type) or the §3.4 block shapes, or its signed actor/version differs from `run_start`'s. |
-| `signatures` | Any step's signature fails to verify. |
+| `signatures` | Any step's signature fails to verify; an artifact does not carry exactly one classical signature (§4); a step's signer differs from the run's or cannot be established (§4.1); the run's signer is not among the expected signers given to the verifier; or a hybrid seal's ML-DSA commitment is reported as anything but `absent` or `verified`. |
 | `timestamps` | A step required by §5 lacks a valid timestamp, a present timestamp is invalid, or `run_start`'s signed policy is absent or malformed (§3.2). `warn` while no valid `run_end` anchor exists. |
-| `objects` | A signed object was not supplied, no longer matches, the signature and envelope disagree on the object list, or unsigned objects were supplied (as an artifact's digests or as a bundle payload no artifact signed). `warn` when every object matched by digest but some payloads were not supplied. |
+| `objects` | A signed object was not supplied, no longer matches, a supplied payload contradicts its supplied digest, the signature and envelope disagree on the object list, or unsigned objects were supplied (as an artifact's digests or as a bundle payload no artifact signed). `warn` when every object matched by digest but some payloads were not supplied. |
 | `finalization` | There is more than one `run_end`, `run_end` is not last, has no valid `runDisposition`, its `finalSeq`/`finalPrevSignatureSha256` do not match the observed head, or it lacks a valid anchor. `warn` when there is no `run_end`. |
-| `identity` | `run_start` references an identity record that is absent; the record is not a well-formed identity record (§3.6); its signature, objects, timestamp, linkage or actor/version fail; its required object kinds are not exactly one each (§3.6); its `configSha256` differs from the recomputed digest; or `run_start`'s configuration objects are duplicated or differ from the record's. `warn` when no identity record is declared. |
+| `identity` | `run_start` references an identity record that is absent; the record is not a well-formed identity record (§3.6); its signature, objects, timestamp, linkage or actor/version fail; it is signed by a different certificate than the run (§4.1); its required object kinds are not exactly one each (§3.6); its `configSha256` differs from the recomputed digest; or `run_start`'s configuration objects are duplicated or differ from the record's. `warn` when no identity record is declared. |
 
 The **run verdict** is:
 
@@ -325,6 +370,10 @@ The **run verdict** is:
 
 Malformed evidence is a verdict, never an error: a verifier reports it as
 `run_invalid` with findings and does not raise.
+
+Identifiers are compared after normalization: the `urn:uuid:` prefix is
+removed and hex digits are lower-cased, so `urn:uuid:` and bare forms of the
+same UUID link (§2).
 
 **Signature verification** of each artifact is the v2 object-level verdict
 (v2 §7): the verifier supplies the JCS digest of its own copy of the envelope
@@ -346,7 +395,7 @@ deterministic fingerprint over everything verification depends on:
 
 ```
 one(a)      = { "e": sha256hex(JCS(a.envelope)), "s": sha256hex(JCS(a.signature)), "d": a.objectDigests }
-artifacts   = [ { "seq": a.envelope.chain.seq (or -1), …one(a) } for a in artifacts ]
+artifacts   = [ { "seq": a.envelope.chain.seq if it is a non-negative integer, else -1, …one(a) } for a in artifacts ]
               sorted by seq, then by e
 identity    = one(agentIdentity) or null
 payloads    = [ { "uri": uri, "sha256": sha256hex(bytes) } for uri in sorted(payloads) ]

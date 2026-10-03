@@ -15,6 +15,8 @@ verdicts, same bundle format, same cross-language vectors.
 from __future__ import annotations
 
 import base64
+import copy
+import hashlib
 import json
 import re
 import threading
@@ -47,6 +49,16 @@ IDENTITY_KINDS = ("agent-manifest",) + CONFIGURATION_KINDS + ("registration-reco
 optional configuration kinds are required (§3.6)."""
 
 _AUTH_DECISIONS = ("allowed", "denied")
+
+RESERVED_EXTENSION_KEYS = frozenset({
+    "stepType", "agentVersion", "eventTime", "consequential", "timestamp", "objectKinds",
+    "agentIdentityEvidenceId", "assuranceProfile", "timestampPolicy", "finalSeq", "finalPrevSignatureSha256",
+    "runDisposition", "recordType", "agentId", "configSha256", "registeredBy", "delegation", "parentRun",
+})
+"""Profile-block names a producer extension must not use (§6)."""
+
+_B64URL = re.compile(r"^[A-Za-z0-9_-]*$")
+_I_JSON_MAX_INT = 2 ** 53
 
 MAX_ARTIFACTS = 2000
 """Upper bound on artifacts per bundle (§7)."""
@@ -85,7 +97,85 @@ def _obj(v: Any) -> Optional[dict]:
 
 
 def _b64u_decode(s: str) -> bytes:
+    """Strict base64url (no padding, nothing outside the alphabet)."""
+    if not isinstance(s, str) or not _B64URL.match(s) or len(s) % 4 == 1:
+        raise ValueError("not base64url")
     return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
+
+
+def _is_i_json(v: Any) -> bool:
+    """No integers beyond ±2^53 and no lone surrogates (§7)."""
+    if v is None or isinstance(v, (bool, float)):
+        return True
+    if isinstance(v, int):
+        return abs(v) <= _I_JSON_MAX_INT
+    if isinstance(v, str):
+        return not any(0xD800 <= ord(c) <= 0xDFFF for c in v)
+    if isinstance(v, list):
+        return all(_is_i_json(x) for x in v)
+    if isinstance(v, dict):
+        return all(isinstance(k, str) and _is_i_json(k) and _is_i_json(x) for k, x in v.items())
+    return False
+
+
+def _norm_id(v: Optional[str]) -> Optional[str]:
+    """§8: ``urn:uuid:`` and bare forms of the same UUID compare equal."""
+    if v is None:
+        return None
+    v = v[9:] if v.lower().startswith("urn:uuid:") else v
+    return v.lower()
+
+
+def _classical_entries(signature: Mapping[str, Any]) -> list[tuple[dict, Optional[dict]]]:
+    """(entry, protected header or None if unreadable) for every non-ML-DSA entry."""
+    if isinstance(signature.get("signatures"), list):
+        entries = signature["signatures"]
+    elif signature.get("signature") is not None:
+        entries = [signature]
+    else:
+        entries = []
+    out = []
+    for e in entries:
+        if not isinstance(e, dict):
+            continue
+        header = None
+        try:
+            parsed = json.loads(_b64u_decode(e.get("protected")))
+            header = parsed if isinstance(parsed, dict) else None
+        except Exception:  # unreadable protected header: counts as classical (§4)
+            pass
+        alg = header.get("alg") if header else None
+        if isinstance(alg, str) and alg.upper().startswith("ML-DSA"):
+            continue
+        out.append((e, header))
+    return out
+
+
+def signer_of(signature: Mapping[str, Any]) -> tuple[Optional[str], Optional[str]]:
+    """The signer of an artifact (§4.1): ``(x5t#S256, None)``, or ``(None, problem)``.
+    Requires exactly one classical signature entry whose protected header
+    carries ``x5c`` and an ``x5t#S256`` equal to the SHA-256 of ``x5c[0]``."""
+    classical = _classical_entries(signature)
+    if len(classical) != 1:
+        return None, f"carries {len(classical)} classical signatures; exactly one classical signature is required"
+    _, header = classical[0]
+    if header is None or not isinstance(header.get("alg"), str):
+        return None, "its classical signature has no readable protected header"
+    thumb, x5c = header.get("x5t#S256"), header.get("x5c")
+    if not isinstance(thumb, str) or not isinstance(x5c, list) or not x5c or not isinstance(x5c[0], str):
+        return None, "its protected header names no signing certificate (x5c, x5t#S256)"
+    try:
+        leaf = base64.b64decode(x5c[0], validate=True)
+    except ValueError:
+        return None, "its x5c[0] is not valid base64"
+    if base64.urlsafe_b64encode(hashlib.sha256(leaf).digest()).rstrip(b"=").decode() != thumb:
+        return None, "its x5t#S256 is not the SHA-256 of x5c[0]"
+    return thumb, None
+
+
+def _truncate(t: datetime) -> datetime:
+    """The millisecond precision eventTime is signed with (§6.7)."""
+    return t.replace(microsecond=(t.microsecond // 1000) * 1000)
 
 
 def _format_time(t: datetime) -> str:
@@ -104,30 +194,13 @@ def chain_digest(signature: Mapping[str, Any]) -> Optional[str]:
     ``signature`` member of a flattened JWS. Unprotected headers are
     excluded, so augmenting an artifact later never breaks the chain.
     Returns None when the JWS carries no usable classical signature."""
-    if isinstance(signature.get("signatures"), list):
-        entries = signature["signatures"]
-    elif signature.get("signature") is not None:
-        entries = [signature]
-    else:
-        entries = []
-    for e in entries:
-        if not isinstance(e, dict):
-            continue
-        prot, sig = _str(e.get("protected")), _str(e.get("signature"))
-        if prot is None or sig is None:
-            continue
-        alg = ""
-        try:
-            header = json.loads(_b64u_decode(prot))
-            if isinstance(header, dict) and isinstance(header.get("alg"), str):
-                alg = header["alg"]
-        except Exception:  # unreadable header: not an ML-DSA entry
-            pass
-        if alg.upper().startswith("ML-DSA"):
+    for e, _ in _classical_entries(signature):
+        sig = _str(e.get("signature"))
+        if sig is None:
             continue
         try:
             return hash_bytes(_b64u_decode(sig))
-        except Exception:
+        except ValueError:
             return None
     return None
 
@@ -320,6 +393,21 @@ class AgentRunArtifact:
         }
 
 
+class _DuplicateMember(ValueError):
+    def __init__(self, name: str):
+        super().__init__(name)
+        self.name = name
+
+
+def _reject_duplicates(pairs: list) -> dict:
+    out: dict = {}
+    for k, v in pairs:
+        if k in out:
+            raise _DuplicateMember(k)
+        out[k] = v
+    return out
+
+
 class AgentRunBundleFormatError(SigillError):
     """A bundle failed strict parsing; ``errors`` lists every problem found."""
 
@@ -337,6 +425,15 @@ class AgentRunBundle:
     artifacts: list[AgentRunArtifact]
     payloads: dict[str, bytes] = field(default_factory=dict)
     profile: str = PROFILE
+
+    def __post_init__(self) -> None:
+        if not all(isinstance(a, AgentRunArtifact) for a in self.artifacts):
+            raise TypeError("artifacts must be AgentRunArtifact instances")
+        if self.agent_identity is not None and not isinstance(self.agent_identity, AgentRunArtifact):
+            raise TypeError("agent_identity must be an AgentRunArtifact")
+        for uri, data in self.payloads.items():
+            if not isinstance(uri, str) or not isinstance(data, (bytes, bytearray)):
+                raise TypeError("payloads must map str URIs to bytes")
 
     def with_payloads(self, payloads: Optional[Mapping[str, bytes]]) -> "AgentRunBundle":
         """The same bundle with (other) payload bytes, e.g. to share content with an auditor."""
@@ -365,7 +462,9 @@ class AgentRunBundle:
         :class:`AgentRunBundleFormatError` listing every problem."""
         if isinstance(value, (str, bytes)):
             try:
-                value = json.loads(value)
+                value = json.loads(value, object_pairs_hook=_reject_duplicates)
+            except _DuplicateMember as ex:
+                raise AgentRunBundleFormatError([f"bundle repeats a duplicate member name '{ex.name}'"]) from None
             except ValueError as ex:
                 raise AgentRunBundleFormatError([f"bundle is not valid JSON: {ex}"]) from None
         if not isinstance(value, dict):
@@ -514,15 +613,27 @@ def _digests(objects: Sequence[AgentRunObject]) -> dict[str, str]:
 
 
 def _seal(client: Any, envelope: dict, objects: Sequence[AgentRunObject], certificate_id: str, *,
-          timestamp: bool, qualified: bool, label: str):
+          timestamp: bool, qualified: bool):
+    # No operation label: a step type can be producer-defined, and only
+    # digests, opaque URIs and content types reach the sealing service (§6).
     return client.sign_object_hashes(
         hash_bytes(canonicalize(envelope)),
         [SignedObjectDigest(uri=o.uri, hash_hex=hash_bytes(o.data), content_type=o.content_type) for o in objects],
         str(certificate_id),
         timestamp=timestamp,
         qualified=qualified and timestamp,
-        label=f"agent:{label}",
     )
+
+
+def _prevalidate(envelope: dict) -> None:
+    """§6: never seal an envelope the verifier would reject. Raises ValueError."""
+    if not _is_i_json(envelope):
+        raise ValueError("the envelope is not valid I-JSON")
+    ext = envelope["extensions"][EXTENSION_KEY]
+    is_identity = ext.get("recordType") == "agent-identity"
+    errs = _conformance(envelope, ext, ext.get("stepType") or "", is_identity)
+    if errs:
+        raise ValueError("the step would not verify: " + "; ".join(errs))
 
 
 def _utcnow() -> datetime:
@@ -531,7 +642,7 @@ def _utcnow() -> datetime:
 
 def _register_identity(client: Any, agent: AgentDefinition, certificate_id: str, registered_by: Optional[str],
                        qualified: bool, clock: Callable[[], datetime]) -> tuple[AgentRunArtifact, list[AgentRunObject]]:
-    now = clock()
+    now = _truncate(clock())
     manifest = agent.manifest_bytes()
     config_sha = configuration_digest(manifest, agent.configuration)
     registration: dict = {
@@ -558,8 +669,8 @@ def _register_identity(client: Any, agent: AgentDefinition, certificate_id: str,
         block["registeredBy"] = registered_by
     envelope = _build_envelope(str(uuid.uuid4()), now, "agent-identity", agent, "agent_identity",
                                None, None, objects, None, None, block)
-    result = _seal(client, envelope, objects, certificate_id, timestamp=True, qualified=qualified,
-                   label="agent-identity")
+    _prevalidate(envelope)
+    result = _seal(client, envelope, objects, certificate_id, timestamp=True, qualified=qualified)
     if result.timestamped_by is None:
         raise SigillError("The identity record must be timestamped, but the seal carries no timestamp.")
     return AgentRunArtifact(envelope, result.signature, _digests(objects)), objects
@@ -646,8 +757,9 @@ class AgentRun:
         registered_objects: Optional[list[AgentRunObject]] = None
         if identity is not None:
             ext = _obj((_obj(identity.envelope.get("extensions")) or {}).get(EXTENSION_KEY)) or {}
-            if ext.get("configSha256") != config_sha:
-                raise ValueError("The supplied identity record was registered for a different agent "
+            if (ext.get("configSha256") != config_sha or ext.get("agentId") != agent.agent_id
+                    or ext.get("agentVersion") != agent.agent_version):
+                raise ValueError("The supplied identity record was registered for a different agent, version or "
                                  "configuration; register a new one.")
         else:
             identity, registered_objects = _register_identity(client, agent, certificate_id, registered_by,
@@ -666,11 +778,17 @@ class AgentRun:
 
         objects = agent.configuration.objects()
         objects.extend(start_objects or [])
-        run._seal_step("run_start", objects, {
+        start = run._seal_step("run_start", objects, {
             "agentIdentityEvidenceId": identity.evidence_id,
             "assuranceProfile": policy.profile,
             "timestampPolicy": policy.to_json(),
         }, consequential=False)
+        # §4.1: one certificate per run, identity record included.
+        if signer_of(start.signature)[0] != signer_of(identity.signature)[0]:
+            run._broken = True
+            raise SigillError("The identity record was sealed with a different certificate than this run "
+                              "(certificate rotated?); register a new identity record.")
+        run._notify(start)
         return run
 
     @property
@@ -696,12 +814,17 @@ class AgentRun:
         block — keep them free of personal data."""
         if not step_type:
             raise ValueError("step_type is required.")
-        if step_type in ("run_start", "run_end"):
-            raise ValueError(f"'{step_type}' is sealed by start()/finish().")
+        if step_type in ("run_start", "run_end") or step_type.startswith("record:"):
+            raise ValueError(f"'{step_type}' is not a step type a producer may record.")
+        reserved = sorted(RESERVED_EXTENSION_KEYS.intersection(extension or {}))
+        if reserved:
+            raise ValueError(f"extension uses reserved profile name(s): {', '.join(reserved)}")
         with self._lock:
             self._ensure_open()
-            return self._seal_step(step_type, list(objects or []), json.loads(json.dumps(extension or {})),
-                                   consequential=consequential)
+            artifact = self._seal_step(step_type, list(objects or []), json.loads(json.dumps(extension or {})),
+                                       consequential=consequential)
+        self._notify(artifact)
+        return artifact
 
     def record_retrieval(self, context: bytes, content_type: str = "text/plain") -> AgentRunArtifact:
         """Retrieved context (RAG) the agent read."""
@@ -709,27 +832,29 @@ class AgentRun:
 
     def record_tool_call(self, tool: str, arguments: bytes, *, operation: Optional[str] = None,
                          authorization: Optional[AgentAuthorization] = None, consequential: bool = False,
-                         content_type: str = "application/json") -> AgentRunArtifact:
+                         use_id: Optional[str] = None, content_type: str = "application/json") -> AgentRunArtifact:
         """A tool call the agent decided to make (§3.4). ``operation`` classifies
         it (e.g. ``read``, ``write``); mark write-class calls ``consequential``.
-        ``authorization`` records the policy decision taken before the call."""
-        ext: dict = {"tool": _tool_block(tool, operation)}
+        ``authorization`` records the policy decision taken before the call;
+        ``use_id`` correlates the call with its result."""
+        ext: dict = {"tool": _tool_block(tool, operation, use_id)}
         if authorization is not None:
             ext["authorization"] = authorization.to_json()
         return self.record("tool_call", [AgentRunObject("tool-arguments", "input", arguments, content_type)],
                            ext, consequential=consequential)
 
-    def record_tool_result(self, tool: str, result: bytes, content_type: str = "application/json") -> AgentRunArtifact:
+    def record_tool_result(self, tool: str, result: bytes, *, use_id: Optional[str] = None,
+                           content_type: str = "application/json") -> AgentRunArtifact:
         """The result a tool returned — context for the model's next turn."""
         return self.record("tool_result", [AgentRunObject("tool-result", "context", result, content_type)],
-                           {"tool": _tool_block(tool, None)})
+                           {"tool": _tool_block(tool, None, use_id)})
 
     def record_authorization(self, authorization: AgentAuthorization, *, tool: Optional[str] = None,
                              operation: Optional[str] = None) -> AgentRunArtifact:
         """A standalone policy decision (§3.4), e.g. "this write needs approval"."""
         ext: dict = {"authorization": authorization.to_json()}
         if tool is not None:
-            ext["tool"] = _tool_block(tool, operation)
+            ext["tool"] = _tool_block(tool, operation, None)
         return self.record("authorization", extension=ext)
 
     def record_human_approval(self, decision: str, *, receipt: Optional[bytes] = None,
@@ -782,9 +907,10 @@ class AgentRun:
             }
             if usage is not None:
                 block["usage"] = json.loads(json.dumps(usage))
-            self._seal_step("run_end", [], block, consequential=True)
-            self._finished = True
-            return self.to_bundle()
+            artifact = self._seal_step("run_end", [], block, consequential=True)
+            bundle = self.to_bundle()
+        self._notify(artifact)
+        return bundle
 
     def to_bundle(self) -> AgentRunBundle:
         """The run as a bundle — available at any point, including after a failure."""
@@ -795,29 +921,34 @@ class AgentRun:
 
     def _seal_step(self, step_type: str, objects: list[AgentRunObject], block: dict, *,
                    consequential: bool) -> AgentRunArtifact:
+        """Builds, validates and seals one step. Call with the lock held; the
+        callback is the caller's job, after releasing it."""
+        now = _truncate(self._clock())  # the decision below must use the signed, truncated time
+        seq = len(self._artifacts)
+        coverage = copy.copy(self._coverage)  # committed only once the step is sealed
+        stamp = coverage.next(seq, step_type, consequential, block.get("timestamp") == "required", now)
+        block.update({
+            "stepType": step_type,
+            "agentVersion": self._agent.agent_version,
+            "eventTime": _format_time(now),
+            "consequential": consequential,
+            "timestamp": "required" if stamp else "none",
+        })
+        envelope = _build_envelope(str(uuid.uuid4()), now, "agent-execution", self._agent, step_type,
+                                   self.correlation_id, self._prev_evidence_id, objects, seq,
+                                   self._prev_chain_digest, block)
+        digests = _digests(objects)
+        _prevalidate(envelope)  # a ValueError here leaves the run usable
         try:
-            now = self._clock()
-            seq = len(self._artifacts)
-            stamp = self._coverage.next(seq, step_type, consequential, block.get("timestamp") == "required", now)
-            block.update({
-                "stepType": step_type,
-                "agentVersion": self._agent.agent_version,
-                "eventTime": _format_time(now),
-                "consequential": consequential,
-                "timestamp": "required" if stamp else "none",
-            })
-            envelope = _build_envelope(str(uuid.uuid4()), now, "agent-execution", self._agent, step_type,
-                                       self.correlation_id, self._prev_evidence_id, objects, seq,
-                                       self._prev_chain_digest, block)
-            digests = _digests(objects)
             result = _seal(self._client, envelope, objects, self._certificate_id, timestamp=stamp,
-                           qualified=self._qualified, label=step_type)
+                           qualified=self._qualified)
             if stamp and result.timestamped_by is None:
                 raise SigillError(f"{step_type}: a timestamp is required by the run's policy, but the seal carries none.")
             artifact = AgentRunArtifact(envelope, result.signature, digests)
             link = artifact.chain_digest
             if link is None:
                 raise SigillError("The seal returned no classical signature to chain to.")
+            self._coverage = coverage
             self._prev_chain_digest = link
             self._prev_evidence_id = artifact.evidence_id
             self._artifacts.append(artifact)
@@ -828,11 +959,14 @@ class AgentRun:
         except BaseException:
             self._broken = True
             raise
-        # The artifact is part of the chain now; a failing callback is the
-        # caller's error and does not break the run.
+        return artifact
+
+    def _notify(self, artifact: AgentRunArtifact) -> None:
+        """Runs the callback outside the lock, so it may call back into the
+        run. The artifact is already part of the chain; a failing callback is
+        the caller's error and does not break the run."""
         if self._on_sealed is not None:
             self._on_sealed(artifact)
-        return artifact
 
     def _ensure_open(self) -> None:
         if self._broken:
@@ -841,10 +975,12 @@ class AgentRun:
             raise RuntimeError("The run is finished.")
 
 
-def _tool_block(name: str, operation: Optional[str]) -> dict:
+def _tool_block(name: str, operation: Optional[str], use_id: Optional[str]) -> dict:
     if not name:
         raise ValueError("tool name is required.")
     block: dict = {"name": name}
+    if use_id is not None:
+        block["useId"] = use_id
     if operation is not None:
         block["operation"] = operation
     return block
@@ -895,6 +1031,8 @@ class BlindObjectsVerdict:
     timestamp: Optional[SignatureTimestampInfo] = None
     certificate: Optional[SignerCertificateInfo] = None
     error: Optional[str] = None
+    pqc: str = "absent"
+    """The hybrid (ML-DSA) dimension: absent | verified | failed | not_checked."""
 
     @classmethod
     def from_verify_objects_response(cls, response: Mapping[str, Any]) -> "BlindObjectsVerdict":
@@ -920,6 +1058,7 @@ class BlindObjectsVerdict:
             timestamp=ts,
             certificate=cert,
             error=_str(r.get("error")),
+            pqc=_str(r.get("pqc")) or "absent",
         )
 
 
@@ -995,6 +1134,7 @@ class AgentIdentityVerdict:
     objects_complete: bool = False
     timestamp_valid: bool = False
     well_formed: bool = False
+    same_signer: bool = False
     linked: bool = False
     kinds_complete: bool = False
     config_matches: bool = False
@@ -1029,6 +1169,8 @@ class AgentRunVerificationResult:
     artifacts: list[AgentStepVerdict]
     fingerprint: Optional[str]
     """None when the evidence is not valid I-JSON (§8.1)."""
+    signer: Optional[str] = None
+    """The run's signer: ``x5t#S256`` of its signing certificate (§4.1)."""
     scope: str = SCOPE
 
     @property
@@ -1088,7 +1230,14 @@ def _conformance(env: dict, ext: dict, step_type: str, is_identity: bool) -> lis
 
     errs.extend(_block_conformance(ext, step_type))
 
+    if "usage" in ext and not isinstance(ext["usage"], dict):
+        errs.append("usage is not an object")
+    if "registeredBy" in ext and not isinstance(ext["registeredBy"], str):
+        errs.append("registeredBy is not a string")
+
     if is_identity:
+        if "correlationId" in activity:
+            errs.append("the identity record must not carry activity.correlationId")
         if "chain" in env:
             errs.append("the identity record must not carry chain")
         if ext.get("agentId") != actor.get("id"):
@@ -1138,6 +1287,8 @@ def _block_conformance(ext: dict, step_type: str) -> list[str]:
 def _parse_signed(envelope: Any, signature: Any) -> tuple[Optional[_Signed], Optional[str]]:
     if not isinstance(envelope, dict) or not isinstance(signature, dict):
         return None, "envelope or signature is not a JSON object"
+    if not _is_i_json(envelope) or not _is_i_json(signature):
+        return None, "envelope or signature is not valid I-JSON"
     try:
         canonicalize(envelope)
         canonicalize(signature)
@@ -1233,6 +1384,7 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
             hex_ = hash_bytes(payloads[uri])
             if supplied is not None and supplied != hex_:
                 c.findings.append(f"{label}: supplied payload for '{kind}' does not match its supplied digest.")
+                obj_ok = False
             digests[uri] = hex_
             c.objects.append(AgentObjectVerdict(uri, kind, role, ctype, size, hex_, True, True, True))
         elif supplied is not None:
@@ -1254,6 +1406,9 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
         if r is None:
             raise SigillError("blind verifier returned no result")
         c.signature_valid = r.signature_valid
+        if r.pqc not in ("absent", "verified"):
+            c.signature_valid = False
+            c.findings.append(f"{label}: the hybrid seal's ML-DSA commitment is '{r.pqc}'.")
         c.error = r.error
         c.objects_complete = r.complete and not r.unreferenced and not r.missing and obj_ok
         for m in r.missing:
@@ -1285,9 +1440,14 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
     return c
 
 
-def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier) -> AgentRunVerificationResult:
+def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
+                     expected_signers: Optional[Sequence[str]] = None) -> AgentRunVerificationResult:
     """Verifies a run bundle (§8). Never raises for malformed evidence: that is
-    an invalid verdict."""
+    an invalid verdict.
+
+    :param expected_signers: ``x5t#S256`` thumbprints of the certificates the
+        producer seals with (§4.1). When given, a run signed by anyone else fails.
+    """
     findings: list[str] = []
     warnings: list[str] = []
     checks: dict[str, str] = {}
@@ -1391,6 +1551,13 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier) -> 
     actor_id = start.actor_id if start else next((p[2].actor_id for p in arts if p[2] is not None), None)
     agent_version = start.agent_version if start else None
 
+    # §4.1: one signer per run — run_start's, else the first artifact's that has one.
+    candidates = ([start] if start is not None else []) + [p[2] for p in arts if p[2] is not None]
+    run_signer = next((sg for sg in (signer_of(c.jws)[0] for c in candidates) if sg is not None), None)
+    if run_signer is not None and expected_signers is not None and run_signer not in set(expected_signers):
+        sig_ok = False
+        findings.append(f"The run's signer (x5t#S256 {run_signer}) is not among the expected signers.")
+
     for art, index, sa, err in arts:
         if sa is None:
             env_ok = sig_ok = obj_ok = False
@@ -1402,6 +1569,13 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier) -> 
         if sa.conformance:
             env_ok = False
             findings.extend(f"seq {seq}: {e}." for e in sa.conformance)
+        signer, signer_err = signer_of(sa.jws)
+        if signer_err is not None:
+            sig_ok = False
+            findings.append(f"seq {seq}: {signer_err}.")
+        elif signer != run_signer:
+            sig_ok = False
+            findings.append(f"seq {seq}: signed by a different certificate than the run (x5t#S256 {signer}).")
         if sa.actor_id != actor_id or (agent_version is not None and sa.agent_version != agent_version):
             actor_ok = False
             findings.append(f"seq {seq}: signed actor/version ({sa.actor_id}, {sa.agent_version}) differs from "
@@ -1418,7 +1592,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier) -> 
                 findings.append(f"seq {seq}: prevSignatureSha256 does not match the signature of seq {prev_seq}.")
         if not link_ok:
             chain_ok = False
-        if seq > 0 and prev_evidence_id is not None and sa.parent != prev_evidence_id:
+        if seq > 0 and prev_evidence_id is not None and _norm_id(sa.parent) != _norm_id(prev_evidence_id):
             warnings.append(f"seq {seq}: parentEvidenceId is not the previous artifact (semantic link only; not an "
                             "integrity failure).")
 
@@ -1520,7 +1694,10 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier) -> 
     checks["timestamps"] = "bad" if (not ts_ok or not policy_ok) else ("ok" if anchor_valid else "warn")
 
     start_art = next((p[0] for p in arts if p[2] is not None and p[2] is start), None)
-    identity, id_findings = _verify_identity(bundle, start, start_art, verifier)
+    identity, id_findings = _verify_identity(bundle, start, start_art, verifier, run_signer)
+    if any(c.trust == "self_signed" for c in certificates):
+        warnings.append("Signed with a self-signed certificate: the signatures are consistent, but they do not "
+                        "establish who the signer is.")
     findings.extend(id_findings)
     if not identity.declared and not identity.present:
         checks["identity"] = "warn"
@@ -1528,7 +1705,8 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier) -> 
     elif not identity.present:
         checks["identity"] = "bad"
     else:
-        checks["identity"] = "ok" if (identity.well_formed and identity.linked and identity.kinds_complete
+        checks["identity"] = "ok" if (identity.well_formed and identity.same_signer and identity.linked
+                                      and identity.kinds_complete
                                       and identity.config_matches and identity.config_digest_valid
                                       and identity.actor_matches and identity.signature_valid
                                       and identity.objects_complete and identity.timestamp_valid) else "bad"
@@ -1540,6 +1718,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier) -> 
         timestamps=AgentRunTimestampSummary(len(arts), ts_required, ts_present, ts_valid, anchor_valid, profile,
                                             every_events, every_seconds, policy is not None),
         certificates=certificates, identity=identity, artifacts=verdicts, fingerprint=_safe_fingerprint(bundle),
+        signer=run_signer,
     )
 
 
@@ -1551,7 +1730,7 @@ def _safe_fingerprint(bundle: AgentRunBundle) -> Optional[str]:
 
 
 def _verify_identity(bundle: AgentRunBundle, start: Optional[_Signed], start_art: Optional[AgentRunArtifact],
-                     blind: BlindObjectsVerifier) -> tuple[AgentIdentityVerdict, list[str]]:
+                     blind: BlindObjectsVerifier, run_signer: Optional[str]) -> tuple[AgentIdentityVerdict, list[str]]:
     findings: list[str] = []
     declared = start.agent_identity_evidence_id if start else None
     if bundle.agent_identity is None:
@@ -1566,7 +1745,14 @@ def _verify_identity(bundle: AgentRunBundle, start: Optional[_Signed], start_art
     if not sa.is_identity:
         findings.append("Identity record: recordType is not 'agent-identity'.")
     findings.extend(f"Identity record: {e}." for e in sa.conformance)
-    linked = start is not None and start.parent == sa.evidence_id and declared == sa.evidence_id
+    id_signer, id_signer_err = signer_of(sa.jws)
+    same_signer = id_signer_err is None and id_signer == run_signer
+    if id_signer_err is not None:
+        findings.append(f"Identity record: {id_signer_err}.")
+    elif not same_signer:
+        findings.append("Identity record: signed by a different certificate than the run.")
+    linked = (start is not None and _norm_id(start.parent) == _norm_id(sa.evidence_id)
+              and _norm_id(declared) == _norm_id(sa.evidence_id))
     if not linked:
         findings.append("run_start does not reference the identity record (parentEvidenceId / agentIdentityEvidenceId).")
     actor_matches = start is not None and start.actor_id == sa.actor_id and start.agent_version == sa.agent_version
@@ -1623,6 +1809,7 @@ def _verify_identity(bundle: AgentRunBundle, start: Optional[_Signed], start_art
     return AgentIdentityVerdict(
         declared=declared is not None, present=True, signature_valid=c.signature_valid,
         objects_complete=c.objects_complete, timestamp_valid=timestamp_valid, well_formed=well_formed,
+        same_signer=same_signer,
         linked=linked, kinds_complete=kinds_complete, config_matches=config_matches,
         config_digest_valid=config_digest_valid, actor_matches=actor_matches, evidence_id=sa.evidence_id,
         actor_id=sa.actor_id, agent_version=sa.agent_version, config_sha256=sa.config_sha256,
@@ -1632,13 +1819,18 @@ def _verify_identity(bundle: AgentRunBundle, start: Optional[_Signed], start_art
 
 def bundle_fingerprint(bundle: AgentRunBundle) -> str:
     """The deterministic bundle fingerprint (§8.1)."""
+    every = list(bundle.artifacts) + ([bundle.agent_identity] if bundle.agent_identity else [])
+    if not all(_is_i_json(a.envelope) and _is_i_json(a.signature) for a in every):
+        raise ValueError("the fingerprint is undefined for evidence that is not valid I-JSON (§8.1)")
+
     def one(a: AgentRunArtifact) -> dict:
         return {"e": hash_bytes(canonicalize(a.envelope)), "s": hash_bytes(canonicalize(a.signature)),
                 "d": dict(sorted(a.object_digests.items()))}
     arts = []
     for a in bundle.artifacts:
-        sa, _ = _parse_signed(a.envelope, a.signature)
-        seq = sa.seq if sa is not None and sa.seq is not None else -1
+        chain = a.envelope.get("chain") if isinstance(a.envelope, dict) else None
+        raw = chain.get("seq") if isinstance(chain, dict) else None
+        seq = raw if isinstance(raw, int) and not isinstance(raw, bool) and raw >= 0 else -1
         arts.append({"seq": seq, **one(a)})
     arts.sort(key=lambda x: (x["seq"], x["e"]))
     payloads = [{"uri": u, "sha256": hash_bytes(bundle.payloads[u])} for u in sorted(bundle.payloads)]

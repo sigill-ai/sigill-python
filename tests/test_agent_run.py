@@ -55,10 +55,20 @@ def _b64u_decode(s: str) -> bytes:
     return base64.urlsafe_b64decode(s + "=" * (-len(s) % 4))
 
 
-def stub_sign(envelope_hash_hex: str, objects, *, timestamp: bool, gen_time: str = "2026-10-01T09:00:00Z") -> dict:
+CERT_A = b"test signing certificate A"
+CERT_B = b"test signing certificate B"
+
+
+def thumbprint(cert: bytes) -> str:
+    return _b64u(hashlib.sha256(cert).digest())
+
+
+def stub_sign(envelope_hash_hex: str, objects, *, timestamp: bool, gen_time: str = "2026-10-01T09:00:00Z",
+              cert: bytes = CERT_A) -> dict:
     pars = ["urn:sigill:envelope"] + [u for u, _ in objects]
     hash_v = [_b64u(bytes.fromhex(envelope_hash_hex))] + [_b64u(bytes.fromhex(h)) for _, h in objects]
-    prot = _b64u(canonicalize({"alg": "ES256", "sigD": {"pars": pars, "hashV": hash_v}}))
+    prot = _b64u(canonicalize({"alg": "ES256", "sigD": {"pars": pars, "hashV": hash_v},
+                               "x5c": [base64.b64encode(cert).decode()], "x5t#S256": thumbprint(cert)}))
     entry: dict = {"protected": prot, "signature": _b64u(hashlib.sha256(prot.encode()).digest())}
     if timestamp:
         entry["header"] = {"stubTimestamp": {"genTime": gen_time, "valid": True}}
@@ -90,7 +100,7 @@ def stub_verify(signature: dict, digests) -> BlindObjectsVerdict:
 
 def test_chain_digest_matches_vectors() -> None:
     cases = json.loads((VECTORS / "chain-digest.json").read_text(encoding="utf-8"))
-    assert len(cases) == 3
+    assert len(cases) == 4
     for c in cases:
         assert chain_digest(c["signature"]) == c["expected"], c["name"]
 
@@ -110,13 +120,18 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_there_are_run_vectors() -> None:
-    assert len(RUN_VECTORS) == 30
+    assert len(RUN_VECTORS) == 44
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
 def test_run_vector_reproduces_expected_verdict(name: str) -> None:
     v = json.loads((VECTORS / "runs" / name).read_text(encoding="utf-8"))
     expected = v["expected"]
+    if "bundleText" in v:  # a container that must not parse at all
+        with pytest.raises(AgentRunBundleFormatError) as ei:
+            AgentRunBundle.parse(v["bundleText"])
+        assert any(expected["parseError"] in e for e in ei.value.errors), ei.value.errors
+        return
     result = verify_agent_run(AgentRunBundle.parse(v["bundle"]), stub_verify)
 
     assert result.verdict == expected["verdict"], result.findings
@@ -200,6 +215,7 @@ class StubSealer:
         self.requests: list[dict] = []
         self.fail_on_call = -1
         self.drop_timestamps = False
+        self.cert = CERT_A
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/seal/sign-hashes"
@@ -208,7 +224,8 @@ class StubSealer:
         if len(self.requests) - 1 == self.fail_on_call:
             return httpx.Response(503, text="busy")
         stamp = body.get("timestamp", True) and not self.drop_timestamps
-        sig = stub_sign(body["envelopeHashHex"], [(o["uri"], o["hashHex"]) for o in body["objects"]], timestamp=stamp)
+        sig = stub_sign(body["envelopeHashHex"], [(o["uri"], o["hashHex"]) for o in body["objects"]], timestamp=stamp,
+                        cert=self.cert)
         return httpx.Response(200, json={
             "signature": sig, "operationId": "0be049c7-0000-0000-0000-000000000000",
             "format": "jades-b-t" if stamp else "jades-b-b", "timestampedBy": "Stub TSA" if stamp else None,
@@ -341,6 +358,108 @@ def test_run_without_model_config_verifies_as_finalized() -> None:
     assert result.checks["identity"] == "ok"
 
 
+def _bundle_from_vector(name: str) -> AgentRunBundle:
+    return AgentRunBundle.parse(json.loads((VECTORS / "runs" / name).read_text(encoding="utf-8"))["bundle"])
+
+
+def test_expected_signers_pin_the_run() -> None:
+    bundle = _bundle_from_vector("01-finalized-digests-only.json")
+    ok = verify_agent_run(bundle, stub_verify)
+    assert ok.signer is not None
+    assert verify_agent_run(bundle, stub_verify, expected_signers=[ok.signer]).verdict == "run_finalized"
+    pinned = verify_agent_run(bundle, stub_verify, expected_signers=["someone-else"])
+    assert pinned.verdict == "run_invalid" and pinned.checks["signatures"] == "bad"
+    assert any("not among the expected signers" in f for f in pinned.findings)
+
+
+def test_self_signed_certificate_is_a_warning() -> None:
+    def self_signed(signature, digests):
+        v = stub_verify(signature, digests)
+        return BlindObjectsVerdict(v.signature_valid, v.complete, v.objects, v.missing, v.unreferenced, v.timestamp,
+                                   SignerCertificateInfo("CN=x", "CN=x", "2030-01-01T00:00:00Z", "self_signed"))
+    r = verify_agent_run(_bundle_from_vector("01-finalized-digests-only.json"), self_signed)
+    assert r.verdict == "run_finalized"
+    assert any("self-signed" in w for w in r.warnings)
+
+
+def test_hybrid_commitment_not_verified_fails_signatures() -> None:
+    def pqc_failed(signature, digests):
+        v = stub_verify(signature, digests)
+        return BlindObjectsVerdict(v.signature_valid, v.complete, v.objects, v.missing, v.unreferenced, v.timestamp,
+                                   v.certificate, pqc="not_checked")
+    r = verify_agent_run(_bundle_from_vector("01-finalized-digests-only.json"), pqc_failed)
+    assert r.verdict == "run_invalid" and r.checks["signatures"] == "bad"
+    assert any("ML-DSA commitment is 'not_checked'" in f for f in r.findings)
+
+
+def test_sub_millisecond_times_cannot_split_recorder_and_verifier() -> None:
+    times = iter([datetime(2026, 10, 1, 9, 0, 0, 900, tzinfo=timezone.utc),       # identity
+                  datetime(2026, 10, 1, 9, 0, 0, 900, tzinfo=timezone.utc),       # run_start  :00.000900
+                  datetime(2026, 10, 1, 9, 5, 0, 100, tzinfo=timezone.utc),       # next step  :00.000100, 300 s later
+                  datetime(2026, 10, 1, 9, 6, 0, tzinfo=timezone.utc)])
+    run = AgentRun.start(_client(StubSealer()), _agent(), certificate_id=CERT, _clock=lambda: next(times))
+    step = run.record_model_output(b"x")
+    assert step.envelope["extensions"]["ai.sigill.agent-execution"]["timestamp"] == "required"
+    assert verify_agent_run(run.finish(), stub_verify).verdict == "run_finalized"
+
+
+def test_callback_may_call_back_into_the_run() -> None:
+    anchored = []
+
+    def anchor_after_writes(a):
+        if a.step_type == "tool_call":
+            anchored.append(run.checkpoint("after-write"))
+
+    run = AgentRun.start(_client(StubSealer()), _agent(), certificate_id=CERT, on_artifact_sealed=anchor_after_writes,
+                         _clock=_clock())
+    run.record_tool_call("close_ticket", b"{}", operation="write")
+    assert anchored and anchored[0].step_type == "checkpoint"
+    assert verify_agent_run(run.finish(), stub_verify).verdict == "run_finalized"
+
+
+@pytest.mark.parametrize("bad", [
+    lambda r: r.record_human_approval("approved", action_evidence_id="step-3"),
+    lambda r: r.record("custom", [AgentRunObject("x", "weird", b"x")]),
+    lambda r: r.record("custom", extension={"finalSeq": 3}),
+    lambda r: r.record("custom", extension={"parentRun": {}}),
+    lambda r: r.record("record:agent-identity"),
+])
+def test_recorder_refuses_steps_the_verifier_would_reject_without_breaking_the_run(bad) -> None:
+    sealer = StubSealer()
+    run = AgentRun.start(_client(sealer), _agent(), certificate_id=CERT, _clock=_clock())
+    sealed_before = len(sealer.requests)
+    with pytest.raises(ValueError):
+        bad(run)
+    assert len(sealer.requests) == sealed_before and not run.is_broken
+    run.record_model_output(b"still fine")
+    assert verify_agent_run(run.finish(), stub_verify).verdict == "run_finalized"
+
+
+def test_identity_record_from_another_version_is_rejected() -> None:
+    client = _client(StubSealer())
+    identity = register_agent_identity(client, _agent(), CERT)
+    newer = AgentDefinition(agent_id="urn:example:agent:triage", agent_version="1.1.0",
+                            model=AgentModelRef("example-ai", "example-model-1"), tenant_id="tenant-example",
+                            configuration=_agent().configuration, manifest=_agent().manifest_bytes())
+    with pytest.raises(ValueError, match="different agent, version or configuration"):
+        AgentRun.start(client, newer, certificate_id=CERT, identity=identity)
+
+
+def test_identity_record_from_another_certificate_is_rejected() -> None:
+    sealer = StubSealer()
+    client = _client(sealer)
+    identity = register_agent_identity(client, _agent(), CERT)
+    sealer.cert = CERT_B  # the sealing certificate was rotated
+    with pytest.raises(SigillError, match="different certificate"):
+        AgentRun.start(client, _agent(), certificate_id=CERT, identity=identity)
+
+
+def test_bundles_built_in_code_reject_non_bytes_payloads() -> None:
+    bundle = _bundle_from_vector("01-finalized-digests-only.json")
+    with pytest.raises(TypeError):
+        bundle.with_payloads({"urn:x": "not bytes"})  # type: ignore[dict-item]
+
+
 def test_retained_payloads_upgrade_objects_to_ok() -> None:
     sealer = StubSealer()
     run = AgentRun.start(_client(sealer), _agent(), certificate_id=CERT, retain_payloads=True, _clock=_clock())
@@ -396,7 +515,7 @@ def test_identity_record_is_reused_and_rejected_for_another_configuration() -> N
     assert run.identity is identity
     assert verify_agent_run(run.finish(), stub_verify).checks["identity"] == "ok"
 
-    with pytest.raises(ValueError, match="different agent configuration"):
+    with pytest.raises(ValueError, match="different agent, version or configuration"):
         AgentRun.start(client, _agent("A different instruction set."), certificate_id=CERT, identity=identity)
 
 
