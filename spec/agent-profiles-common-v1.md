@@ -248,6 +248,14 @@ verifier never raises on it.
 **Binding state:** `bound` (run and its Control Artifact), `run_only`,
 `control_only` (a Control Artifact without events), `unbound`.
 
+**TSA trust** (a warning, never fatal): a timestamp proves time only if its
+TSA is trusted. The signature service reports `trust` per timestamp
+(`trusted_chain` or `qualified` are trusted; `untrusted`, `unknown`, or no
+value are not); every timestamped artifact whose TSA is not trusted is listed
+in one warning ("TSA trust not established"). Until a verifier sees a trusted
+TSA, "unchanged since `run_end` was timestamped" holds only as far as that
+TSA can be trusted.
+
 **Seal time, as defence in depth** (reported as warnings, never fatal):
 
 - `controlSealedBeforeRun`: the Control Artifact's `sigTst` genTime is not

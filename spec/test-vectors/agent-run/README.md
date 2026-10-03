@@ -47,7 +47,8 @@ Stub verifier, given `{signature, digests}`:
    in pars.
 5. `complete` ⇔ `signatureValid` and every par matched.
 6. Timestamp: present ⇔ `header.stubTimestamp` exists; its `signatureValid`
-   is its `valid`; `tsaName` is `"Stub TSA"`.
+   is its `valid`; `tsaName` is `"Stub TSA"`; `trust` is its `trust`, or
+   `"trusted_chain"` when absent.
 7. Certificate: `{subject: "CN=Stub Signer", issuer: "CN=Stub CA",
    notAfter: "2030-01-01T00:00:00Z", isSelfSigned: false, trust: "trusted_chain"}`.
 

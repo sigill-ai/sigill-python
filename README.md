@@ -443,6 +443,9 @@ What to know:
   rewritten by anyone able to seal with the run's certificate until `run_end`
   is timestamped; `result.scope` says so. Timestamp consequential events to
   narrow that window.
+- **Timestamps count only from a trusted TSA.** The signature service reports
+  each timestamp's TSA trust; until it reports `trusted_chain` or `qualified`,
+  the result carries a "TSA trust not established" warning.
 - **Evaluations never change the run verdict.** They are reported on their
   own, and the SDK never evaluates controls: `overall` is the named
   verifier's claim, bound to this run's `run_end`, Control Artifact and

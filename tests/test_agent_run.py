@@ -131,7 +131,8 @@ def stub_verify(signature: dict, digests) -> BlindObjectsVerdict:
         objects=objects,
         missing=missing,
         unreferenced=unreferenced,
-        timestamp=SignatureTimestampInfo(st["genTime"], "Stub TSA", st["valid"]) if st else None,
+        timestamp=SignatureTimestampInfo(st["genTime"], "Stub TSA", st["valid"], st.get("trust", "trusted_chain"))
+        if st else None,
         certificate=SignerCertificateInfo("CN=Stub Signer", "CN=Stub CA", "2030-01-01T00:00:00Z", "trusted_chain"),
     )
 
@@ -149,7 +150,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 64
+    assert len(RUN_VECTORS) == 65
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -412,6 +413,8 @@ def test_vector10_real_sealed_run_profile_layer_holds_offline_signatures_assumed
     assert r.control_sealed_before_run == expected["controlSealedBeforeRun"]
     assert r.event_times_plausible == expected["eventTimesPlausible"]
     assert any("signs no timestampPolicy" in w for w in r.warnings)
+    assert any("TSA trust not established" in w and "not reported" in w for w in r.warnings), \
+        "the offline verifier reports no TSA trust"
     e = expected["evaluations"][0]
     (ev,) = r.evaluations
     assert ev.verifier_id == e["verifier"]

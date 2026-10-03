@@ -58,6 +58,7 @@ SCOPE = (
 _MAX_MISSING_LISTED = 64
 _SEAL_TIME_ALLOWANCE = timedelta(seconds=6)  # 5 s skew + up to 1 s TSA accuracy
 _TRUSTED_CHAINS = ("trusted_chain", "platform")
+_TRUSTED_TSA = ("trusted_chain", "qualified")
 _DISPOSITIONS = ("completed", "failed", "aborted")
 
 
@@ -65,11 +66,13 @@ _DISPOSITIONS = ("completed", "failed", "aborted")
 
 @dataclass(frozen=True)
 class SignatureTimestampInfo:
-    """The signature timestamp of one artifact."""
+    """The signature timestamp of one artifact. ``trust`` is the signature service's verdict on the TSA:
+    trusted_chain | qualified (trusted) | untrusted | unknown, or None when the service does not report it."""
 
     gen_time: Optional[str]
     tsa_name: Optional[str]
     signature_valid: bool
+    trust: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -107,7 +110,8 @@ class BlindObjectsVerdict:
         ts = cert = None
         if isinstance(underlying.get("timestamp"), dict):
             t = underlying["timestamp"]
-            ts = SignatureTimestampInfo(_str(t.get("genTime")), _str(t.get("tsaName")), t.get("signatureValid") is True)
+            ts = SignatureTimestampInfo(_str(t.get("genTime")), _str(t.get("tsaName")), t.get("signatureValid") is True,
+                                        _str(t.get("trust")))
         if isinstance(underlying.get("certificate"), dict):
             c = underlying["certificate"]
             cert = SignerCertificateInfo(_str(c.get("subject")) or "", _str(c.get("issuer")) or "",
@@ -381,6 +385,7 @@ class _ArtifactCheck:
     timestamp_valid: Optional[bool] = None
     gen_time: Optional[str] = None
     tsa_name: Optional[str] = None
+    tsa_trust: Optional[str] = None
     error: Optional[str] = None
     certificate: Optional[SignerCertificateInfo] = None
     objects: list[AgentObjectVerdict] = field(default_factory=list)
@@ -469,6 +474,7 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
             c.timestamp_valid = r.timestamp.signature_valid
             c.gen_time = r.timestamp.gen_time
             c.tsa_name = r.timestamp.tsa_name
+            c.tsa_trust = r.timestamp.trust
         c.certificate = r.certificate
         if not c.signature_valid:
             c.findings.append(f"{label}: signature invalid{' — ' + r.error if r.error else ''}.")
@@ -620,6 +626,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     coverage = _TimestampCoverage(policy)
     timeline: list[tuple[int, Optional[datetime], Optional[datetime]]] = []
     sealed_objects: list[tuple[str, _ArtifactCheck]] = []
+    stamped: list[tuple[str, _ArtifactCheck]] = []  # events, in seq order
 
     for art, index, sa, error in arts:
         if sa is None:
@@ -675,6 +682,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         if not c.all_retained:
             obj_warn = True
         sealed_objects.append((label, c))
+        stamped.append((label, c))
         if not c.signature_valid:
             sig_ok = False
         if not c.objects_complete:
@@ -889,6 +897,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
 
     # ── evaluations: reported on their own, never merged into the run verdict
     evaluations: list[AgentEvaluationVerdict] = []
+    evaluation_checks: list[tuple[str, _ArtifactCheck]] = []
     run_end_sig = signature_sha256(end.jws) if end is not None else None
 
     def with_role(s: _Signed, role: str) -> list[_SignedObject]:
@@ -901,6 +910,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             continue
         ef = [f"{label}: {e}." for e in sa.conformance]
         c = _check_artifact(sa, art, bundle.payloads, verifier, label)
+        evaluation_checks.append((label, c))
         ef.extend(c.findings)
         # An evaluation's claim is its envelope: a valid signature over another envelope is no claim at all.
         signature_valid = c.signature_valid and c.envelope_covered
@@ -969,6 +979,19 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                    and subject_bound and control_set_matches and baseline_matches is not False),
             well_formed=not sa.conformance, signer=signer, certificate=c.certificate,
             overall=_str(sa.env.get("overall")), controls=controls, findings=ef))
+
+    # A timestamp proves time only if its TSA is trusted (§8); the signature service reports that per timestamp.
+    timestamped = [(lb, ck) for lb, ck in ([("control artifact", ctl_check)] if ctl_check is not None else [])
+                   + stamped + evaluation_checks
+                   if ck.timestamp_ok and (ck.tsa_trust or "") not in _TRUSTED_TSA]
+    if timestamped:
+        trusts: list[str] = []
+        for _, ck in timestamped:
+            t = ck.tsa_trust if ck.tsa_trust is not None else "not reported"
+            if t not in trusts:
+                trusts.append(t)
+        warnings.append(f"TSA trust not established for the timestamps of: {', '.join(lb for lb, _ in timestamped)} "
+                        f"(trust: {', '.join(trusts)}).")
 
     # §3: consistency is not identity. Without pinned signers, say so unless the chain is trusted.
     if expected_signers is None:

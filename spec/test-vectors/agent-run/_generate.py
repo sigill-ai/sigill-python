@@ -809,6 +809,12 @@ def main() -> None:
     })
 
     p, control, arts = standard()
+    arts[-1]["signature"]["signatures"][0]["header"]["stubTimestamp"]["trust"] = "untrusted"
+    scenario("64-tsa-untrusted", "run_end's timestamp comes from a TSA the signature service does not trust: a "
+             "warning, never a verdict change.", bundle(control, arts), "run_finalized", {"objects": "warn"},
+             warnings=["TSA trust not established for the timestamps of: seq 4 (trust: untrusted)"])
+
+    p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))
     needle = '"consequential":false'
     assert needle in text
