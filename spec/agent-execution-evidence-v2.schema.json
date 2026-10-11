@@ -105,7 +105,8 @@
       "properties": {
         "seq": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 2147483647
         },
         "prevSignatureSha256": {
           "type": "string",
@@ -194,7 +195,8 @@
         },
         "finalSeq": {
           "type": "integer",
-          "minimum": 0
+          "minimum": 0,
+          "maximum": 2147483647
         },
         "finalPrevSignatureSha256": {
           "type": "string",

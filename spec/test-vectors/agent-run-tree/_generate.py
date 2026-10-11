@@ -179,6 +179,11 @@ def tree(runs: list, root_hint: str | None = P) -> dict:
             "runs": [r.bundle() if isinstance(r, Run) else r for r in runs]}
 
 
+def utf16(s: str) -> bytes:
+    """§6.8 order: unsigned UTF-16 code units (big-endian bytes compare the same way), not code points."""
+    return s.encode("utf-16-be")
+
+
 def tree_fingerprint(t: dict, root: str | None) -> str | None:
     """§6.8, with the root declared by the scenario."""
     if root is None:
@@ -190,7 +195,7 @@ def tree_fingerprint(t: dict, root: str | None) -> str | None:
             return None
         start = next(a for a in b["artifacts"] if a["envelope"]["step"]["type"] == "run_start")
         runs.append({"c": start["envelope"]["activity"]["correlationId"], "f": f})
-    runs.sort(key=lambda r: (r["c"], r["f"]))
+    runs.sort(key=lambda r: (utf16(r["c"]), utf16(r["f"])))
     return ar.sha256hex(jcs.canonicalize({"format": "AgentRunTreeBundle", "bundleVersion": "1", "root": root, "runs": runs}))
 
 
@@ -461,6 +466,20 @@ def main() -> None:
     scenario("82-runs-257", "257 runs: over the limit; verification stops before any run is checked.",
              tree([single] * 257), "tree_invalid", findings=["limit_exceeded"], root=None)
 
+
+    # 7b. Order of the fingerprint (§6.8): UTF-16 code units, not code points. U+10000 is the surrogate
+    # pair D800 DC00, so it sorts BEFORE U+E000 by code units but AFTER it by code points.
+    UP, UA, UB = "urn:example:run:\ue000", "urn:example:run:\U00010000", "urn:example:run:z"
+    assert sorted([UP, UA]) != sorted([UP, UA], key=utf16)
+    c = Clock(); p = Run(c, UP, AGENTS["review"])
+    a = Run(c, UA, AGENTS["security"], parent=p.delegate(UA, AGENTS["security"]))
+    b = Run(c, UB, AGENTS["tests"], parent=p.delegate(UB, AGENTS["tests"]))
+    a.end(); b.end(); p.result(a); p.result(b); p.end()
+    scenario("71-utf16-order", "Correlation ids with U+E000 and U+10000, supplied out of order: the fingerprint sorts by "
+             "UTF-16 code units, where U+10000 precedes U+E000.", tree([b, p, a], root_hint=None), "tree_finalized",
+             runs={UP: "run_finalized", UA: "run_finalized", UB: "run_finalized"},
+             edges=[edge(UP, UA, "mutually_bound", "result_bound"), edge(UP, UB, "mutually_bound", "result_bound")],
+             root=UP)
 
 if __name__ == "__main__":
     main()

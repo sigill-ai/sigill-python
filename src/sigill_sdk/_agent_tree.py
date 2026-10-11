@@ -24,6 +24,7 @@ from sigill_sdk._agent_profiles import (
     _reject_duplicates,
     _str,
     signature_sha256,
+    utf16_key,
 )
 from sigill_sdk._agent_types import AgentRunBundle, AgentRunBundleFormatError, _depth
 from sigill_sdk._agent_verify import (
@@ -396,7 +397,7 @@ def verify_agent_run_tree(tree: AgentRunTreeBundle, verifier: BlindObjectsVerifi
             seen.append(p)
             cur = by_corr[p]
     if on_cycle:
-        find("cycle", f"Parent bindings form a cycle through {', '.join(sorted(on_cycle))}.")
+        find("cycle", f"Parent bindings form a cycle through {', '.join(sorted(on_cycle, key=utf16_key))}.")
 
     # Reachability and depth from the root (declared children, and runs binding a reachable parent).
     if root is not None:
@@ -559,7 +560,8 @@ def _fingerprint(root: Optional[str], runs: Sequence[AgentRunTreeRun]) -> Option
     """The §6.8 tree fingerprint over the derived root and every run's §8.2 fingerprint."""
     if root is None or any(r.correlation_id is None or r.result is None or r.result.fingerprint is None for r in runs):
         return None
-    entries = sorted((r.correlation_id, r.result.fingerprint) for r in runs)  # by c, then f
+    entries = sorted(((r.correlation_id, r.result.fingerprint) for r in runs),
+                     key=lambda cf: (utf16_key(cf[0]), utf16_key(cf[1])))  # §6.8: by c, then f, UTF-16 code units
     return hash_bytes(canonicalize({
         "format": AgentRunTreeBundle.FORMAT,
         "bundleVersion": AgentRunTreeBundle.VERSION,

@@ -273,6 +273,18 @@ def is_i_json(v) -> bool:
     return all(is_i_json(k) and is_i_json(x) for k, x in v.items())
 
 
+MAX_SEQ = 2147483647  # common rules §1
+
+
+def whole_seq(raw) -> int:
+    """§1/§8.2: a whole JSON number in 0…2147483647 (any written form) is that integer; anything else is -1."""
+    if isinstance(raw, bool) or not isinstance(raw, (int, float)):
+        return -1
+    if isinstance(raw, float) and (raw != raw or raw != int(raw)):
+        return -1
+    return int(raw) if 0 <= raw <= MAX_SEQ else -1
+
+
 def fingerprint(b: dict) -> str | None:
     every = b["artifacts"] + ([b["controlArtifact"]] if b.get("controlArtifact") else []) + b.get("evaluations", [])
     if not all(is_i_json(a["envelope"]) and is_i_json(a["signature"]) for a in every):
@@ -285,11 +297,13 @@ def fingerprint(b: dict) -> str | None:
     for a in b["artifacts"]:
         chain = a["envelope"].get("chain")
         raw = chain.get("seq") if isinstance(chain, dict) else None
-        seq = raw if isinstance(raw, int) and not isinstance(raw, bool) and raw >= 0 else -1
+        seq = whole_seq(raw)
         arts.append({"seq": seq, **one(a)})
     arts.sort(key=lambda x: (x["seq"], x["e"]))
     evals = sorted((one(e) for e in b.get("evaluations", [])), key=lambda x: x["e"])
-    pls = [{"uri": u, "sha256": sha256hex(base64.b64decode(v))} for u, v in sorted((b.get("payloads") or {}).items())]
+    # Payload URIs sort by UTF-16 code units, as JCS orders member names (RFC 8785 §3.2.3).
+    pls = [{"uri": u, "sha256": sha256hex(base64.b64decode(v))}
+           for u, v in sorted((b.get("payloads") or {}).items(), key=lambda kv: kv[0].encode("utf-16-be"))]
     return sha256hex(jcs.canonicalize({
         "format": b["format"], "artifacts": arts,
         "control": one(b["controlArtifact"]) if b.get("controlArtifact") else None,
@@ -813,6 +827,31 @@ def main() -> None:
     scenario("64-tsa-untrusted", "run_end's timestamp comes from a TSA the signature service does not trust: a "
              "warning, never a verdict change.", bundle(control, arts), "run_finalized", {"objects": "warn"},
              warnings=["TSA trust not established for the timestamps of: seq 4 (trust: untrusted)"])
+
+    # Common rules §1: whole-valued number forms denote the integer; anything else fails envelope.
+    for name, form in (("65-seq-written-1.0", "1.0"), ("66-seq-written-1e0", "1e0")):
+        p, control, arts = standard()
+        scenario(name, f"seq 1 is written {form}: a whole JSON number, so it is seq 1 (JSON Schema integer).",
+                 bundle(control, arts), "run_finalized", {"objects": "warn"})
+        path = HERE / "runs" / f"{name}.json"
+        text = path.read_text(encoding="utf-8")
+        assert text.count('"seq": 1,\n') == 1  # the signature covers JCS(envelope), where both forms are 1
+        path.write_text(text.replace('"seq": 1,\n', f'"seq": {form},\n'), encoding="utf-8")
+
+    for name, value, finding in (
+            ("67-seq-boolean", True, "chain.seq must be of type integer"),
+            ("68-seq-fraction", 1.5, "chain.seq must be of type integer"),
+            ("69-seq-negative", -1, "chain.seq must be >= 0"),
+            ("70-seq-beyond-int32", MAX_SEQ + 1, "chain.seq must be <= 2147483647")):
+        p, control, arts = standard()
+        arts[1]["envelope"]["chain"]["seq"] = value
+        resign(arts[1], CTY["event"])
+        rechain(arts, 2)
+        scenario(name, f"seq 1 is signed as {json.dumps(value)}: a schema violation, and the event has no valid seq.",
+                 bundle(control, arts), "run_invalid",
+                 # finalization: an event with no valid position cannot be shown to precede run_end (§8).
+                 {"objects": "warn", "envelope": "bad", "sequence": "bad", "chain": "bad", "finalization": "bad"},
+                 missing=[1], findings=[finding, "no valid chain.seq", "run_end is not the last artifact"])
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))

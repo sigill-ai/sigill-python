@@ -30,6 +30,7 @@ from sigill_sdk._agent_profiles import (
     _obj,
     _str,
     _TimestampCoverage,
+    utf16_key,
     signature_sha256,
     signer_of,
 )
@@ -722,7 +723,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             versions.append(v)
     if len(versions) > 1:
         env_ok = False
-        shown = sorted(_n(v) for v in versions)
+        shown = sorted((_n(v) for v in versions), key=utf16_key)
         findings.append(f"The run's execution artifacts mix schemaVersion {' and '.join(shown)}; one run uses one "
                         f"version.")
 
@@ -863,7 +864,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     signed_uris = {o.uri for s in good for o in s.objects}
     signed_uris.update(o.uri for o in (ctl.objects if ctl else []))
     signed_uris.update(o.uri for s, _ in eval_parsed if s is not None for o in s.objects)
-    for uri in sorted(bundle.payloads):
+    for uri in sorted(bundle.payloads, key=utf16_key):
         if uri in signed_uris:
             continue
         obj_ok = False
@@ -1060,7 +1061,7 @@ def bundle_fingerprint(bundle: AgentRunBundle) -> str:
         arts.append({"seq": seq if seq is not None and seq >= 0 else -1, **one(a)})
     arts.sort(key=lambda x: (x["seq"], x["e"]))
     evals = sorted((one(e) for e in bundle.evaluations), key=lambda x: x["e"])
-    payloads = [{"uri": u, "sha256": hash_bytes(bundle.payloads[u])} for u in sorted(bundle.payloads)]
+    payloads = [{"uri": u, "sha256": hash_bytes(bundle.payloads[u])} for u in sorted(bundle.payloads, key=utf16_key)]
     return hash_bytes(canonicalize({
         "format": BUNDLE_FORMAT,
         "artifacts": arts,

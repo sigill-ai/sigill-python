@@ -59,14 +59,25 @@ def _str(v: Any) -> Optional[str]:
     return v if isinstance(v, str) else None
 
 
+_INT32 = (-2147483648, 2147483647)
+
+
 def _int(v: Any) -> Optional[int]:
+    """A whole JSON number in the 32-bit range, whatever its written form (common rules §1); else None."""
     if isinstance(v, bool):
         return None
-    if isinstance(v, int):
+    if isinstance(v, float):
+        if not v.is_integer():
+            return None
+        v = int(v)
+    if isinstance(v, int) and _INT32[0] <= v <= _INT32[1]:
         return v
-    if isinstance(v, float) and v.is_integer():
-        return int(v)
     return None
+
+
+def utf16_key(s: str) -> bytes:
+    """Sort key for unsigned UTF-16 code-unit order — .NET Ordinal, JavaScript, and JCS member order."""
+    return s.encode("utf-16-be", "surrogatepass")
 
 
 def _obj(v: Any) -> Optional[dict]:

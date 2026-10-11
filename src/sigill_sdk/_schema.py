@@ -5,7 +5,7 @@
 Byte-exact copies of ``spec/*.schema.json`` ship under ``_schemas/``.
 Implements exactly the JSON Schema keywords those schemas use (type,
 required, properties, additionalProperties, const, enum, items, minItems,
-minLength, minimum, pattern, format, allOf, anyOf, not, if/then/else,
+minLength, minimum, maximum, pattern, format, allOf, anyOf, not, if/then/else,
 contains/minContains/maxContains, local $ref). A schema using anything else
 is rejected at load time rather than silently half-checked. Error messages
 match the .NET SDK byte for byte; the agent-run vectors pin them.
@@ -29,7 +29,7 @@ _RESOURCES = {
 
 _SUPPORTED = {
     "$schema", "$id", "$defs", "$ref", "title", "description", "type", "required", "properties",
-    "additionalProperties", "const", "enum", "items", "minItems", "minLength", "minimum", "pattern", "format",
+    "additionalProperties", "const", "enum", "items", "minItems", "minLength", "minimum", "maximum", "pattern", "format",
     "allOf", "anyOf", "not", "if", "then", "else", "contains", "minContains", "maxContains",
 }
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -194,6 +194,8 @@ def validate(instance: Any, schema: dict, root: dict, path: str = "") -> list[st
             errs.append(f"{_label(path)} is not a valid {schema['format']}")
     if _type_ok(instance, "number") and "minimum" in schema and instance < schema["minimum"]:
         errs.append(f"{_label(path)} must be >= {_number_text(schema['minimum'])}")
+    if _type_ok(instance, "number") and "maximum" in schema and instance > schema["maximum"]:
+        errs.append(f"{_label(path)} must be <= {_number_text(schema['maximum'])}")
     if isinstance(instance, list):
         min_items = schema.get("minItems")
         if isinstance(min_items, int) and len(instance) < min_items:
