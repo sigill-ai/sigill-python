@@ -46,6 +46,15 @@ each have one entry per signed object, and `ctys[i+1]` equals
 `additionalProperties: false` throughout; the only open fields are
 `extensions` and per-object `metadata`.
 
+**Integers.** `chain.seq` and `step.finalSeq` are whole numbers from 0 to 2147483647. A
+JSON number whose value is whole denotes that integer whatever its written form (`1`,
+`1.0`, `1e0`), as JSON Schema's `integer` type defines; it is compared and fingerprinted as
+that integer. A boolean, a fraction, a negative number or a value above 2147483647 is a
+schema violation: it fails `envelope`, and the event has no valid `seq` (reported under
+`sequence`), never silently treated as absent. The upper bound is a clarification, not a
+new restriction: it is the range every implementation can read, and a complete bundle never
+goes beyond `seq` 1999 (§7).
+
 ## 2. The binding rule (normative)
 
 All references between artifacts use one mechanism:
@@ -318,12 +327,15 @@ caching:
 
 ```
 one(a)      = { "e": sha256hex(JCS(a.envelope)), "s": sha256hex(JCS(a.signature)), "d": a.objectDigests }
-artifacts   = [ { "seq": a.envelope.chain.seq if a non-negative integer, else -1, …one(a) } ] sorted by seq, then e
+artifacts   = [ { "seq": a.envelope.chain.seq if a whole number in 0…2147483647 (§1), else -1, …one(a) } ] sorted by seq, then e
 control     = one(controlArtifact) or null
 evaluations = [ one(e) ] sorted by e
 payloads    = [ { "uri", "sha256": sha256hex(bytes) } ] sorted by uri
 fingerprint = sha256hex(JCS({ "format", "artifacts", "control", "evaluations", "payloads" }))
 ```
+
+Strings sort by unsigned UTF-16 code units, the order JCS uses for member names
+(RFC 8785 §3.2.3); `e` values are lowercase hex, so their order is the same in any scheme.
 
 It is undefined (null) when any envelope or signature is not valid I-JSON.
 
@@ -338,7 +350,8 @@ verification by digest needs only their hashes.
 
 - [`test-vectors/agent-run/`](./test-vectors/agent-run/README.md):
   cross-language vectors — binding digests, and complete bundles with their
-  expected verdicts under a deterministic stub signer.
+  expected verdicts under a deterministic stub signer. Vectors 65–70 pin the §1 integer rule:
+  `1.0` and `1e0` are seq 1; `true`, `1.5`, `-1` and `2147483648` fail.
 - [`test-vectors/10-agent-controlled-run/`](./test-vectors/10-agent-controlled-run/README.md):
   one run sealed for real by the Sigill test tenant (canonical bytes, and the
   profile layer checked offline; signature validity needs the platform).

@@ -1,6 +1,6 @@
 # Agent Delegation v1 — Sub-agent runs (draft)
 
-**Status:** r3, 2026-10-11. Normative once merged together with its test vectors
+**Status:** r4, 2026-10-11. Normative once merged together with its test vectors
 (`test-vectors/agent-run-tree/`). Extends [Agent Evidence Profiles v1](./agent-profiles-common-v1.md);
 everything there applies unless stated otherwise.
 
@@ -8,7 +8,10 @@ r2 addressed the first review (scope, state machine, cardinality, ordering wordi
 versioning, attribution, fingerprint, limits, event budget). r3 pins every finding code
 (§6.3), the field rules of the two new step types (§3.2, §3.3), per-agent attribution
 (§5), root derivation (§6.3), and adds an informative producer mapping for Claude Code
-(§11), based on observed hook behaviour.
+(§11), based on observed hook behaviour. r4 makes the fingerprint order normative (§6.8:
+UTF-16 code units), states that `tree_finalized` means complete evidence, not successful
+work (§6.5), and tightens the Claude Code pairing rule (§11). The integer domain of
+`seq` / `finalSeq` is clarified in the common rules (§1).
 
 The key words MUST, SHOULD and MAY are used as in RFC 2119.
 
@@ -337,8 +340,12 @@ At step 8 the verifier MUST list why the tree is open:
 - `run_open` runs;
 - edges with `no_result` or `child_missing` under a parent that has no `run_end`;
 - edges unresolved under a parent closed `aborted` or `failed`. These carry the finding
-  "parent terminated; evidence incomplete". A terminated tree never becomes finalized,
-  and the verifier never suggests that more activity will follow.
+  "parent terminated; evidence incomplete". A terminated tree with unresolved evidence
+  never becomes finalized, and the verifier never suggests that more activity will follow.
+
+`tree_finalized` describes the completeness of the evidence, not the success of the work: a
+child closed `aborted` or `failed` whose run is supplied and whose result is bound is
+complete evidence, and its tree can be finalized (step 7).
 
 The tree verdict never upgrades a run.
 
@@ -364,11 +371,15 @@ For caching, a deterministic fingerprint over everything the tree verdict depend
 
 ```
 runs  = [ { "c": signed correlationId, "f": runFingerprint (common rules §8.2) } ]
-        sorted by c, then f (exact string order)
+        sorted by c, then f (see below)
 tree  = sha256hex(JCS({ "format": "AgentRunTreeBundle", "bundleVersion": "1",
                          "root": derived root correlationId, "runs": runs }))
 ```
 
+- Sort `c`, then `f`, lexicographically by unsigned UTF-16 code units, without
+  normalization, case folding or locale collation; a prefix sorts before the longer string.
+  (This is the order of .NET `StringComparer.Ordinal` and of JavaScript string comparison;
+  a code-point sort differs for characters outside the Basic Multilingual Plane.)
 - The tree fingerprint is null if any run fingerprint is null, or the root cannot be
   derived.
 - A cache key MUST also include the verifier version, the rules version, the
@@ -438,7 +449,8 @@ They cover:
    met.
 6. **Not covered by the anchor.** A later evaluation on a child: the tree verdict is
    unchanged, the fingerprint changes.
-7. **Determinism.** Reordered `runs[]`: identical result and fingerprint.
+7. **Determinism.** Reordered `runs[]`: identical result and fingerprint; correlation ids
+   with U+E000 and U+10000 pin the §6.8 order (UTF-16 code units).
 8. **Limits.** Depth 8 and 9; 257 runs.
 
 The SDK tests additionally cover the producer rules: event budget reserve (§4 rule 6), no
@@ -478,10 +490,12 @@ How the Sigill plugin for Claude Code applies this extension. Observed with Clau
 
 **Pairing.** `SubagentStart` does not name the `tool_use_id` that launched it. In every
 observed case, parallel launches included, Claude Code ran `PreToolUse` → `SubagentStart`
-→ `PostToolUse` for one sub-agent before the next, so the plugin pairs a `SubagentStart`
-with the oldest pending `delegation` of the same `subagent_type`, and checks the pairing
-against `PostToolUse.tool_response.agentId`. A mismatch would mean two children of the
-same type with each other's `delegation-input`; the tree stays structurally sound, and
-the plugin reports the mismatch locally. This is a producer fidelity limit, not something
-the evidence can prove either way.
+→ `PostToolUse` for one sub-agent before the next. The plugin binds a `SubagentStart` only
+when exactly one unpaired `delegation` of that `subagent_type` is pending; otherwise the
+sub-agent's events stay in the parent run, tagged, and the delegation stays unresolved (the
+parent then closes `aborted`). It checks every binding against
+`PostToolUse.tool_response.agentId`; on a contradiction it seals a `checkpoint` in the parent
+whose `detail` starts with `capture-fidelity:` and stops pairing for the rest of the session.
+Pairing fidelity is a producer property: the tree verdict proves the signed bindings, not
+that every launch was paired as it happened.
 

@@ -55,7 +55,7 @@ def _verify_vector(name: str):
 # ── Vectors ─────────────────────────────────────────────────────────────────
 
 def test_tree_vectors_are_all_present() -> None:
-    assert len(TREE_VECTORS) == 35
+    assert len(TREE_VECTORS) == 36
 
 
 @pytest.mark.parametrize("name", TREE_VECTORS)
