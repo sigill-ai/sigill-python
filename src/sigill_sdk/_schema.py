@@ -1,6 +1,6 @@
 # Licensed to Sigill under the Apache License, Version 2.0.
 # SPDX-License-Identifier: Apache-2.0
-"""Validation against the bundled Agent Evidence Profiles v1 JSON Schemas.
+"""Validation against the bundled Agent Evidence Profiles JSON Schemas (execution v1 and v2).
 
 Byte-exact copies of ``spec/*.schema.json`` ship under ``_schemas/``.
 Implements exactly the JSON Schema keywords those schemas use (type,
@@ -23,6 +23,7 @@ from typing import Any
 _RESOURCES = {
     "AgentControlArtifact": "agent-control-artifact-v1.schema.json",
     "AgentExecutionEvidence": "agent-execution-evidence-v1.schema.json",
+    "AgentExecutionEvidence/2": "agent-execution-evidence-v2.schema.json",
     "ControlEvaluation": "control-evaluation-v1.schema.json",
 }
 

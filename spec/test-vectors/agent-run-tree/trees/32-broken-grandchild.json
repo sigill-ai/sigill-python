@@ -1,0 +1,799 @@
+{
+  "description": "A sound child edge with a broken grandchild edge beneath it.",
+  "tree": {
+    "format": "AgentRunTreeBundle",
+    "bundleVersion": "1",
+    "rootCorrelationId": "urn:uuid:00000000-0000-4000-a000-000000000001",
+    "runs": [
+      {
+        "format": "AgentRunBundle",
+        "bundleVersion": "1",
+        "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000001",
+        "controlArtifact": {
+          "envelope": {
+            "schemaName": "AgentControlArtifact",
+            "schemaVersion": "1",
+            "evidenceId": "00000000-0000-4000-8000-000000005223",
+            "createdAt": "2026-10-01T10:00:01.000Z",
+            "actor": {
+              "type": "system",
+              "id": "urn:example:harness:ci"
+            },
+            "activity": {
+              "name": "pr-review",
+              "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000001"
+            },
+            "agent": {
+              "id": "urn:example:agent:pr-review",
+              "version": "1.0.0"
+            },
+            "controlSet": {
+              "id": "ticket-close-v2",
+              "version": "2"
+            },
+            "timestampPolicy": {
+              "profile": "throughput",
+              "everyEvents": 0,
+              "everySeconds": 0,
+              "consequential": false
+            },
+            "objects": [
+              {
+                "uri": "urn:example:obj:instruction-set",
+                "role": "instruction-set",
+                "contentType": "text/plain",
+                "sizeBytes": 53
+              },
+              {
+                "uri": "urn:example:obj:tool-manifest",
+                "role": "tool-manifest",
+                "contentType": "application/json",
+                "sizeBytes": 42
+              },
+              {
+                "uri": "urn:example:obj:execution-policy",
+                "role": "execution-policy",
+                "contentType": "application/json",
+                "sizeBytes": 42
+              },
+              {
+                "uri": "urn:example:obj:model-config",
+                "role": "model-config",
+                "contentType": "application/json",
+                "sizeBytes": 17
+              },
+              {
+                "uri": "urn:example:obj:control-set",
+                "role": "control-set",
+                "contentType": "application/json",
+                "sizeBytes": 48
+              },
+              {
+                "uri": "urn:example:obj:baseline-state",
+                "role": "baseline-state",
+                "contentType": "application/json",
+                "sizeBytes": 50
+              }
+            ]
+          },
+          "signature": {
+            "signatures": [
+              {
+                "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiIsInRleHQvcGxhaW4iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiIsImFwcGxpY2F0aW9uL2pzb24iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJLSERkNmxmRldxOUNTQ2hSdFl2S3ZvWFhlWHpSMkg3dG1nWjNMeDJmNlRnIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+                "signature": "SRo2DD6f86Vbcz8lJjRT-O6ZtHlOJCXK-JHpyzTOS0c",
+                "header": {
+                  "stubTimestamp": {
+                    "genTime": "2026-10-01T10:00:01Z",
+                    "valid": true
+                  }
+                }
+              }
+            ]
+          },
+          "objectDigests": {
+            "urn:example:obj:instruction-set": "86a329816f52232dfc967cc7b43f7a199b29bd814ff5a75db02e142531e5a338",
+            "urn:example:obj:tool-manifest": "0c4c5f0858b9d362924871c472b5e669a2e95618e8e84ad4b9cb1f7ab7dff2b6",
+            "urn:example:obj:execution-policy": "8972eb028b30e18769146462347eecbb05184148aae60d484f0853ebf4698176",
+            "urn:example:obj:model-config": "e4ff491169b8a9ea78518a7972422b5a24d5e3790e0d9a9e5cbfb384d9b621e0",
+            "urn:example:obj:control-set": "19dbfc8d0ed9849ec049ca26d6af1d2519f07e3a68625207d6252e548eb9ae81",
+            "urn:example:obj:baseline-state": "7fed9229fef0023292c2d1308f41eda2f4e2cadecea2e3750f62f605cf593b79"
+          }
+        },
+        "artifacts": [
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005224",
+              "createdAt": "2026-10-01T10:00:02.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:pr-review",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000001"
+              },
+              "chain": {
+                "seq": 0
+              },
+              "step": {
+                "type": "run_start",
+                "eventTime": "2026-10-01T10:00:02.000Z",
+                "consequential": false,
+                "timestamp": "none"
+              },
+              "objects": [
+                {
+                  "uri": "urn:example:obj:0001-s0-model-input",
+                  "role": "model-input",
+                  "contentType": "text/plain",
+                  "sizeBytes": 64
+                }
+              ],
+              "binds": {
+                "controlArtifactSignatureSha256": "f4ff2a4a1c505fee548370693d62aaa9301efc8f1ab7e8e2567ac63b8c132bba"
+              }
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJmUDJ3QzVrWFVGeXIxeFdnNzl2dmtGeEQ2a18zazRPalY3ZGxwU0FHcWFvIiwicll0TXR0X0xkdC0teTVZNFd5SjJ3azZCZHY5ckxvYjBXVVRLVzF1QXhsdyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6MDAwMS1zMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+                  "signature": "dnWX9jBbhNwiuyu95dZl00USE0MfeXb9Kj27SEKblKQ"
+                }
+              ]
+            },
+            "objectDigests": {
+              "urn:example:obj:0001-s0-model-input": "ad8b4cb6dfcb76dfbecb96385b2276c24e8176ff6b2e86f45944ca5b5b80c65c"
+            }
+          },
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005225",
+              "createdAt": "2026-10-01T10:00:03.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:pr-review",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000001"
+              },
+              "chain": {
+                "seq": 1,
+                "prevSignatureSha256": "e52d7649b72254cc86c30581aa90778465c137d8c79e57e752c4c20da5e12ae2"
+              },
+              "step": {
+                "type": "delegation",
+                "eventTime": "2026-10-01T10:00:03.000Z",
+                "consequential": false,
+                "timestamp": "none",
+                "delegation": {
+                  "childCorrelationId": "urn:uuid:00000000-0000-4000-a000-000000000002",
+                  "childAgentId": "urn:example:agent:security-reviewer",
+                  "useId": "toolu_0002"
+                }
+              },
+              "objects": [
+                {
+                  "uri": "urn:example:obj:0001-s1-delegation-input",
+                  "role": "delegation-input",
+                  "contentType": "text/plain",
+                  "sizeBytes": 61
+                }
+              ]
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJpaThER19MT3V5eFVjT0x5Y3VzU2hzaDNDSHdaaWN2MU00Qk1XUGdGWjNNIiwiWHY4YlM4VnhzQ1ZQWFE1dlRwUDlZcGNDanMxd0M5SU5HbTVQN1QyR2xQVSJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6MDAwMS1zMS1kZWxlZ2F0aW9uLWlucHV0Il19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+                  "signature": "dvgujXNEUKB_6Pl8zWRnnU2AS0iMMv_9ImuIiM_pI3Q"
+                }
+              ]
+            },
+            "objectDigests": {
+              "urn:example:obj:0001-s1-delegation-input": "5eff1b4bc571b0254f5d0e6f4e93fd6297028ecd700bd20d1a6e4fed3d8694f5"
+            }
+          },
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005234",
+              "createdAt": "2026-10-01T10:00:12.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:pr-review",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000001"
+              },
+              "chain": {
+                "seq": 2,
+                "prevSignatureSha256": "2968b992fdbf4a41816667a8b3d78e17f8c5599fa24c493e74bf3c74569bc501"
+              },
+              "step": {
+                "type": "delegation_result",
+                "eventTime": "2026-10-01T10:00:12.000Z",
+                "consequential": false,
+                "timestamp": "none",
+                "delegation": {
+                  "childCorrelationId": "urn:uuid:00000000-0000-4000-a000-000000000002",
+                  "childRunEndSignatureSha256": "7663c8d3f57d29ed451f0d1f7cec24bd52899dc621d8a27fa3b73e947b55bec9",
+                  "childDisposition": "completed"
+                }
+              },
+              "objects": []
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbInd6MHNYU1R0dVdfZVA3azQ5S1lEVG1sNmtQVDA4NXR1Q1hGanNLend5QWsiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+                  "signature": "p0ZEOi3PGaLuEKcclFR3V3vmWQacjOSoUqe7nuBmf9M"
+                }
+              ]
+            },
+            "objectDigests": {}
+          },
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005235",
+              "createdAt": "2026-10-01T10:00:13.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:pr-review",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000001"
+              },
+              "chain": {
+                "seq": 3,
+                "prevSignatureSha256": "4f824e2be6cecbabe777fdd1378ac924286c06b5ddcba42651dd4588ae36445c"
+              },
+              "step": {
+                "type": "run_end",
+                "eventTime": "2026-10-01T10:00:13.000Z",
+                "consequential": false,
+                "timestamp": "required",
+                "runDisposition": "completed",
+                "finalSeq": 3,
+                "finalPrevSignatureSha256": "4f824e2be6cecbabe777fdd1378ac924286c06b5ddcba42651dd4588ae36445c"
+              },
+              "objects": []
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjRVWVlSTXB1dWNhNjBxYlB4U3Q0NmVsejNSQ1BFSUs0dzlZTFFGakRzUkUiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+                  "signature": "CI6UlUUV37tEvk4B3PmyJevmaEHunTsNU8wxPjFh7XU",
+                  "header": {
+                    "stubTimestamp": {
+                      "genTime": "2026-10-01T10:00:13Z",
+                      "valid": true
+                    }
+                  }
+                }
+              ]
+            },
+            "objectDigests": {}
+          }
+        ]
+      },
+      {
+        "format": "AgentRunBundle",
+        "bundleVersion": "1",
+        "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000002",
+        "controlArtifact": {
+          "envelope": {
+            "schemaName": "AgentControlArtifact",
+            "schemaVersion": "1",
+            "evidenceId": "00000000-0000-4000-8000-000000005226",
+            "createdAt": "2026-10-01T10:00:04.000Z",
+            "actor": {
+              "type": "system",
+              "id": "urn:example:harness:ci"
+            },
+            "activity": {
+              "name": "pr-review",
+              "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000002"
+            },
+            "agent": {
+              "id": "urn:example:agent:security-reviewer",
+              "version": "1.0.0"
+            },
+            "controlSet": {
+              "id": "ticket-close-v2",
+              "version": "2"
+            },
+            "timestampPolicy": {
+              "profile": "throughput",
+              "everyEvents": 0,
+              "everySeconds": 0,
+              "consequential": false
+            },
+            "objects": [
+              {
+                "uri": "urn:example:obj:instruction-set",
+                "role": "instruction-set",
+                "contentType": "text/plain",
+                "sizeBytes": 53
+              },
+              {
+                "uri": "urn:example:obj:tool-manifest",
+                "role": "tool-manifest",
+                "contentType": "application/json",
+                "sizeBytes": 42
+              },
+              {
+                "uri": "urn:example:obj:execution-policy",
+                "role": "execution-policy",
+                "contentType": "application/json",
+                "sizeBytes": 42
+              },
+              {
+                "uri": "urn:example:obj:model-config",
+                "role": "model-config",
+                "contentType": "application/json",
+                "sizeBytes": 17
+              },
+              {
+                "uri": "urn:example:obj:control-set",
+                "role": "control-set",
+                "contentType": "application/json",
+                "sizeBytes": 48
+              },
+              {
+                "uri": "urn:example:obj:baseline-state",
+                "role": "baseline-state",
+                "contentType": "application/json",
+                "sizeBytes": 50
+              }
+            ]
+          },
+          "signature": {
+            "signatures": [
+              {
+                "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiIsInRleHQvcGxhaW4iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiIsImFwcGxpY2F0aW9uL2pzb24iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyI2dzBqbVRUakJUVUdqajc0SmxDUWVtTXhXUTMtZW44c0tUcGxGUmVybWpjIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+                "signature": "RUCcA2lPRlNzOEiHnKyn-jI_XU37tltUkBdd6jM98lo",
+                "header": {
+                  "stubTimestamp": {
+                    "genTime": "2026-10-01T10:00:04Z",
+                    "valid": true
+                  }
+                }
+              }
+            ]
+          },
+          "objectDigests": {
+            "urn:example:obj:instruction-set": "86a329816f52232dfc967cc7b43f7a199b29bd814ff5a75db02e142531e5a338",
+            "urn:example:obj:tool-manifest": "0c4c5f0858b9d362924871c472b5e669a2e95618e8e84ad4b9cb1f7ab7dff2b6",
+            "urn:example:obj:execution-policy": "8972eb028b30e18769146462347eecbb05184148aae60d484f0853ebf4698176",
+            "urn:example:obj:model-config": "e4ff491169b8a9ea78518a7972422b5a24d5e3790e0d9a9e5cbfb384d9b621e0",
+            "urn:example:obj:control-set": "19dbfc8d0ed9849ec049ca26d6af1d2519f07e3a68625207d6252e548eb9ae81",
+            "urn:example:obj:baseline-state": "7fed9229fef0023292c2d1308f41eda2f4e2cadecea2e3750f62f605cf593b79"
+          }
+        },
+        "artifacts": [
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005227",
+              "createdAt": "2026-10-01T10:00:05.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:security-reviewer",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000002"
+              },
+              "chain": {
+                "seq": 0
+              },
+              "step": {
+                "type": "run_start",
+                "eventTime": "2026-10-01T10:00:05.000Z",
+                "consequential": false,
+                "timestamp": "none"
+              },
+              "objects": [
+                {
+                  "uri": "urn:example:obj:0002-s0-model-input",
+                  "role": "model-input",
+                  "contentType": "text/plain",
+                  "sizeBytes": 64
+                }
+              ],
+              "binds": {
+                "controlArtifactSignatureSha256": "a25a416bd2e13768ba73d33a1f8e033493a634d67cea40cb909eb7c07f4e9b8c",
+                "parentDelegationSignatureSha256": "2968b992fdbf4a41816667a8b3d78e17f8c5599fa24c493e74bf3c74569bc501",
+                "parentCorrelationId": "urn:uuid:00000000-0000-4000-a000-000000000001"
+              }
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJXQ3B6ekpvV0ZBdGVERDFyb3ZqTWFXdEhoUm84NmpIM0p3S2tIYXZaRzBRIiwiMXNuMHRhVEhHMWRlY25ZZTRNcUNPSU4tdEhaaHBOODlpT3NTSGZ2S3NldyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6MDAwMi1zMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+                  "signature": "lkyWxxc7rOYqhGbWHDFbR2qGPzM9CLYCvZM8ymMQAZA"
+                }
+              ]
+            },
+            "objectDigests": {
+              "urn:example:obj:0002-s0-model-input": "d6c9f4b5a4c71b575e72761ee0ca8238837eb47661a4df3d88eb121dfbcab1ec"
+            }
+          },
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005228",
+              "createdAt": "2026-10-01T10:00:06.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:security-reviewer",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000002"
+              },
+              "chain": {
+                "seq": 1,
+                "prevSignatureSha256": "5d5e8cebae1aa6a7c68583ee69f8d0636e55bd7ef6fed9c8d1a59a32f5e46841"
+              },
+              "step": {
+                "type": "delegation",
+                "eventTime": "2026-10-01T10:00:06.000Z",
+                "consequential": false,
+                "timestamp": "none",
+                "delegation": {
+                  "childCorrelationId": "urn:uuid:00000000-0000-4000-a000-000000000004",
+                  "childAgentId": "urn:example:agent:test-runner",
+                  "useId": "toolu_0004"
+                }
+              },
+              "objects": [
+                {
+                  "uri": "urn:example:obj:0002-s1-delegation-input",
+                  "role": "delegation-input",
+                  "contentType": "text/plain",
+                  "sizeBytes": 61
+                }
+              ]
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyI0X2VmUkxGamRkZ21BN2tKdXhwQ2R1UHpnV3FLejB5dEhVZllXMGdxYVU4IiwibDl2c2NJeWR4c1BiWWhldU5BT1N3TjJEVWhpdjhUTnhRTDkyeTYzQTd5OCJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6MDAwMi1zMS1kZWxlZ2F0aW9uLWlucHV0Il19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+                  "signature": "Vm87cyQ1n6DmnZW3NaW8EUQNlpUqZ7Ftx2Z_RMCJqxw"
+                }
+              ]
+            },
+            "objectDigests": {
+              "urn:example:obj:0002-s1-delegation-input": "97dbec708c9dc6c3db6217ae340392c0dd835218aff1337140bf76cbadc0ef2f"
+            }
+          },
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005232",
+              "createdAt": "2026-10-01T10:00:10.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:security-reviewer",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000002"
+              },
+              "chain": {
+                "seq": 2,
+                "prevSignatureSha256": "9827a00201ee79d1383a7bd53568603d46b1e87e5f2d89510d40e2144f45deab"
+              },
+              "step": {
+                "type": "delegation_result",
+                "eventTime": "2026-10-01T10:00:10.000Z",
+                "consequential": false,
+                "timestamp": "none",
+                "delegation": {
+                  "childCorrelationId": "urn:uuid:00000000-0000-4000-a000-000000000004",
+                  "childRunEndSignatureSha256": "6b561760a3123fb2a2bc75d7a17db4b009abf31d9af23aeef7161b253b47a790",
+                  "childDisposition": "completed"
+                }
+              },
+              "objects": []
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbImswQTFGdVZYcUl0N0FFajFIRWdvYi12Mkw4NTFCUVB6dGtuUmpJSl9OVG8iXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+                  "signature": "0BVZIGZaIOJ56iUNokRqSBa-NYt6gWbEWvX0DfeZYwk"
+                }
+              ]
+            },
+            "objectDigests": {}
+          },
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005233",
+              "createdAt": "2026-10-01T10:00:11.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:security-reviewer",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000002"
+              },
+              "chain": {
+                "seq": 3,
+                "prevSignatureSha256": "c8aae77ff11ad845cc0105e23ee1348408bde03868e48ef4860a586948fb03c7"
+              },
+              "step": {
+                "type": "run_end",
+                "eventTime": "2026-10-01T10:00:11.000Z",
+                "consequential": false,
+                "timestamp": "required",
+                "runDisposition": "completed",
+                "finalSeq": 3,
+                "finalPrevSignatureSha256": "c8aae77ff11ad845cc0105e23ee1348408bde03868e48ef4860a586948fb03c7"
+              },
+              "objects": []
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIkxMRmFGSXVPWWVteFF1ODJDOUJOMGZyeE9HMHNVWnlsLXlkMjR2WGxJeVUiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+                  "signature": "IIT9n4nfimvlhIVZKIRFQjRO6jflufhRSksCW5gMwC4",
+                  "header": {
+                    "stubTimestamp": {
+                      "genTime": "2026-10-01T10:00:11Z",
+                      "valid": true
+                    }
+                  }
+                }
+              ]
+            },
+            "objectDigests": {}
+          }
+        ]
+      },
+      {
+        "format": "AgentRunBundle",
+        "bundleVersion": "1",
+        "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000004",
+        "controlArtifact": {
+          "envelope": {
+            "schemaName": "AgentControlArtifact",
+            "schemaVersion": "1",
+            "evidenceId": "00000000-0000-4000-8000-000000005229",
+            "createdAt": "2026-10-01T10:00:07.000Z",
+            "actor": {
+              "type": "system",
+              "id": "urn:example:harness:ci"
+            },
+            "activity": {
+              "name": "pr-review",
+              "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000004"
+            },
+            "agent": {
+              "id": "urn:example:agent:test-runner",
+              "version": "1.0.0"
+            },
+            "controlSet": {
+              "id": "ticket-close-v2",
+              "version": "2"
+            },
+            "timestampPolicy": {
+              "profile": "throughput",
+              "everyEvents": 0,
+              "everySeconds": 0,
+              "consequential": false
+            },
+            "objects": [
+              {
+                "uri": "urn:example:obj:instruction-set",
+                "role": "instruction-set",
+                "contentType": "text/plain",
+                "sizeBytes": 53
+              },
+              {
+                "uri": "urn:example:obj:tool-manifest",
+                "role": "tool-manifest",
+                "contentType": "application/json",
+                "sizeBytes": 42
+              },
+              {
+                "uri": "urn:example:obj:execution-policy",
+                "role": "execution-policy",
+                "contentType": "application/json",
+                "sizeBytes": 42
+              },
+              {
+                "uri": "urn:example:obj:model-config",
+                "role": "model-config",
+                "contentType": "application/json",
+                "sizeBytes": 17
+              },
+              {
+                "uri": "urn:example:obj:control-set",
+                "role": "control-set",
+                "contentType": "application/json",
+                "sizeBytes": 48
+              },
+              {
+                "uri": "urn:example:obj:baseline-state",
+                "role": "baseline-state",
+                "contentType": "application/json",
+                "sizeBytes": 50
+              }
+            ]
+          },
+          "signature": {
+            "signatures": [
+              {
+                "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiIsInRleHQvcGxhaW4iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiIsImFwcGxpY2F0aW9uL2pzb24iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJGa2VZVU91M3JuM3NldW9wV2ljU0d3Unk0MDRKQmtNR1ZHRUdDS2ZTM0gwIiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsidXJuOnNpZ2lsbDplbnZlbG9wZSIsInVybjpleGFtcGxlOm9iajppbnN0cnVjdGlvbi1zZXQiLCJ1cm46ZXhhbXBsZTpvYmo6dG9vbC1tYW5pZmVzdCIsInVybjpleGFtcGxlOm9iajpleGVjdXRpb24tcG9saWN5IiwidXJuOmV4YW1wbGU6b2JqOm1vZGVsLWNvbmZpZyIsInVybjpleGFtcGxlOm9iajpjb250cm9sLXNldCIsInVybjpleGFtcGxlOm9iajpiYXNlbGluZS1zdGF0ZSJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+                "signature": "q7igZyayV0m6wc3ofBzsH2OcfKxQh_20PqzOTCxMfzs",
+                "header": {
+                  "stubTimestamp": {
+                    "genTime": "2026-10-01T10:00:07Z",
+                    "valid": true
+                  }
+                }
+              }
+            ]
+          },
+          "objectDigests": {
+            "urn:example:obj:instruction-set": "86a329816f52232dfc967cc7b43f7a199b29bd814ff5a75db02e142531e5a338",
+            "urn:example:obj:tool-manifest": "0c4c5f0858b9d362924871c472b5e669a2e95618e8e84ad4b9cb1f7ab7dff2b6",
+            "urn:example:obj:execution-policy": "8972eb028b30e18769146462347eecbb05184148aae60d484f0853ebf4698176",
+            "urn:example:obj:model-config": "e4ff491169b8a9ea78518a7972422b5a24d5e3790e0d9a9e5cbfb384d9b621e0",
+            "urn:example:obj:control-set": "19dbfc8d0ed9849ec049ca26d6af1d2519f07e3a68625207d6252e548eb9ae81",
+            "urn:example:obj:baseline-state": "7fed9229fef0023292c2d1308f41eda2f4e2cadecea2e3750f62f605cf593b79"
+          }
+        },
+        "artifacts": [
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005230",
+              "createdAt": "2026-10-01T10:00:08.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:test-runner",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000004"
+              },
+              "chain": {
+                "seq": 0
+              },
+              "step": {
+                "type": "run_start",
+                "eventTime": "2026-10-01T10:00:08.000Z",
+                "consequential": false,
+                "timestamp": "none"
+              },
+              "objects": [
+                {
+                  "uri": "urn:example:obj:0004-s0-model-input",
+                  "role": "model-input",
+                  "contentType": "text/plain",
+                  "sizeBytes": 64
+                }
+              ],
+              "binds": {
+                "controlArtifactSignatureSha256": "e32b0657fd81890a93b9f0e276ada2302a2826c5e9b07cd1a169d38e43c18c79",
+                "parentDelegationSignatureSha256": "efefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef",
+                "parentCorrelationId": "urn:uuid:00000000-0000-4000-a000-000000000002"
+              }
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJpdzkwSzZNXzBoU3llSm91MFZ1SC1fdFBBUmFjdlpSbTVhaEkwZV9WN2o0IiwiUnY3REs2UHA3TlZZU2ltZTJIanJwVUMySXhGMWx2SS01ZG1QM1ROQ0MtYyJdLCJwYXJzIjpbInVybjpzaWdpbGw6ZW52ZWxvcGUiLCJ1cm46ZXhhbXBsZTpvYmo6MDAwNC1zMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+                  "signature": "Q5QT4iDHkj0ONkfExu8L-OOMUPyQqsSTAcsOZwHabRM"
+                }
+              ]
+            },
+            "objectDigests": {
+              "urn:example:obj:0004-s0-model-input": "46fec32ba3e9ecd5584a299ed878eba540b623117596f23ee5d98fdd33420be7"
+            }
+          },
+          {
+            "envelope": {
+              "schemaName": "AgentExecutionEvidence",
+              "schemaVersion": "2",
+              "evidenceId": "00000000-0000-4000-8000-000000005231",
+              "createdAt": "2026-10-01T10:00:09.000Z",
+              "actor": {
+                "type": "agent",
+                "id": "urn:example:agent:test-runner",
+                "version": "1.0.0"
+              },
+              "activity": {
+                "name": "pr-review",
+                "correlationId": "urn:uuid:00000000-0000-4000-a000-000000000004"
+              },
+              "chain": {
+                "seq": 1,
+                "prevSignatureSha256": "41cfa23a4e5cd1a6214eb7970f71c888662d4cd78680e600fff3d684a7dd33b5"
+              },
+              "step": {
+                "type": "run_end",
+                "eventTime": "2026-10-01T10:00:09.000Z",
+                "consequential": false,
+                "timestamp": "required",
+                "runDisposition": "completed",
+                "finalSeq": 1,
+                "finalPrevSignatureSha256": "41cfa23a4e5cd1a6214eb7970f71c888662d4cd78680e600fff3d684a7dd33b5"
+              },
+              "objects": []
+            },
+            "signature": {
+              "signatures": [
+                {
+                  "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbInd2VFZXQndNTGJsb3BNZzNmV2VPVGNhTllNb0RfaTdKSDZuRWJoSnhzRUEiXSwicGFycyI6WyJ1cm46c2lnaWxsOmVudmVsb3BlIl19LCJ4NWMiOlsiYzNSMVlpQnphV2R1YVc1bklHTmxjblJwWm1sallYUmxJRUVnS0hSb1pTQndjbTlrZFdObGNpaz0iXSwieDV0I1MyNTYiOiJTUDZCRWVkT1dVSTlQbEhiS1NCNUNRWTVTQXNsdjlmZHJPYXRmcVVGbTVrIn0",
+                  "signature": "smp56MvDrpmacq15Byh8lEdxIbml3ACxkQJk3MWXMIg",
+                  "header": {
+                    "stubTimestamp": {
+                      "genTime": "2026-10-01T10:00:09Z",
+                      "valid": true
+                    }
+                  }
+                }
+              ]
+            },
+            "objectDigests": {}
+          }
+        ]
+      }
+    ]
+  },
+  "expected": {
+    "verdict": "tree_invalid",
+    "root": "urn:uuid:00000000-0000-4000-a000-000000000001",
+    "runs": {
+      "urn:uuid:00000000-0000-4000-a000-000000000001": "run_finalized",
+      "urn:uuid:00000000-0000-4000-a000-000000000002": "run_finalized",
+      "urn:uuid:00000000-0000-4000-a000-000000000004": "run_finalized"
+    },
+    "edges": [
+      {
+        "parent": "urn:uuid:00000000-0000-4000-a000-000000000001",
+        "child": "urn:uuid:00000000-0000-4000-a000-000000000002",
+        "binding": "mutually_bound",
+        "completion": "result_bound"
+      },
+      {
+        "parent": "urn:uuid:00000000-0000-4000-a000-000000000002",
+        "child": "urn:uuid:00000000-0000-4000-a000-000000000004",
+        "binding": "unbound",
+        "completion": "result_bound"
+      }
+    ],
+    "findings": [],
+    "openReasons": [],
+    "fingerprint": "0fbf04667d4b32d3720b266be8b22c8b7a460bade1320c4c47280a2840f888ae"
+  }
+}

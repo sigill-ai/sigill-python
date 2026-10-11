@@ -4,6 +4,12 @@
 **Schema:** [`agent-execution-evidence-v1.schema.json`](./agent-execution-evidence-v1.schema.json)
 **Common rules:** [`agent-profiles-common-v1.md`](./agent-profiles-common-v1.md)
 
+> **Version 2:** `schemaVersion "2"` ([schema](./agent-execution-evidence-v2.schema.json))
+> is this profile plus the `delegation` and `delegation_result` step types and the parent
+> binding in a child's `run_start`, defined in [Agent Delegation v1](./agent-delegation-v1.md).
+> A run that delegates, or is a sub-agent run, uses version 2 for every event; all other
+> runs may keep version 1.
+
 One artifact per event during a run. The artifacts of one run form a chain
 that starts with `run_start`, which binds the Control Artifact, and ends with
 `run_end`, which closes the run.

@@ -459,6 +459,55 @@ What to know:
   callable `(signature, digests) -> BlindObjectsVerdict`; `remote_verifier(client)`
   is the blind endpoint used above.
 
+### Sub-agents: run trees
+
+An agent that starts sub-agents records each one as its own run, bound to the
+parent in both directions ([Agent Delegation v1](spec/agent-delegation-v1.md)).
+Children may run concurrently and under their own certificate and controls.
+
+```python
+from sigill_sdk import AgentRunTreeBundle, AgentRunTreeOptions
+
+parent = client.start_agent_run(agent, certificate_id=cert_id, activity="pr-review",
+                                control_set=controls, delegating=True)
+
+# The parent declares the child before it starts; only the instruction's digest is sealed.
+delegation = parent.delegate("urn:example:agent:security-reviewer", task_bytes, use_id="call-7")
+
+# The child's run_start binds the parent's delegation event.
+child = client.start_child_agent_run(reviewer_agent, delegation, certificate_id=reviewer_cert_id,
+                                     activity="pr-review", control_set=reviewer_controls)
+child.record_tool_call("repo.read_file", args_json, operation="read")
+child.finish("completed")
+
+parent.complete_delegation(child)   # binds the child's run_end
+parent.finish("completed")
+
+tree = AgentRunTreeBundle(parent.correlation_id, [parent.to_bundle(), child.to_bundle()])
+result = client.verify_agent_run_tree(tree)
+# result.verdict -> "tree_finalized" | "tree_open" | "tree_invalid"
+# result.edges   -> per delegation: mutually_bound | child_missing | parent_missing | unbound,
+#                   and result_bound | result_mismatch | result_unresolved | no_result
+# result.runs    -> every run with its own verdict, which the tree never changes
+print(result.scope)
+```
+
+- **A withheld child is detected.** The parent's `delegation_result` names the
+  child's `run_end`; a tree that leaves the child out, swaps it, or edits it is
+  `tree_invalid`.
+- **A child elsewhere.** A child in another process rebuilds the
+  `AgentDelegation` from its four values; the parent then records the result
+  with `parent.complete_delegation(child_correlation_id,
+  child_run_end_signature_sha256, child_disposition)`.
+- **Close what you open.** A parent cannot close `completed` while a delegation
+  has no result; close it `aborted` or `failed` instead, and the tree reports
+  "parent terminated; evidence incomplete". The recorder keeps one event slot
+  per open delegation, plus `run_end`, inside the 2,000-event bundle limit.
+- **Attribution needs a policy.** Pass
+  `AgentRunTreeOptions(expected_signers={agent_id: [thumbprint]}, expected_root_correlation_id=...)`
+  to bind the tree to what you expected; without it a shared certificate
+  proves consistency, not who ran each sub-agent.
+
 ## Error handling
 
 Producer-time errors raise; verification errors are collected. This split is
@@ -501,7 +550,9 @@ byte-identical between the two.
 
 The same holds for agent runs: both verifiers reproduce every shared
 agent-run vector — verdict, checks, binding, findings and warnings — so a run
-recorded with either SDK verifies identically with the other.
+recorded with either SDK verifies identically with the other. The run-tree vectors
+([`agent-run-tree/`](spec/test-vectors/agent-run-tree/README.md)) pin the
+delegation rules the same way; both SDKs reproduce all of them.
 
 ## Pinning a specific TSA
 

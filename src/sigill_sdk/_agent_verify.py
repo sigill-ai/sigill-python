@@ -20,8 +20,8 @@ from sigill_sdk._agent_profiles import (
     CONTROL_EVALUATION_CONTENT_TYPE,
     CONTROL_EVALUATION_SCHEMA,
     EXECUTION_EVIDENCE_CONTENT_TYPE,
-    EXECUTION_EVIDENCE_SCHEMA,
     _content_type_problem,
+    _execution_schema_for,
     _layout_problem,
     _format_time,
     _int,
@@ -517,7 +517,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
 
     parsed = []
     for i, a in enumerate(bundle.artifacts):
-        sa, error = _parse_signed(a.envelope, a.signature, EXECUTION_EVIDENCE_SCHEMA)
+        sa, error = _parse_signed(a.envelope, a.signature, _execution_schema_for(a.envelope))
         parsed.append((a, i, sa, error))
     big = 2 ** 31 - 1
     arts = sorted(parsed, key=lambda p: (p[2].seq if p[2] is not None and p[2].seq is not None else big, p[1]))
@@ -713,6 +713,18 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             chain_link_valid=link_ok, error=c.error, certificate=c.certificate, objects=c.objects))
         prev_sig_hash = signature_sha256(sa.jws)
         prev_seq = seq
+
+    # ── delegation §3.1: the execution artifacts of one run are all v1 or all v2, never mixed
+    versions: list = []
+    for g in good:
+        v = _str(g.env.get("schemaVersion"))
+        if v not in versions:
+            versions.append(v)
+    if len(versions) > 1:
+        env_ok = False
+        shown = sorted(_n(v) for v in versions)
+        findings.append(f"The run's execution artifacts mix schemaVersion {' and '.join(shown)}; one run uses one "
+                        f"version.")
 
     # ── the Control Artifact
     control_ok = later_binds_ok
