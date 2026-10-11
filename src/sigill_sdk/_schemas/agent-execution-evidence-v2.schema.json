@@ -1,0 +1,589 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sigill.ai/agent-execution-evidence/v2.json",
+  "title": "AgentExecutionEvidence",
+  "description": "AgentExecutionEvidence v2: v1 plus sub-agent delegation (agent-delegation-v1.md). One artifact per event in an agent run, chained by seq and prevSignatureSha256.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "evidenceId",
+    "createdAt",
+    "actor",
+    "activity",
+    "chain",
+    "step",
+    "objects"
+  ],
+  "properties": {
+    "schemaName": {
+      "type": "string",
+      "const": "AgentExecutionEvidence"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "2"
+    },
+    "evidenceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "A bare UUID, as the v2 family core requires. Verifiers also accept the urn:uuid: form (common rules \u00a71)."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Producer's clock, RFC 3339 UTC. Seal time is proven by sigTst."
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "user",
+            "service",
+            "system",
+            "agent"
+          ],
+          "description": "Who produced this artifact."
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier. Not a display name, not PII."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the producing component."
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "displayHint": {
+          "type": "string"
+        }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "correlationId"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The run identifier; identical in every artifact of one run."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "description": "Producer-private data, as AiEvidenceEnvelopeV2 \u00a72."
+    },
+    "chain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "seq"
+      ],
+      "properties": {
+        "seq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "prevSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "if": {
+        "properties": {
+          "seq": {
+            "const": 0
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "prevSignatureSha256"
+          ]
+        }
+      },
+      "else": {
+        "required": [
+          "prevSignatureSha256"
+        ]
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "eventTime"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "run_start",
+            "retrieval",
+            "tool_call",
+            "authorization",
+            "human_approval",
+            "tool_result",
+            "model_output",
+            "checkpoint",
+            "run_end",
+            "delegation",
+            "delegation_result"
+          ]
+        },
+        "eventTime": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "tool": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "operation": {
+              "type": "string"
+            },
+            "useId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Correlates a tool_call with its tool_result."
+            }
+          }
+        },
+        "decision": {
+          "type": "string",
+          "minLength": 1
+        },
+        "policyId": {
+          "type": "string"
+        },
+        "approver": {
+          "type": "string",
+          "description": "An identifier, not a name."
+        },
+        "finalSeq": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finalPrevSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "runDisposition": {
+          "type": "string",
+          "enum": [
+            "completed",
+            "aborted",
+            "failed"
+          ]
+        },
+        "detail": {
+          "type": "string"
+        },
+        "consequential": {
+          "type": "boolean",
+          "description": "The event had an external side effect. Timestamped when the Control Artifact's policy says consequential: true (common rules \u00a74)."
+        },
+        "timestamp": {
+          "type": "string",
+          "enum": [
+            "required",
+            "none"
+          ],
+          "description": "The producer's timestamp decision; the verifier recomputes the requirement from the signed policy and also honours 'required'."
+        },
+        "delegation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "childCorrelationId"
+          ],
+          "properties": {
+            "childCorrelationId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "The child run's activity.correlationId, compared as an exact string (agent-delegation-v1.md \u00a73.4)."
+            },
+            "childAgentId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "delegation only: the child's expected agent.id."
+            },
+            "useId": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Correlates with the tool_call that requested the child."
+            },
+            "childRunEndSignatureSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "delegation_result only: signatureSha256 of the child's run_end."
+            },
+            "childDisposition": {
+              "type": "string",
+              "enum": [
+                "completed",
+                "aborted",
+                "failed"
+              ],
+              "description": "delegation_result only: the child's runDisposition."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "tool_call"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "tool"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "authorization"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "decision"
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "human_approval"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "decision"
+            ],
+            "properties": {
+              "decision": {
+                "enum": [
+                  "approved",
+                  "rejected"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "run_end"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "finalSeq",
+              "finalPrevSignatureSha256",
+              "runDisposition"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "finalSeq"
+                  ]
+                },
+                {
+                  "required": [
+                    "finalPrevSignatureSha256"
+                  ]
+                },
+                {
+                  "required": [
+                    "runDisposition"
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "delegation"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "delegation"
+            ],
+            "properties": {
+              "delegation": {
+                "required": [
+                  "childCorrelationId",
+                  "childAgentId"
+                ],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "childRunEndSignatureSha256"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "childDisposition"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "delegation_result"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "delegation"
+            ],
+            "properties": {
+              "delegation": {
+                "required": [
+                  "childCorrelationId",
+                  "childRunEndSignatureSha256",
+                  "childDisposition"
+                ],
+                "not": {
+                  "required": [
+                    "childAgentId"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": [
+                  "delegation",
+                  "delegation_result"
+                ]
+              }
+            }
+          },
+          "else": {
+            "not": {
+              "required": [
+                "delegation"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "binds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "controlArtifactSignatureSha256"
+      ],
+      "properties": {
+        "controlArtifactSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "parentDelegationSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$",
+          "description": "Child run_start only: signatureSha256 of the parent's delegation event."
+        },
+        "parentCorrelationId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Child run_start only: the parent run's correlationId."
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "parentDelegationSignatureSha256",
+            "parentCorrelationId"
+          ]
+        },
+        {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "parentDelegationSignatureSha256"
+                ]
+              },
+              {
+                "required": [
+                  "parentCorrelationId"
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    },
+    "objects": {
+      "type": "array",
+      "description": "May be empty.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri",
+          "role"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque, byte-exact match with sigD.pars; never 'urn:sigill:envelope'."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "tool-arguments",
+              "tool-result",
+              "approval-receipt",
+              "identity-assertion",
+              "retrieved-context",
+              "model-output",
+              "model-input",
+              "delegation-input"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf-8",
+              "binary"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "step": {
+            "properties": {
+              "type": {
+                "const": "run_start"
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "binds"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "step": {
+            "properties": {
+              "type": {
+                "const": "run_start"
+              }
+            }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "binds": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "parentDelegationSignatureSha256"
+                  ]
+                },
+                {
+                  "required": [
+                    "parentCorrelationId"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  ]
+}

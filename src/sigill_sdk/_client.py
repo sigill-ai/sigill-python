@@ -15,7 +15,19 @@ import httpx
 
 from sigill_sdk import _pdf
 from sigill_sdk._agent_run import AgentRun, ControlEvaluation
-from sigill_sdk._agent_types import AgentDefinition, AgentRunArtifact, AgentRunBundle, ControlEvaluationRequest
+from sigill_sdk._agent_tree import (
+    AgentRunTreeBundle,
+    AgentRunTreeOptions,
+    AgentRunTreeVerificationResult,
+    verify_agent_run_tree,
+)
+from sigill_sdk._agent_types import (
+    AgentDefinition,
+    AgentDelegation,
+    AgentRunArtifact,
+    AgentRunBundle,
+    ControlEvaluationRequest,
+)
 from sigill_sdk._agent_verify import AgentRunVerificationResult, remote_verifier, verify_agent_run
 from sigill_sdk._canonical import canonicalize, compute_envelope_hash, hash_bytes
 from sigill_sdk._envelope import (
@@ -786,6 +798,19 @@ class SigillClient:
         same for Control Evaluations."""
         return verify_agent_run(bundle, remote_verifier(self), expected_signers=expected_signers,
                                 expected_evaluation_signers=expected_evaluation_signers)
+
+    def start_child_agent_run(self, agent: AgentDefinition, delegation: AgentDelegation, *, certificate_id: str,
+                              **options) -> AgentRun:
+        """Opens a sub-agent run for a delegation its parent sealed
+        (``spec/agent-delegation-v1.md``). See :meth:`AgentRun.start_child`."""
+        return AgentRun.start_child(self, agent, delegation, certificate_id=certificate_id, **options)
+
+    def verify_agent_run_tree(self, tree: AgentRunTreeBundle,
+                              options: AgentRunTreeOptions | None = None) -> AgentRunTreeVerificationResult:
+        """Verifies a run tree — a root run and its sub-agent runs
+        (``spec/agent-delegation-v1.md`` §6) — through the blind
+        ``POST /seal/verify-objects`` endpoint: digests only, never content."""
+        return verify_agent_run_tree(tree, remote_verifier(self), options)
 
     # ------------------------------------------------------------- seal_pades
 

@@ -30,6 +30,7 @@ from sigill_sdk._agent_profiles import (
     EXECUTION_EVIDENCE_CONTENT_TYPE,
     EXECUTION_EVIDENCE_SCHEMA,
     MAX_ARTIFACTS,
+    _execution_schema_for,
     _format_time,
     _prevalidate,
     _str,
@@ -41,6 +42,7 @@ from sigill_sdk._agent_types import (
     AgentAuthorization,
     AgentControlSet,
     AgentDefinition,
+    AgentDelegation,
     AgentRunActor,
     AgentRunArtifact,
     AgentRunBundle,
@@ -54,6 +56,7 @@ from sigill_sdk._sign_objects import SignedObjectDigest
 
 _RESERVED_STEP_FIELDS = frozenset({
     "type", "eventTime", "consequential", "timestamp", "finalSeq", "finalPrevSignatureSha256", "runDisposition",
+    "delegation",
 })
 _DISPOSITIONS = ("completed", "failed", "aborted")
 
@@ -140,7 +143,8 @@ class AgentRun:
 
     def __init__(self, *, _client: Any, _agent: AgentDefinition, _certificate_id: str, _activity: str,
                  _policy: AgentTimestampPolicy, _correlation_id: str, _retain: bool, _qualified: bool,
-                 _on_sealed: Optional[Callable[[AgentRunArtifact], None]], _clock: Callable[[], datetime]):
+                 _on_sealed: Optional[Callable[[AgentRunArtifact], None]], _clock: Callable[[], datetime],
+                 _schema_version: str = "1", _parent: Optional[AgentDelegation] = None):
         self._client = _client
         self._agent = _agent
         self._certificate_id = _certificate_id
@@ -161,6 +165,11 @@ class AgentRun:
         self._signer: Optional[str] = None
         self._broken = False
         self._finished = False
+        self._schema_version = _schema_version
+        self._parent = _parent
+        # delegation §4: open delegations (child correlationId → delegation seq) and those already resolved.
+        self._outstanding: dict[str, int] = {}
+        self._resolved: set[str] = set()
         self.correlation_id = _correlation_id
         """The run identifier (``activity.correlationId``)."""
         self.control_artifact: AgentRunArtifact = None  # type: ignore[assignment]
@@ -174,7 +183,8 @@ class AgentRun:
               timestamp_policy: Optional[AgentTimestampPolicy] = None, correlation_id: Optional[str] = None,
               start_objects: Optional[Sequence[AgentRunObject]] = None, retain_payloads: bool = False,
               qualified: bool = False, on_artifact_sealed: Optional[Callable[[AgentRunArtifact], None]] = None,
-              _clock: Optional[Callable[[], datetime]] = None) -> "AgentRun":
+              delegating: bool = False, _clock: Optional[Callable[[], datetime]] = None,
+              _parent: Optional[AgentDelegation] = None) -> "AgentRun":
         """Opens a run: seals the Control Artifact (always timestamped), then
         ``run_start`` binding it.
 
@@ -195,15 +205,31 @@ class AgentRun:
             inside the callback is delivered at once (waiting would deadlock), so it can arrive
             ahead of an event another thread sealed meanwhile. An exception propagates; the run
             itself stays usable.
+        :param delegating: the run may start sub-agent runs (``spec/agent-delegation-v1.md``). Its events
+            are sealed as ``AgentExecutionEvidence`` ``schemaVersion "2"``, which a run must use throughout
+            once it delegates. Child runs (:meth:`start_child`) always use version 2.
         """
         if control_set is None:
             raise ValueError("control_set is required.")
         policy = timestamp_policy or AgentTimestampPolicy()
         _validate_policy(policy)
+        if _parent is not None:
+            if not _parent.child_correlation_id or not _parent.parent_correlation_id \
+                    or not _parent.delegation_signature_sha256:
+                raise ValueError("The delegation is incomplete.")
+            if correlation_id is not None and correlation_id != _parent.child_correlation_id:
+                raise ValueError("A child run's correlationId is the one its parent declared.")
+            if _parent.child_agent_id != agent.agent_id:
+                raise ValueError(f"The parent delegated to '{_parent.child_agent_id}', not '{agent.agent_id}'.")
         clock = _clock or _utcnow
+        if _parent is not None:
+            correlation = _parent.child_correlation_id
+        else:
+            correlation = correlation_id or f"urn:uuid:{uuid.uuid4()}"
         run = cls(_client=client, _agent=agent, _certificate_id=str(certificate_id), _activity=activity,
-                  _policy=policy, _correlation_id=correlation_id or f"urn:uuid:{uuid.uuid4()}",
-                  _retain=retain_payloads, _qualified=qualified, _on_sealed=on_artifact_sealed, _clock=clock)
+                  _policy=policy, _correlation_id=correlation,
+                  _retain=retain_payloads, _qualified=qualified, _on_sealed=on_artifact_sealed, _clock=clock,
+                  _schema_version="2" if delegating or _parent is not None else "1", _parent=_parent)
 
         now = _truncate(clock())
         config = agent.configuration
@@ -268,6 +294,22 @@ class AgentRun:
             raise AgentRunCallbackError(run, failure) from failure
         return run
 
+    @classmethod
+    def start_child(cls, client: Any, agent: AgentDefinition, delegation: AgentDelegation, *,
+                    certificate_id: str, activity: str, control_set: AgentControlSet, **options: Any) -> "AgentRun":
+        """Opens a child run for a delegation the parent sealed (``spec/agent-delegation-v1.md`` §4 rule 2):
+        the child's Control Artifact, then its ``run_start`` binding both the Control Artifact and the
+        parent's ``delegation``. The child's correlationId is the one the parent declared, and
+        ``agent.agent_id`` must be the declared ``child_agent_id``. Call it before the child acts: the child
+        must do nothing before its ``run_start`` is sealed. Other options are those of :meth:`start`.
+
+        :raises ValueError: the delegation is incomplete, or does not name this agent or correlationId.
+        """
+        if delegation is None:
+            raise ValueError("delegation is required.")
+        return cls.start(client, agent, certificate_id=certificate_id, activity=activity, control_set=control_set,
+                         _parent=delegation, **options)
+
     @property
     def artifacts(self) -> list[AgentRunArtifact]:
         """The sealed events so far, in chain order."""
@@ -283,6 +325,12 @@ class AgentRun:
     def is_finished(self) -> bool:
         """``run_end`` has been sealed."""
         return self._finished
+
+    @property
+    def outstanding_delegations(self) -> list[str]:
+        """Delegations sealed but not yet resolved by a ``delegation_result``."""
+        with self._lock:
+            return list(self._outstanding)
 
     # ── events ──
 
@@ -303,15 +351,22 @@ class AgentRun:
             raise ValueError("step_type is required.")
         if step_type in ("run_start", "run_end"):
             raise ValueError(f"'{step_type}' is sealed by start() / finish().")
+        if step_type in ("delegation", "delegation_result"):
+            raise ValueError(f"'{step_type}' is sealed by delegate() / complete_delegation().")
         reserved = sorted(_RESERVED_STEP_FIELDS.intersection(fields or {}))
         if reserved:
             raise ValueError(f"fields uses reserved step member(s): {', '.join(reserved)}")
         with self._lock:
             self._ensure_open()
-            # Keep the last slot for run_end, so a bundle always fits MAX_ARTIFACTS and can finish.
-            if len(self._artifacts) >= MAX_ARTIFACTS - 1:
-                raise RuntimeError(f"The run has {len(self._artifacts)} events; only run_end fits within the bundle "
-                                   f"limit of {MAX_ARTIFACTS}. Finish the run.")
+            # Keep the last slot for run_end, and one per open delegation for its result (delegation §4 rule 6),
+            # so a bundle always fits MAX_ARTIFACTS and can finish.
+            open_ = len(self._outstanding)
+            if len(self._artifacts) >= MAX_ARTIFACTS - 1 - open_:
+                raise RuntimeError(
+                    f"The run has {len(self._artifacts)} events; only run_end fits within the bundle limit of "
+                    f"{MAX_ARTIFACTS}. Finish the run." if open_ == 0 else
+                    f"The run has {len(self._artifacts)} events; the rest of the bundle limit of {MAX_ARTIFACTS} is "
+                    f"reserved for run_end and {open_} delegation result(s).")
             step = json.loads(json.dumps(fields or {}))
             if require_timestamp:
                 step["timestamp"] = "required"
@@ -386,6 +441,9 @@ class AgentRun:
             raise ValueError("disposition must be completed, failed or aborted.")
         with self._lock:
             self._ensure_open()
+            if disposition == "completed" and self._outstanding:
+                raise RuntimeError(f"{len(self._outstanding)} delegation(s) have no result: record them first, or close "
+                                   f"the run as aborted or failed (delegation §4 rule 5).")
             # finalSeq is run_end's own seq, finalPrev its own chain link (§11): closure is checkable on its own.
             step = {
                 "finalSeq": len(self._artifacts),
@@ -402,6 +460,85 @@ class AgentRun:
         with self._lock:
             return AgentRunBundle(self.correlation_id, self.control_artifact, list(self._artifacts), [],
                                   dict(self._payloads))
+
+    # ── delegation (spec/agent-delegation-v1.md) ──
+
+    def delegate(self, child_agent_id: str, instruction: Optional[bytes] = None,
+                 instruction_content_type: str = "text/plain", *, use_id: Optional[str] = None,
+                 consequential: bool = False, child_correlation_id: Optional[str] = None) -> AgentDelegation:
+        """Seals a ``delegation`` event declaring a child run (§3.2, §4 rule 1): call it before the child
+        starts, then open the child with :meth:`start_child` and the returned :class:`AgentDelegation`.
+        ``instruction`` is what the child is asked to do; only its digest is sealed (role
+        ``delegation-input``). Mark ``consequential`` when the child is granted write authority. Requires
+        ``delegating=True`` (or a child run).
+
+        :raises RuntimeError: the run does not delegate, or the event budget is reserved (§4 rule 6).
+        :raises ValueError: the child is this run, or is already delegated by it.
+        """
+        if not child_agent_id:
+            raise ValueError("child_agent_id is required.")
+        if self._schema_version != "2":
+            raise RuntimeError("This run was not started with delegating=True; a run that delegates uses "
+                               "schemaVersion 2 throughout.")
+        child = child_correlation_id if child_correlation_id is not None else f"urn:uuid:{uuid.uuid4()}"
+        if not child or child == self.correlation_id:
+            raise ValueError("A run cannot delegate to itself.")
+        with self._lock:
+            self._ensure_open()
+            if child in self._outstanding or child in self._resolved:
+                raise ValueError(f"'{child}' is already delegated by this run (§4 rule 10).")
+            # This event, a result for every open delegation including this one, and run_end must fit.
+            if len(self._artifacts) + 1 + len(self._outstanding) + 1 + 1 > MAX_ARTIFACTS:
+                raise RuntimeError(f"No room for another delegation: the bundle limit of {MAX_ARTIFACTS} is reserved "
+                                   f"for run_end and the results of {len(self._outstanding)} open delegation(s).")
+            block: dict = {"childCorrelationId": child, "childAgentId": child_agent_id}
+            if use_id is not None:
+                block["useId"] = use_id
+            objects = [] if instruction is None else \
+                [AgentRunObject("delegation-input", instruction, instruction_content_type)]
+            artifact = self._seal_event("delegation", objects, {"delegation": block}, consequential=consequential)
+            self._outstanding[child] = artifact.seq
+        self._notify(artifact, artifact.seq)
+        return AgentDelegation(self.correlation_id, artifact.signature_sha256, child, child_agent_id,
+                               artifact=artifact)
+
+    def complete_delegation(self, child: "AgentRun | str", child_run_end_signature_sha256: Optional[str] = None,
+                            child_disposition: Optional[str] = None) -> AgentRunArtifact:
+        """Seals the ``delegation_result`` for a finished child (§4 rule 3). Pass the child :class:`AgentRun`
+        when it ran in this process, or — for a child that ran elsewhere — its correlationId, the
+        ``signatureSha256`` of its sealed ``run_end`` and that ``run_end``'s disposition (§3.2). One result per
+        delegation, whatever the child's disposition.
+
+        :raises RuntimeError: the child is not finished, never delegated by this run, or already resolved.
+        :raises ValueError: the disposition is not completed, failed or aborted.
+        """
+        if isinstance(child, AgentRun):
+            if child_run_end_signature_sha256 is not None or child_disposition is not None:
+                raise ValueError("Pass either a child run or its values, not both.")
+            if not child.is_finished:
+                raise RuntimeError("The child run is not finished: seal its run_end first (§4 rule 3).")
+            end = child.artifacts[-1]
+            disposition = _str((end.envelope.get("step") or {}).get("runDisposition"))
+            return self.complete_delegation(child.correlation_id, end.signature_sha256, disposition)
+        if child is None:
+            raise ValueError("child is required.")
+        if child_disposition not in _DISPOSITIONS:
+            raise ValueError("child_disposition must be completed, failed or aborted.")
+        with self._lock:
+            self._ensure_open()
+            if child not in self._outstanding:
+                raise RuntimeError(f"'{child}' already has its result (§4 rule 4)." if child in self._resolved
+                                   else f"This run never delegated to '{child}'.")
+            block = {
+                "childCorrelationId": child,
+                "childRunEndSignatureSha256": child_run_end_signature_sha256,
+                "childDisposition": child_disposition,
+            }
+            artifact = self._seal_event("delegation_result", [], {"delegation": block}, consequential=False)
+            del self._outstanding[child]
+            self._resolved.add(child)
+        self._notify(artifact, artifact.seq)
+        return artifact
 
     # ── sealing ──
 
@@ -428,7 +565,7 @@ class AgentRun:
             chain["prevSignatureSha256"] = self._prev_signature_sha256
         envelope: dict = {
             "schemaName": EXECUTION_EVIDENCE_SCHEMA,
-            "schemaVersion": "1",
+            "schemaVersion": self._schema_version,
             "evidenceId": str(uuid.uuid4()),
             "createdAt": _format_time(now),
             "actor": actor,
@@ -437,11 +574,15 @@ class AgentRun:
             "step": step,
         }
         if seq == 0:
-            envelope["binds"] = {"controlArtifactSignatureSha256": self.control_artifact.signature_sha256}
+            binds = {"controlArtifactSignatureSha256": self.control_artifact.signature_sha256}
+            if self._parent is not None:
+                binds["parentDelegationSignatureSha256"] = self._parent.delegation_signature_sha256
+                binds["parentCorrelationId"] = self._parent.parent_correlation_id
+            envelope["binds"] = binds
         envelope["objects"] = _objects_block(objects)
         digests = _digests(objects)
         self._check_uri_reuse(digests)
-        _prevalidate(envelope, EXECUTION_EVIDENCE_SCHEMA)  # raises before anything is sealed
+        _prevalidate(envelope, _execution_schema_for(envelope))  # raises before anything is sealed
         try:
             result = _seal(self._client, envelope, _signed_digests(objects), EXECUTION_EVIDENCE_CONTENT_TYPE,
                            self._certificate_id, timestamp=stamp, qualified=self._qualified)

@@ -82,6 +82,7 @@ from sigill_sdk._agent_types import (
     AgentConfiguration,
     AgentControlSet,
     AgentDefinition,
+    AgentDelegation,
     AgentRunActor,
     AgentRunArtifact,
     AgentRunBundle,
@@ -111,6 +112,16 @@ from sigill_sdk._agent_verify import (
     bundle_fingerprint,
     remote_verifier,
     verify_agent_run,
+)
+from sigill_sdk._agent_tree import (
+    TREE_SCOPE,
+    AgentRunTreeBundle,
+    AgentRunTreeEdge,
+    AgentRunTreeFinding,
+    AgentRunTreeOptions,
+    AgentRunTreeRun,
+    AgentRunTreeVerificationResult,
+    verify_agent_run_tree,
 )
 from importlib.metadata import version as _meta_version, PackageNotFoundError as _PNF
 
@@ -158,6 +169,7 @@ __all__ = [
     "AgentControlSet",
     "AgentControlVerdict",
     "AgentDefinition",
+    "AgentDelegation",
     "AgentEvaluationVerdict",
     "AgentObjectVerdict",
     "AgentRun",
@@ -168,6 +180,12 @@ __all__ = [
     "AgentRunCallbackError",
     "AgentRunObject",
     "AgentRunTimestampSummary",
+    "AgentRunTreeBundle",
+    "AgentRunTreeEdge",
+    "AgentRunTreeFinding",
+    "AgentRunTreeOptions",
+    "AgentRunTreeRun",
+    "AgentRunTreeVerificationResult",
     "AgentRunVerificationResult",
     "AgentStepVerdict",
     "AgentTimestampPolicy",
@@ -178,10 +196,12 @@ __all__ = [
     "PER_EVENT",
     "SignatureTimestampInfo",
     "SignerCertificateInfo",
+    "TREE_SCOPE",
     "bundle_fingerprint",
     "remote_verifier",
     "seal_control_evaluation",
     "signature_sha256",
     "signer_of",
     "verify_agent_run",
+    "verify_agent_run_tree",
 ]

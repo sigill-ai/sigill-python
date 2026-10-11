@@ -201,6 +201,21 @@ class AgentRunArtifact:
 
 
 @dataclass(frozen=True)
+class AgentDelegation:
+    """One delegation edge as the parent sealed it (``spec/agent-delegation-v1.md`` §2): what a child run
+    needs to bind its ``run_start`` to the parent. Returned by :meth:`AgentRun.delegate`; a child in another
+    process can rebuild it from the four values."""
+
+    parent_correlation_id: str
+    delegation_signature_sha256: str
+    """The ``signatureSha256`` of the parent's ``delegation`` event."""
+    child_correlation_id: str
+    child_agent_id: str
+    artifact: Optional[AgentRunArtifact] = None
+    """The parent's sealed ``delegation`` event, when sealed in this process."""
+
+
+@dataclass(frozen=True)
 class ControlResult:
     """One control's result in a Control Evaluation."""
 

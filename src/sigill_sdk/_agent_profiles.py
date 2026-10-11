@@ -30,6 +30,10 @@ BUNDLE_VERSION = "1"
 CONTROL_ARTIFACT_SCHEMA = "AgentControlArtifact"
 EXECUTION_EVIDENCE_SCHEMA = "AgentExecutionEvidence"
 CONTROL_EVALUATION_SCHEMA = "ControlEvaluation"
+EXECUTION_EVIDENCE_SCHEMA_V2 = "AgentExecutionEvidence/2"
+"""The schema key of ``AgentExecutionEvidence`` ``schemaVersion "2"``: v1 plus sub-agent delegation
+(``spec/agent-delegation-v1.md``). The envelope's ``schemaName`` stays :data:`EXECUTION_EVIDENCE_SCHEMA`;
+only the version differs."""
 
 CONTROL_ARTIFACT_CONTENT_TYPE = "application/vnd.sigill.agent-control+json"
 """The Control Artifact's content type, signed as ``sigD.ctys[0]``."""
@@ -135,6 +139,12 @@ def _reject_duplicates(pairs: list) -> dict:
 
 def _reject_constant(name: str) -> Any:
     raise ValueError(f"{name} is not valid JSON")
+
+
+def _execution_schema_for(envelope: Any) -> str:
+    """The execution schema to validate against: v2 when the envelope says ``schemaVersion "2"``, else v1."""
+    version = envelope.get("schemaVersion") if isinstance(envelope, dict) else None
+    return EXECUTION_EVIDENCE_SCHEMA_V2 if version == "2" else EXECUTION_EVIDENCE_SCHEMA
 
 
 # ── The binding digest (§2) and the signer (§3) ─────────────────────────────
