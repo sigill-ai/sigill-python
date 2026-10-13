@@ -24,7 +24,11 @@ from pathlib import Path
 import jcs
 
 HERE = Path(__file__).parent
-ENVELOPE_URI = "urn:sigill:envelope"
+LEGACY_ENVELOPE_REF = "urn:sigill:envelope"   # v2.0 (v2 §5.2 rule 2)
+LOCATOR_ENVELOPE_REF = "sigill-envelope.json"  # v2.1
+# The reference form used while building (v2 §3.1, §5.2). Legacy by default, so vectors 01–70 stay byte-identical;
+# `locator()` switches it for the v2.1 vectors.
+FORM = {"envelope": LEGACY_ENVELOPE_REF, "objects": "legacy"}
 RUN = "urn:uuid:00000000-0000-4000-9000-000000000001"
 ACTIVITY = "support-ticket-close"
 AGENT = {"id": "urn:example:agent:support-triage", "version": "2.4.0"}
@@ -63,9 +67,28 @@ def signer_header(cert: bytes) -> dict:
     return {"x5c": [base64.b64encode(cert).decode()], "x5t#S256": b64u(hashlib.sha256(cert).digest())}
 
 
+def ouri(name: str) -> str:
+    """An object URI in the current form: legacy URN, or a v2 §3.1 production-profile reference."""
+    return f"objects/{name}" if FORM["objects"] == "locator" else f"urn:example:obj:{name}"
+
+
+class locator:
+    """Build in the v2.1 form: `with locator():` (both), `locator(envelope=False)` or `locator(objects=False)`."""
+    def __init__(self, envelope: bool = True, objects: bool = True):
+        self.want = {"envelope": LOCATOR_ENVELOPE_REF if envelope else LEGACY_ENVELOPE_REF,
+                     "objects": "locator" if objects else "legacy"}
+
+    def __enter__(self):
+        self.saved = dict(FORM)
+        FORM.update(self.want)
+
+    def __exit__(self, *exc):
+        FORM.update(self.saved)
+
+
 def stub_sign(envelope: dict, digests: dict, cty: str, *, timestamp: str | None, cert: bytes = CERT_A,
-              hybrid: bool = False, dup_alg: bool = False) -> dict:
-    pars = [ENVELOPE_URI] + [o["uri"] for o in envelope["objects"]]
+              hybrid: bool = False, dup_alg: bool = False, envelope_ref: str | None = None) -> dict:
+    pars = [envelope_ref or FORM["envelope"]] + [o["uri"] for o in envelope["objects"]]
     hash_v = [b64u(hashlib.sha256(jcs.canonicalize(envelope)).digest())] + \
              [b64u(bytes.fromhex(digests[u])) for u in pars[1:]]
     # ctys is index-aligned with pars: the profile type, then each object's contentType ("" when absent).
@@ -110,25 +133,37 @@ def stamp_of(a: dict) -> str | None:
     return old["genTime"] if old else None
 
 
-def resign(a: dict, cty: str, cert: bytes = CERT_A) -> None:
-    a["signature"] = stub_sign(a["envelope"], a["objectDigests"], cty, timestamp=stamp_of(a), cert=cert)
+def resign(a: dict, cty: str, cert: bytes = CERT_A, envelope_ref: str | None = None) -> None:
+    a["signature"] = stub_sign(a["envelope"], a["objectDigests"], cty, timestamp=stamp_of(a), cert=cert,
+                               envelope_ref=envelope_ref or envelope_ref_of(a))
+
+
+def envelope_ref_of(a: dict) -> str | None:
+    """pars[0] of an artifact's classical signature, so a re-sign keeps the form it was built in."""
+    e = a["signature"]["signatures"][-1]
+    h = json.loads(base64.urlsafe_b64decode(e["protected"] + "=" * (-len(e["protected"]) % 4)))
+    return h.get("sigD", {}).get("pars", [None])[0]
 
 
 # ── The three profiles ──────────────────────────────────────────────────────
 
 POLICY = {"profile": "throughput", "everyEvents": 0, "everySeconds": 0, "consequential": False}
-CONTROL_OBJS = [
-    ("urn:example:obj:instruction-set", "instruction-set", "text/plain", b"You triage support tickets. Close only with approval."),
-    ("urn:example:obj:tool-manifest", "tool-manifest", "application/json", b'{"tools":["lookup_ticket","close_ticket"]}'),
-    ("urn:example:obj:execution-policy", "execution-policy", "application/json", b'{"allow":["lookup_ticket","close_ticket"]}'),
-    ("urn:example:obj:model-config", "model-config", "application/json", b'{"temperature":0}'),
-    ("urn:example:obj:control-set", "control-set", "application/json", b'{"controls":["ticket-closed","owner-unchanged"]}'),
-    ("urn:example:obj:baseline-state", "baseline-state", "application/json", b'{"ticket":"4411","status":"open","owner":"team-a"}'),
-]
+
+
+def control_objs() -> list:
+    return [
+        (ouri("instruction-set"), "instruction-set", "text/plain", b"You triage support tickets. Close only with approval."),
+        (ouri("tool-manifest"), "tool-manifest", "application/json", b'{"tools":["lookup_ticket","close_ticket"]}'),
+        (ouri("execution-policy"), "execution-policy", "application/json", b'{"allow":["lookup_ticket","close_ticket"]}'),
+        (ouri("model-config"), "model-config", "application/json", b'{"temperature":0}'),
+        (ouri("control-set"), "control-set", "application/json", b'{"controls":["ticket-closed","owner-unchanged"]}'),
+        (ouri("baseline-state"), "baseline-state", "application/json", b'{"ticket":"4411","status":"open","owner":"team-a"}'),
+    ]
 
 
 def control_artifact(payloads: dict, *, policy=POLICY, cert: bytes = CERT_A, n: int = 1, tweak=None,
                      stamp_at: str | None = "2026-10-01T08:59:01Z", cty: str = CTY["control"]) -> dict:
+    objs = control_objs()
     env = {
         "schemaName": "AgentControlArtifact", "schemaVersion": "1", "evidenceId": uuid(n),
         "createdAt": "2026-10-01T08:59:00.000Z",
@@ -136,15 +171,15 @@ def control_artifact(payloads: dict, *, policy=POLICY, cert: bytes = CERT_A, n: 
         "activity": {"name": ACTIVITY, "correlationId": RUN},
         "agent": dict(AGENT),
         "controlSet": {"id": "ticket-close-v2", "version": "2"},
-        "objects": objects_block(CONTROL_OBJS),
+        "objects": objects_block(objs),
     }
     if policy is not None:
         env["timestampPolicy"] = policy
     if tweak:
         tweak(env)
-    for uri, _, _, data in CONTROL_OBJS:
+    for uri, _, _, data in objs:
         payloads[uri] = data
-    return artifact(env, CONTROL_OBJS, cty, stamp_at=stamp_at, cert=cert)
+    return artifact(env, objs, cty, stamp_at=stamp_at, cert=cert)
 
 
 def at(minute: int) -> str:
@@ -171,7 +206,7 @@ def build_run(steps: list, payloads: dict, *, control: dict | None, finish: bool
     def seal(step_type, minute, step_fields, objs, stamp, consequential, cert, dup_alg=False, stamp_at=None,
              cty=CTY["event"]):
         seq = len(arts)
-        uris = [(f"urn:example:obj:s{seq}-{role}", role, ctype, data) for role, ctype, data in objs]
+        uris = [(ouri(f"s{seq}-{role}"), role, ctype, data) for role, ctype, data in objs]
         step = {"type": step_type, "eventTime": at(minute), "consequential": consequential,
                 "timestamp": "required" if stamp else "none"}
         step.update(copy.deepcopy(step_fields))
@@ -222,10 +257,14 @@ def rechain(arts: list, from_seq: int) -> None:
 def evaluation(payloads: dict, control: dict, run_end: dict, *, tweak=None,
                control_set_bytes: bytes | None = None, baseline_bytes: bytes | None = None,
                cert: bytes = CERT_V) -> dict:
-    cs = next(o for o in CONTROL_OBJS if o[1] == "control-set")
-    bl = next(o for o in CONTROL_OBJS if o[1] == "baseline-state")
+    def sealed(role: str) -> tuple:
+        """An object the Control Artifact already sealed keeps its URI there (common rules §5), whatever the form."""
+        uri = next(o["uri"] for o in control["envelope"]["objects"] if o["role"] == role)
+        return (uri,) + next(o for o in control_objs() if o[1] == role)[1:]
+    cs = sealed("control-set")
+    bl = sealed("baseline-state")
     objs = [
-        ("urn:example:obj:observed-state", "observed-state", "application/json",
+        (ouri("observed-state"), "observed-state", "application/json",
          b'{"ticket":"4411","status":"closed","owner":"team-a"}'),
         (cs[0], "control-set", cs[2], control_set_bytes if control_set_bytes is not None else cs[3]),
         (bl[0], "baseline-state", bl[2], baseline_bytes if baseline_bytes is not None else bl[3]),
@@ -245,7 +284,7 @@ def evaluation(payloads: dict, control: dict, run_end: dict, *, tweak=None,
     }
     if tweak:
         tweak(env)
-    payloads["urn:example:obj:observed-state"] = objs[0][3]
+    payloads[objs[0][0]] = objs[0][3]
     return artifact(env, objs, CTY["evaluation"], stamp_at="2026-10-01T09:30:01Z", cert=cert)
 
 
@@ -852,6 +891,75 @@ def main() -> None:
                  # finalization: an event with no valid position cannot be shown to precede run_end (§8).
                  {"objects": "warn", "envelope": "bad", "sequence": "bad", "chain": "bad", "finalization": "bad"},
                  missing=[1], findings=[finding, "no valid chain.seq", "run_end is not the last artifact"])
+
+    # ── v2.1 reference form (v2 §3.1, §5.2, §5.4) ─────────────────────────────
+    with locator():
+        p, control, arts = standard()
+        ev = evaluation(p, control, arts[-1])
+    scenario("71-locator-finalized-digests-only", "Vector 01 in the v2.1 form: pars[0] is sigill-envelope.json and "
+             "every object URI is a production-profile reference. Digests only, so objects is 'warn'.",
+             bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"})
+    scenario("72-locator-finalized-with-payloads", "Vector 02 in the v2.1 form: every check ok.",
+             bundle(control, arts, [ev], p), "run_finalized", {})
+
+    # A run that straddles a producer upgrade: the Control Artifact and seq 0–1 in the legacy form, seq 2 on and the
+    # evaluation in the locator form. Each artifact's envelope reference is read from its own signature.
+    p = {}
+    control = control_artifact(p)
+    arts = build_run(STEPS, p, control=control)
+    with locator():
+        for i in range(2, len(arts)):
+            a = arts[i]
+            renamed = {}
+            for o in a["envelope"]["objects"]:
+                old = o["uri"]
+                o["uri"] = ouri(old.removeprefix("urn:example:obj:"))
+                renamed[o["uri"]] = a["objectDigests"][old]
+                p[o["uri"]] = p.pop(old)
+            a["objectDigests"] = renamed
+        rechain(arts, 2)
+        for i in range(2, len(arts)):
+            resign(arts[i], CTY["event"], envelope_ref=LOCATOR_ENVELOPE_REF)
+        rechain(arts, 3)
+        ev = evaluation(p, control, arts[-1])
+    scenario("73-mixed-form-run", "The run switches from the legacy to the locator form at seq 2 (a producer "
+             "upgrade mid-run); the evaluation is in the locator form. Every artifact verifies under its own "
+             "envelope reference: every check ok.", bundle(control, arts, [ev], p), "run_finalized", {})
+
+    with locator(envelope=False):
+        p, control, arts = standard()
+        ev = evaluation(p, control, arts[-1])
+    scenario("74-locator-objects-legacy-envelope", "Producers already emit production-profile object URIs while "
+             "the signing service still sets the legacy envelope reference: every check ok.",
+             bundle(control, arts, [ev], p), "run_finalized", {})
+
+    with locator(objects=False):
+        p, control, arts = standard()
+        ev = evaluation(p, control, arts[-1])
+    scenario("75-legacy-objects-locator-envelope", "The signing service sets sigill-envelope.json while a producer "
+             "still sends urn: object URIs. The production profile governs emission, not verification: every "
+             "check ok.", bundle(control, arts, [ev], p), "run_finalized", {})
+
+    with locator():
+        p, control, arts = standard()
+        resign(arts[1], CTY["event"], envelope_ref="envelope.json")
+        rechain(arts, 2)
+    scenario("76-unknown-envelope-reference", "seq 1 names its envelope 'envelope.json': only sigill-envelope.json "
+             "and urn:sigill:envelope are envelope references.", bundle(control, arts), "run_invalid",
+             {"objects": "bad"}, findings=["sigD.pars is not the envelope followed by objects[] in order"])
+
+    for name, reserved in (("77-reserved-locator-name-as-object", LOCATOR_ENVELOPE_REF),
+                           ("78-reserved-legacy-name-as-object", LEGACY_ENVELOPE_REF)):
+        with locator():
+            p, control, arts = standard()
+            o = arts[1]["envelope"]["objects"][0]
+            arts[1]["objectDigests"] = {reserved: arts[1]["objectDigests"][o["uri"]]}
+            o["uri"] = reserved
+            resign(arts[1], CTY["event"])
+            rechain(arts, 2)
+        scenario(name, f"seq 1 uses the reserved envelope name {reserved!r} as an object URI: a conformance "
+                 "failure, and that entry is never verified as an object.", bundle(control, arts), "run_invalid",
+                 {"objects": "bad", "envelope": "bad"}, findings=["objects[] uses the reserved envelope URI"])
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))

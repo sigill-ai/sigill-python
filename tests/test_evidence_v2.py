@@ -13,11 +13,13 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 
 import httpx
 import pytest
 
 from sigill_sdk import (
+    LEGACY_ENVELOPE_REFERENCE,
     EvidenceV2Artifact,
     EvidenceV2Payload,
     SigillClient,
@@ -81,7 +83,7 @@ def test_seal_sends_digests_only_and_assembles_artifact_client_side() -> None:
         _core_envelope(),
         [
             EvidenceV2Payload(role="prompt", data=prompt, content_type="text/plain", encoding="utf-8"),
-            EvidenceV2Payload(role="output", data=output, uri="urn:test:out", content_type="text/markdown"),
+            EvidenceV2Payload(role="output", data=output, uri="objects/test-out", content_type="text/markdown"),
         ],
         CERT,
     )
@@ -98,8 +100,10 @@ def test_seal_sends_digests_only_and_assembles_artifact_client_side() -> None:
     objects = body["objects"]
     assert len(objects) == 2
     assert objects[0]["hashHex"] == _sha256(prompt)
-    assert objects[0]["uri"].startswith("urn:uuid:"), "generated URIs are opaque by default"
-    assert objects[1]["uri"] == "urn:test:out"
+    assert re.fullmatch(r"objects/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}", objects[0]["uri"]), (
+        "generated URIs are opaque production-profile references by default (spec §3.1)"
+    )
+    assert objects[1]["uri"] == "objects/test-out"
 
     # The envelope hash binds the SDK's own canonicalization.
     expected = _sha256(canonicalize(artifact.envelope))
@@ -154,8 +158,8 @@ def test_seal_rejects_reserved_and_duplicate_uris_and_bad_roles() -> None:
         client.seal_evidence_v2(
             _core_envelope(),
             [
-                EvidenceV2Payload(role="prompt", data=data, uri="urn:t:a"),
-                EvidenceV2Payload(role="output", data=data, uri="urn:t:a"),
+                EvidenceV2Payload(role="prompt", data=data, uri="objects/a"),
+                EvidenceV2Payload(role="output", data=data, uri="objects/a"),
             ],
             CERT,
         )
@@ -168,13 +172,26 @@ def test_seal_rejects_reserved_and_duplicate_uris_and_bad_roles() -> None:
     assert requests == []
 
 
-def _artifact_with(*objects: tuple[str, str]) -> EvidenceV2Artifact:
+def _b64url(text: str) -> str:
+    return base64.urlsafe_b64encode(text.encode()).rstrip(b"=").decode()
+
+
+def _header(alg: str, *pars: str) -> str:
+    return _b64url(json.dumps({"alg": alg, "sigD": {"pars": list(pars)}}))
+
+
+def _artifact_signed(envelope_ref: str, signed_objects: list[str], *objects: tuple[str, str]) -> EvidenceV2Artifact:
+    """An artifact whose classical header signs ``pars = [envelope_ref, *signed_objects]``."""
     envelope = _core_envelope()
     envelope["schemaName"] = "AiEvidenceEnvelope"
     envelope["schemaVersion"] = "2"
     envelope["objects"] = [{"uri": u, "role": r} for u, r in objects]
-    signature = {"signatures": [{"protected": "e30", "signature": "c2ln"}]}
+    signature = {"signatures": [{"protected": _header("RS256", envelope_ref, *signed_objects), "signature": "c2ln"}]}
     return EvidenceV2Artifact(envelope=envelope, signature=signature, envelope_hash_hex="ignored")
+
+
+def _artifact_with(*objects: tuple[str, str]) -> EvidenceV2Artifact:
+    return _artifact_signed(LEGACY_ENVELOPE_REFERENCE, [u for u, _ in objects], *objects)
 
 
 def _verdict(**overrides) -> dict:
@@ -263,7 +280,7 @@ def test_verify_hybrid_against_verifier_without_pqc_verdict_never_reports_ok() -
 
 def test_verify_surfaces_misalignment_and_uncovered_roles() -> None:
     # Envelope claims urn:t:prompt, but the signature signed urn:t:evil.
-    artifact = _artifact_with(("urn:t:prompt", "prompt"))
+    artifact = _artifact_signed(LEGACY_ENVELOPE_REFERENCE, ["urn:t:evil"], ("urn:t:prompt", "prompt"))
     verdict = _verdict(
         complete=False,
         suppliedCount=1,

@@ -23,11 +23,11 @@ of it stays with the producer; the artifact binds digests.
   "controlSet": { "id": "customer-write-v4", "version": "4" },
   "timestampPolicy": { "profile": "throughput", "everyEvents": 0, "everySeconds": 0, "consequential": false },
   "objects": [
-    { "uri": "urn:uuid:…", "role": "instruction-set",  "contentType": "text/plain" },
-    { "uri": "urn:uuid:…", "role": "tool-manifest",    "contentType": "application/json" },
-    { "uri": "urn:uuid:…", "role": "execution-policy", "contentType": "application/json" },
-    { "uri": "urn:uuid:…", "role": "control-set",      "contentType": "application/json" },
-    { "uri": "urn:uuid:…", "role": "authority",        "contentType": "application/jwt" }
+    { "uri": "objects/<uuid>", "role": "instruction-set",  "contentType": "text/plain" },
+    { "uri": "objects/<uuid>", "role": "tool-manifest",    "contentType": "application/json" },
+    { "uri": "objects/<uuid>", "role": "execution-policy", "contentType": "application/json" },
+    { "uri": "objects/<uuid>", "role": "control-set",      "contentType": "application/json" },
+    { "uri": "objects/<uuid>", "role": "authority",        "contentType": "application/jwt" }
   ]
 }
 ```

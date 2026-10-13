@@ -34,6 +34,15 @@ from sigill_sdk._envelope import (
     AiEvidenceEnvelopeInput,
     SealedAiEvidenceEnvelope,
 )
+from sigill_sdk._references import (
+    LEGACY_DIAGNOSTIC,
+    EnvelopeReferenceForm,
+    classify,
+    digest_key_for,
+    is_reserved,
+    pqc_pars_mismatch,
+    strict_signed_pars,
+)
 from sigill_sdk._errors import (
     HashMismatch,
     InvalidProof,
@@ -589,13 +598,15 @@ class SigillClient:
         reminders: str | None = None,
         reminder_days: int | None = None,
         timestamp: bool = True,
+        _reused_uris: frozenset[str] | None = None,
     ) -> SignHashesResult:
         """Sign a multi-object record by digests — the profile-agnostic tier
         beneath :meth:`seal_evidence_v2` (spec §2/§12).
 
-        The caller supplies the digest of its own envelope (signed as object 0
-        under ``urn:sigill:envelope``) and a digest + opaque URI per content
-        object, and may set ``envelope_content_type`` — the profile
+        The caller supplies the digest of its own envelope (signed as object 0;
+        the signing service names it ``sigD.pars[0]``) and a digest + opaque
+        URI per content object (spec §3.1 production profile, e.g.
+        ``objects/<uuid>``), and may set ``envelope_content_type`` — the profile
         discriminator (spec §5.2) — so sibling profiles sign through the same
         blind mechanism without being presented as AI evidence. Content never
         travels; the caller assembles its own artifact from the returned JWS.
@@ -619,6 +630,7 @@ class SigillClient:
             reminders=reminders,
             reminder_days=reminder_days,
             timestamp=timestamp,
+            reused_uris=_reused_uris,
         )
         resp = self._http.post("/seal/sign-hashes", json=body)
         if resp.status_code >= 400:
@@ -657,15 +669,25 @@ class SigillClient:
         :attr:`EvidenceV2VerificationResult.ok`.
         """
         payloads = payloads or {}
+        # The envelope digest is always the SDK's own JCS of artifact.envelope: a payload supplied under either
+        # envelope reference would replace it and let an edited envelope verify against the original's digest.
+        for key in payloads:
+            if is_reserved(key):
+                raise SigillError(
+                    f"'{key}' is reserved for the envelope; the SDK computes its digest from the artifact itself."
+                )
 
+        # Only digests travel. The envelope digest is the entry for the envelope reference this signature carries
+        # (sigill-envelope.json, or urn:sigill:envelope before v2.1 — spec §5.2 rule 2). Never both.
         canonical = canonicalize(artifact.envelope)
-        digests = {ENVELOPE_URI: hash_bytes(canonical)}
+        envelope_key = digest_key_for(artifact.signature, lenient=False)
+        digests = {envelope_key: hash_bytes(canonical)}
         for uri, data in payloads.items():
             digests[uri] = hash_bytes(data)
 
         digests512 = None
         if has_ml_dsa_signer(artifact.signature):
-            digests512 = {ENVELOPE_URI: hash_bytes(canonical, alg="SHA-512")}
+            digests512 = {envelope_key: hash_bytes(canonical, alg="SHA-512")}
             for uri, data in payloads.items():
                 digests512[uri] = hash_bytes(data, alg="SHA-512")
 
@@ -690,8 +712,29 @@ class SigillClient:
         envelope_uris = [
             o.get("uri") or "" for o in artifact.envelope.get("objects") or []
         ]
-        signed_payload_uris = [u for u in signed_uris if u != ENVELOPE_URI]
-        alignment_ok = envelope_uris == signed_payload_uris
+        # The signed object list comes ONLY from one structurally valid classical header (pars, in signed order). No
+        # fallback: an unreadable header, several classical entries or a missing pars fail alignment.
+        signed_pars = strict_signed_pars(artifact.signature)
+        envelope_form = classify(signed_pars[0] if signed_pars else None)
+        signed_payload_uris = signed_pars[1:] if signed_pars else []
+        if signed_pars is None:
+            issues.append("The signature does not carry exactly one classical entry with a readable sigD.pars.")
+        elif envelope_form is EnvelopeReferenceForm.INVALID:
+            issues.append(
+                "The signature's first sigD object is not an envelope reference (sigill-envelope.json or urn:sigill:envelope)."
+            )
+        pqc_mismatch = pqc_pars_mismatch(artifact.signature)
+        if pqc_mismatch:
+            issues.append("The ML-DSA signature's sigD.pars differ from the classical signature's (spec §5.2 rule 5).")
+        reserved_object = any(is_reserved(u) for u in envelope_uris)
+        if reserved_object:
+            issues.append("The envelope's objects[] use a reserved envelope reference as an object URI.")
+        alignment_ok = (
+            envelope_form is not EnvelopeReferenceForm.INVALID
+            and not reserved_object
+            and not pqc_mismatch
+            and envelope_uris == signed_payload_uris
+        )
         if not alignment_ok:
             issues.append(
                 "The envelope's objects[] do not align 1:1 (in order) with the signed sigD object list."
@@ -735,6 +778,7 @@ class SigillClient:
             missing_roles=missing_roles,
             issues=issues,
             raw=core.raw,
+            notes=[LEGACY_DIAGNOSTIC] if envelope_form is EnvelopeReferenceForm.LEGACY_URN else [],
         )
 
     # ------------------------------------------------- verify_object_hashes

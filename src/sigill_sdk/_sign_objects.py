@@ -16,9 +16,11 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from sigill_sdk._errors import SigillError
+from sigill_sdk._references import LEGACY_REFERENCE, is_reserved, require_emittable
 
-ENVELOPE_URI = "urn:sigill:envelope"
-"""The reserved sigD URI of the envelope (signed object 0)."""
+ENVELOPE_URI = LEGACY_REFERENCE
+"""The v2.0 envelope reference (``sigD.pars[0]`` of seals made before v2.1). New seals carry
+``sigill-envelope.json``; read a seal's form with :func:`sigill_sdk.classify_envelope_reference`. Both are reserved."""
 
 MAX_SIGN_HASHES_OBJECTS = 128
 """Mirror of the platform's per-seal object cap."""
@@ -34,8 +36,9 @@ def _is_hex(s: str | None, length: int) -> bool:
 class SignedObjectDigest:
     """One detached object of a blind multi-object seal: an opaque
     URI-reference and the digest(s) of the object bytes, computed by the
-    caller. URIs must carry no personal data (opaque URNs);
-    ``urn:sigill:envelope`` is reserved for the envelope itself."""
+    caller. URIs must match the AiEvidenceEnvelopeV2 §3.1 production profile
+    (e.g. ``objects/<uuid>``) and carry no personal data;
+    ``sigill-envelope.json`` and ``urn:sigill:envelope`` are reserved."""
 
     uri: str
     hash_hex: str
@@ -114,9 +117,15 @@ def build_sign_hashes_body(
     reminders: str | None,
     reminder_days: int | None,
     timestamp: bool = True,
+    reused_uris: frozenset[str] | None = None,
 ) -> dict[str, Any]:
     """Validate the digest inputs and build the wire body — every failure
-    here happens before any network call."""
+    here happens before any network call.
+
+    ``reused_uris`` (internal): URIs an earlier seal already bound that this seal re-references (a Control
+    Evaluation reusing its Control Artifact's control set). Exempt from the production-profile check only;
+    reserved names never pass. A transition allowance for runs that straddle an upgrade — the signing service
+    refuses such URIs too once it enforces the profile (AiEvidenceEnvelopeV2 §10.1)."""
     if not _is_hex(envelope_hash_hex, 64):
         raise SigillError(
             "envelope_hash_hex must be 64 hex characters (SHA-256 of the canonical envelope)."
@@ -143,8 +152,13 @@ def build_sign_hashes_body(
             raise SigillError(
                 f"Object URI '{uri}' has leading or trailing whitespace — URIs are signed byte-exactly and are never normalized."
             )
-        if uri == ENVELOPE_URI:
-            raise SigillError(f"'{ENVELOPE_URI}' is reserved for the envelope itself.")
+        # Every object this seal emits follows the production profile (spec §3.1); the one allowance is a URI an
+        # earlier seal bound that this seal re-references. Reserved names never pass.
+        if reused_uris is not None and uri in reused_uris:
+            if is_reserved(uri):
+                raise SigillError(f"'{uri}' is reserved for the envelope itself.")
+        else:
+            require_emittable(uri)
         if uri in seen:
             raise SigillError(
                 f"Duplicate object URI '{uri}' — URIs are compared byte-exactly and must be unique."

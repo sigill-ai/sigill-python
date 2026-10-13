@@ -14,8 +14,9 @@ together describe one controlled agent run:
 They are sibling profiles in the sense of v2 §2: each is its own content type
 with its own schema, sealed through the identical blind mechanism
 (`POST /seal/sign-hashes`), never an `extensions` block. v2 §4
-(canonicalization), §5 (JAdES binding), §6 (artifact container) and §8 (what
-Sigill receives) apply unchanged. This document holds what the three share.
+(canonicalization), §5 (JAdES binding, including the v2.1 reference form of
+§5.2 and §5.4), §6 (artifact container) and §8 (what Sigill receives) apply
+unchanged. This document holds what the three share.
 
 The key words MUST, SHOULD and MAY are used as in RFC 2119.
 
@@ -178,12 +179,23 @@ consequential events narrows that window at the cost of one timestamp each.
 
 ## 5. Detached objects
 
-Everything under `objects[]` stays with the producer (v2 §3.1). `uri` SHOULD be
-`urn:uuid:<uuid>`; it is opaque and never dereferenced; it MUST NOT carry
-personal data. `contentType` SHOULD be set. The same object MAY appear in
-several artifacts (the control set appears in both the Control Artifact and
-the Control Evaluation); when it does, the URI and the digest MUST be
-identical in each.
+Everything under `objects[]` stays with the producer (v2 §3.1). A `uri` a
+producer emits MUST match the v2 §3.1 production reference profile and SHOULD
+be `objects/<uuid>` (lower-case UUID); it is opaque and never dereferenced; it
+MUST NOT carry personal data. Verifiers do not apply the production profile to
+historical evidence: artifacts sealed before v2.1 carry `urn:uuid:<uuid>`
+object URIs and remain valid. `contentType` SHOULD be set. The same object MAY
+appear in several artifacts (the control set appears in both the Control
+Artifact and the Control Evaluation); when it does, the URI and the digest
+MUST be identical in each. An object first sealed under a legacy URI keeps
+it; re-referencing it in a new seal is a transition allowance that ends when
+the signing service enforces the production profile (v2 §3.1, §10.1) — after
+that the producer starts a fresh run. A run MAY mix reference forms across artifacts
+(a run that straddles a producer upgrade); each artifact's envelope reference
+is classified from its own signature (v2 §5.2 rule 2).
+
+Correlation and evidence identifiers are not object references and keep
+their `urn:uuid:` forms (§1, §7).
 
 ## 6. Producer rules
 
@@ -296,9 +308,16 @@ verifier never evaluates controls.
 
 **Signature verification** of each artifact is the v2 object-level verdict
 (v2 §7): the verifier supplies the JCS digest of its own copy of the envelope
-under `urn:sigill:envelope` plus one digest per object, offline or through the
-blind `POST /seal/verify-objects`; either way only digests leave the
-verifier.
+under the envelope reference that artifact's signature carries
+(`sigill-envelope.json`, or `urn:sigill:envelope` for seals made before v2.1;
+v2 §5.2 rule 2) plus one digest per object, offline or through the blind
+`POST /seal/verify-objects`; either way only digests leave the verifier. Any
+other `pars[0]` fails `objects` (the signature and envelope disagree on the
+object list). Either reserved name in `objects[]` is a §1 conformance failure
+(`envelope`), and that entry is never verified as an object, so `objects`
+fails too.
+A legacy envelope reference is an explanatory diagnostic (v2 §5.4), never a
+warning and never a change to any check state.
 
 **Scope.** `run_finalized` with `overall: PASS` means: the control basis was
 sealed before the first event, all recorded events are unchanged since
@@ -352,6 +371,10 @@ verification by digest needs only their hashes.
   cross-language vectors — binding digests, and complete bundles with their
   expected verdicts under a deterministic stub signer. Vectors 65–70 pin the §1 integer rule:
   `1.0` and `1e0` are seq 1; `true`, `1.5`, `-1` and `2147483648` fail.
+  Vectors 71–78 pin the v2.1 reference form (v2 §5.2, §5.4): runs in the
+  locator form, a run that switches form mid-chain, both transitional
+  combinations of envelope and object forms, an unknown envelope reference,
+  and each reserved envelope name used as an object URI.
 - [`test-vectors/10-agent-controlled-run/`](./test-vectors/10-agent-controlled-run/README.md):
   one run sealed for real by the Sigill test tenant (canonical bytes, and the
   profile layer checked offline; signature validity needs the platform).
@@ -377,10 +400,15 @@ verification by digest needs only their hashes.
 - **`finalSeq` is `run_end`'s own `seq`**, duplicated in its step block, so
   closure is checkable without trusting the same artifact's chain fields.
 - **A Control Evaluation is valid only over its own envelope** (2026-10-03):
-  a valid signature whose `urn:sigill:envelope` digest does not match the
+  a valid signature whose envelope digest (`pars[0]`) does not match the
   envelope at hand reports `signatureValid: false`, so an edited result can
   never read as valid.
 - **Bare UUID `evidenceId`**, as the v2 family core requires. The `urn:uuid:`
   form is accepted by the SDK verifiers (their validator's `format: uuid`
   allows it); a general JSON Schema validator that enforces formats rejects
   it.
+- **Locator references** (2026-10-13): follows v2.1 (v2 §3.1, §5.2, §5.4,
+  §12). Producers emit `sigill-envelope.json` and `objects/<uuid>`;
+  verifiers read both forms per artifact, so runs sealed before the change
+  and runs that straddle it stay verifiable. A legacy reference is an
+  explanatory diagnostic, never a warning, so no existing verdict changes.

@@ -43,7 +43,7 @@ from sigill_sdk._agent_types import (
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
 from sigill_sdk._schema import _json_equal, parse_date_time, validate_profile
-from sigill_sdk._sign_objects import ENVELOPE_URI
+from sigill_sdk._references import LEGACY_DIAGNOSTIC, LEGACY_REFERENCE, digest_key_for, is_reserved, strict_envelope_reference
 
 SCOPE = (
     "run_finalized means: the control basis was sealed before the first event, all recorded events are unchanged "
@@ -94,7 +94,7 @@ class BlindObjectsVerdict:
     signature_valid: bool
     complete: bool
     objects: list[tuple[str, bool]]
-    """(uri, hash_match) per signed URI, including ``urn:sigill:envelope``."""
+    """(uri, hash_match) per signed URI, including the envelope reference (``sigD.pars[0]``)."""
     missing: list[str] = field(default_factory=list)
     unreferenced: list[str] = field(default_factory=list)
     timestamp: Optional[SignatureTimestampInfo] = None
@@ -295,6 +295,9 @@ class AgentRunVerificationResult:
     """Seal time, defence in depth (§8): the Control Artifact's timestamp is not later than run_start's."""
     event_times_plausible: Optional[bool] = None
     """No timestamped event claims an eventTime later than its own seal time (with allowance)."""
+    notes: list[str] = field(default_factory=list)
+    """Informational notes — currently the legacy envelope reference diagnostic (AiEvidenceEnvelopeV2 §5.4). Never a
+    warning: notes do not affect ``verdict``, ``checks`` or ``warnings``."""
 
     @property
     def scope(self) -> str:
@@ -363,7 +366,7 @@ def _parse_signed(envelope: dict, signature: dict, schema_name: str) -> tuple[Op
         if not isinstance(o, dict) or not isinstance(o.get("uri"), str):
             continue
         uri = o["uri"]
-        if uri == ENVELOPE_URI:
+        if is_reserved(uri):
             sa.conformance.append("objects[] uses the reserved envelope URI")
             continue
         if uri in seen:
@@ -439,7 +442,8 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
         c.findings.append(f"{label}: supplied object '{uri}' is not covered by the signature (unsigned data in the record).")
         obj_ok = False
     try:
-        digests[ENVELOPE_URI] = hash_bytes(canonicalize(sa.env))
+        envelope_key = digest_key_for(sa.jws, lenient=True)
+        digests[envelope_key] = hash_bytes(canonicalize(sa.env))
         r = blind(sa.jws, digests)
         if r is None:
             raise SigillError("blind verifier returned no result")
@@ -462,8 +466,8 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
             if o.signed and matches.get(o.uri) is False:
                 c.objects[i] = replace(o, hash_match=False)
                 c.findings.append(f"{label}: object '{o.uri}' ({o.role}) no longer matches its signed digest.")
-        c.envelope_covered = matches.get(ENVELOPE_URI) is True
-        if matches.get(ENVELOPE_URI) is not True:
+        c.envelope_covered = matches.get(envelope_key) is True
+        if matches.get(envelope_key) is not True:
             c.objects_complete = False
             c.findings.append(f"{label}: the signature does not cover this envelope.")
         layout = _layout_problem(sa.env, sa.jws)
@@ -1017,6 +1021,11 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                                 f"establish who produced it.")
 
     verdict = "run_invalid" if "bad" in checks.values() else "run_finalized" if end is not None else "run_open"
+    # The reference form is reported, never judged (v2 §5.4): a note, not a warning, and no check state changes.
+    all_signatures = ([bundle.control_artifact.signature] if bundle.control_artifact is not None else []) + \
+        [a.signature for a in bundle.artifacts] + [e.signature for e in bundle.evaluations]
+    legacy = sum(1 for j in all_signatures if strict_envelope_reference(j) == LEGACY_REFERENCE)
+    notes = [f"{legacy} of {len(all_signatures)} artifact(s): {LEGACY_DIAGNOSTIC}."] if legacy else []
     return AgentRunVerificationResult(
         verdict=verdict, checks=checks, binding=binding, findings=findings, warnings=warnings,
         disposition=disposition, agent_id=reference.actor_id if reference else None,
@@ -1026,7 +1035,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                                             policy_signed),
         certificates=certificates, control=control, artifacts=verdicts, evaluations=evaluations,
         fingerprint=_safe_fingerprint(bundle), signer=run_signer, control_sealed_before_run=sealed_before_run,
-        event_times_plausible=plausible)
+        event_times_plausible=plausible, notes=notes)
 
 
 def _n(v: Any) -> str:

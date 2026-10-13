@@ -67,8 +67,8 @@ def test_sign_object_hashes_carries_caller_content_types_including_object_zero()
     result = client.sign_object_hashes(
         ENVELOPE_HEX,
         [
-            SignedObjectDigest(uri="urn:example:1", hash_hex=OBJECT_HEX, content_type="text/plain"),
-            SignedObjectDigest(uri="urn:example:2", hash_hex=hashlib.sha256(b"object two").hexdigest()),
+            SignedObjectDigest(uri="objects/1", hash_hex=OBJECT_HEX, content_type="text/plain"),
+            SignedObjectDigest(uri="objects/2", hash_hex=hashlib.sha256(b"object two").hexdigest()),
         ],
         CERT,
         envelope_content_type=SIBLING_CTY,
@@ -84,7 +84,7 @@ def test_sign_object_hashes_carries_caller_content_types_including_object_zero()
 
     objects = body["objects"]
     assert len(objects) == 2
-    assert objects[0] == {"uri": "urn:example:1", "hashHex": OBJECT_HEX, "contentType": "text/plain"}
+    assert objects[0] == {"uri": "objects/1", "hashHex": OBJECT_HEX, "contentType": "text/plain"}
     assert "contentType" not in objects[1], "absent ctys stay absent"
 
     # Digests-in: nothing but digests, URIs, and ctys ever travels.
@@ -106,7 +106,7 @@ def test_sign_object_hashes_pqc_requires_and_sends_sha512_throughout() -> None:
     with pytest.raises(SigillError, match="envelope_hash_hex512"):
         client.sign_object_hashes(
             ENVELOPE_HEX,
-            [SignedObjectDigest(uri="urn:example:1", hash_hex=OBJECT_HEX, hash_hex512=OBJECT_512)],
+            [SignedObjectDigest(uri="objects/1", hash_hex=OBJECT_HEX, hash_hex512=OBJECT_512)],
             CERT,
             pqc=True,
         )
@@ -115,7 +115,7 @@ def test_sign_object_hashes_pqc_requires_and_sends_sha512_throughout() -> None:
     with pytest.raises(SigillError, match="hash_hex512"):
         client.sign_object_hashes(
             ENVELOPE_HEX,
-            [SignedObjectDigest(uri="urn:example:1", hash_hex=OBJECT_HEX)],
+            [SignedObjectDigest(uri="objects/1", hash_hex=OBJECT_HEX)],
             CERT,
             pqc=True,
             envelope_hash_hex512=ENVELOPE_512,
@@ -124,7 +124,7 @@ def test_sign_object_hashes_pqc_requires_and_sends_sha512_throughout() -> None:
 
     result = client.sign_object_hashes(
         ENVELOPE_HEX,
-        [SignedObjectDigest(uri="urn:example:1", hash_hex=OBJECT_HEX, hash_hex512=OBJECT_512)],
+        [SignedObjectDigest(uri="objects/1", hash_hex=OBJECT_HEX, hash_hex512=OBJECT_512)],
         CERT,
         pqc=True,
         envelope_hash_hex512=ENVELOPE_512,
@@ -142,7 +142,7 @@ def test_sign_object_hashes_validates_uris_and_digests_before_network() -> None:
         raise AssertionError("validation failures must not reach the network")
 
     client, requests = _client(handler)
-    one = SignedObjectDigest(uri="urn:example:1", hash_hex=OBJECT_HEX)
+    one = SignedObjectDigest(uri="objects/1", hash_hex=OBJECT_HEX)
 
     with pytest.raises(SigillError, match="reserved"):
         client.sign_object_hashes(
@@ -155,18 +155,18 @@ def test_sign_object_hashes_validates_uris_and_digests_before_network() -> None:
     # signature would no longer align with that envelope.
     with pytest.raises(SigillError, match="whitespace"):
         client.sign_object_hashes(
-            ENVELOPE_HEX, [SignedObjectDigest(uri="urn:example:1 ", hash_hex=OBJECT_HEX)], CERT
+            ENVELOPE_HEX, [SignedObjectDigest(uri="objects/1 ", hash_hex=OBJECT_HEX)], CERT
         )
     with pytest.raises(SigillError, match="envelope_hash_hex"):
         client.sign_object_hashes("not-hex", [one], CERT)
     with pytest.raises(SigillError, match="64 hex"):
         client.sign_object_hashes(
-            ENVELOPE_HEX, [SignedObjectDigest(uri="urn:example:1", hash_hex="abc")], CERT
+            ENVELOPE_HEX, [SignedObjectDigest(uri="objects/1", hash_hex="abc")], CERT
         )
     with pytest.raises(SigillError, match="capped"):
         client.sign_object_hashes(
             ENVELOPE_HEX,
-            [SignedObjectDigest(uri=f"urn:example:{i}", hash_hex=OBJECT_HEX) for i in range(129)],
+            [SignedObjectDigest(uri=f"objects/{i}", hash_hex=OBJECT_HEX) for i in range(129)],
             CERT,
         )
     assert requests == []

@@ -222,6 +222,28 @@ jades = client.seal_jades(canonical, certificate_id=CERT_ID,
                           label="envelope.jades.json", content_type="application/json")
 ```
 
+### Object references (AiEvidenceEnvelopeV2 v2.1)
+
+ETSI TS 119 182-1 §5.2.8.3.1 requires each `sigD.pars` entry to resolve to a
+*locator*, so object URIs are relative references: when you omit `uri`, the
+SDK generates `objects/<uuid>`, and a `uri` you set must match the
+[production profile](spec/ai-evidence-envelope-v2.md#31-objects--the-payload-descriptions)
+(segments of `A–Z a–z 0–9 . _ ~ -` separated by `/`; no `urn:`, no URLs, no
+filenames with personal data). `sigill-envelope.json` and `urn:sigill:envelope`
+are reserved for the envelope.
+
+Verification reads both envelope references — `sigill-envelope.json` and the
+`urn:sigill:envelope` of seals made before v2.1 — from each signature itself,
+so old evidence and runs that straddle an upgrade keep verifying. The legacy
+form is reported in `result.notes` (informational, never a failure):
+
+```python
+from sigill_sdk import EnvelopeReferenceForm, classify_envelope_reference
+
+if classify_envelope_reference(signed_pars0) is EnvelopeReferenceForm.LEGACY_URN:
+    print(result.notes)
+```
+
 ## PAdES PDF sealing — the PDF never leaves your machine
 
 For PDFs, the SDK produces an embedded **PAdES** signature (ETSI EN 319 142-1)

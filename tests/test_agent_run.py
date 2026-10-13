@@ -150,7 +150,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 71
+    assert len(RUN_VECTORS) == 79
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -891,7 +891,7 @@ def test_start_callback_cancellation_still_hands_back_the_started_run() -> None:
 def test_recorder_refuses_conflicting_uri_reuse_and_accepts_identical_reuse() -> None:
     sealer = StubSealer()
     run = _start(_client(sealer), retain_payloads=True)
-    uri = "urn:example:obj:shared"
+    uri = "objects/shared"
     run.record("model_output", [AgentRunObject("model-output", b"first", uri=uri)])
     run.record("model_output", [AgentRunObject("model-output", b"first", uri=uri)])
     sealed_before = len(sealer.requests)

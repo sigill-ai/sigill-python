@@ -34,7 +34,7 @@ that starts with `run_start`, which binds the Control Artifact, and ends with
   },
   "binds": { "controlArtifactSignatureSha256": "hex…" },
   "objects": [
-    { "uri": "urn:uuid:…", "role": "tool-arguments", "contentType": "application/json" }
+    { "uri": "objects/<uuid>", "role": "tool-arguments", "contentType": "application/json" }
   ]
 }
 ```

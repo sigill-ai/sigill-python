@@ -130,7 +130,7 @@
     },
     "objects": {
       "type": "array",
-      "description": "Descriptive list of the detached content payloads this evidence references, index-aligned with sigD.pars[1..n] of the enclosing JAdES signature (the envelope itself is pars[0] and is NOT listed here). URIs MUST be unique across the array (byte-exact string comparison) and MUST NOT equal the reserved envelope URI 'urn:sigill:envelope'. The envelope says what each object IS; the signature says what it HASHES TO. An empty array is a metadata-only record. Digests are deliberately absent here — the one and only copy of each content hash is the signed copy in sigD.hashV.",
+      "description": "Descriptive list of the detached content payloads this evidence references, index-aligned with sigD.pars[1..n] of the enclosing JAdES signature (the envelope itself is pars[0] and is NOT listed here). URIs MUST be unique across the array (byte-exact string comparison) and MUST NOT equal either reserved envelope reference, 'sigill-envelope.json' or 'urn:sigill:envelope'. New output uses the §3.1 production profile (SDK default objects/<uuid>); historical urn: values stay valid. The envelope says what each object IS; the signature says what it HASHES TO. An empty array is a metadata-only record. Digests are deliberately absent here — the one and only copy of each content hash is the signed copy in sigD.hashV.",
       "items": {
         "type": "object",
         "additionalProperties": false,

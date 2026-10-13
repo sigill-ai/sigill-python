@@ -1,11 +1,14 @@
 # AiEvidenceEnvelopeV2 — Specification
 
-**Status: v2.0, agreed 12 Aug 2026.** Supersedes
+**Status: v2.1, 13 Oct 2026** (v2.0 agreed 12 Aug 2026). Supersedes
 [`AiEvidenceEnvelopeV1`](./README.md) for *producing* evidence;
 v1 envelopes remain verifiable indefinitely and nothing re-signs old evidence.
-**The opaque-URN requirement on remote paths (§3.1) is load-bearing for
-hashing anonymity and is normative** — it MUST NOT be relaxed to guidance in
-future revisions.
+v2.1 changes only the *form* of the `sigD.pars` references — relative
+locator references instead of URNs (§3.1, §5.2, §5.4); envelopes, schemas and
+`schemaVersion` are unchanged, and v2.0 seals stay verifiable.
+**The opaque-identifier requirement on remote paths (§3.1) is load-bearing
+for hashing anonymity and is normative** — it MUST NOT be relaxed to guidance
+in future revisions.
 
 This is the format contract; the Sigill platform signing and verification
 endpoints are documented in the platform API reference. That contract is
@@ -112,14 +115,16 @@ collapse into one descriptive list:
 
 ```jsonc
 "objects": [
-  { "uri": "urn:acme:run-42:prompt", "role": "prompt", "contentType": "text/plain",
-    "encoding": "utf-8", "sizeBytes": 214 },
-  { "uri": "urn:acme:run-42:ctx-0",  "role": "context", "contentType": "text/markdown",
-    "encoding": "utf-8", "metadata": { "rank": 0, "score": 0.93, "source": "kb://article/118" } },
-  { "uri": "urn:acme:run-42:output", "role": "output", "contentType": "text/markdown",
-    "encoding": "utf-8" },
-  { "uri": "report.xlsx",            "role": "artifact", "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "encoding": "binary" }
+  { "uri": "objects/6f1c2a4e-0b7d-4c1e-9a52-3d8f0e1b7c90", "role": "prompt",
+    "contentType": "text/plain", "encoding": "utf-8", "sizeBytes": 214 },
+  { "uri": "objects/0d3b9e57-8a21-4f6c-b4d0-71c5e2a9f346", "role": "context",
+    "contentType": "text/markdown", "encoding": "utf-8",
+    "metadata": { "rank": 0, "score": 0.93, "source": "kb://article/118" } },
+  { "uri": "objects/a85e0f12-6c3d-4b97-8e41-c2f9d07b5a63", "role": "output",
+    "contentType": "text/markdown", "encoding": "utf-8" },
+  { "uri": "objects/3c7d1b98-e4a6-4f05-9d2c-58b0a1e6f714", "role": "artifact",
+    "contentType": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "encoding": "binary", "metadata": { "filename": "report.xlsx" } }
 ]
 ```
 
@@ -127,29 +132,54 @@ Rules (normative):
 
 - **Roles**: `prompt | input | context | output | artifact | log`. The
   envelope says what each object *is*; the signature says what it *hashes to*.
-- **URIs are caller-chosen, opaque identifiers**. Sigill never dereferences
-  them. (TS 119 182-1 §5.2.8.3.1 frames `pars` entries as resolvable
-  URI-references; this profile deliberately uses them as pure identifiers —
-  digests are always computed from caller-supplied bytes, never fetched. The
-  EU DSS reference validator accepts this; it matches detached objects to
-  `pars` entries by name.)
+- **URIs are caller-chosen, opaque locator references** (since v2.1).
+  TS 119 182-1 §5.2.8.3.1 requires every `pars` entry to be a URI-reference
+  that, once resolved (a relative reference against a default HTTP base),
+  is a *locator* in the sense of RFC 3986 §1.1.3. A URN is a name, not a
+  locator, so v2.0's `urn:` identifiers do not meet that clause; v2.1
+  replaces them (rationale and evidence: §12). Sigill never dereferences
+  them, and no verifier needs to: digests are always computed from
+  caller-supplied bytes, never fetched (§5.4).
+- **Production reference profile** (normative for NEW output, never applied
+  when verifying historical evidence). Every object URI a producer emits
+  MUST match Sigill's deliberately narrower profile:
+
+  ```
+  ref     = segment *( "/" segment )
+  segment = 1*( ALPHA / DIGIT / "." / "_" / "~" / "-" )   ; and not "." or ".."
+  ```
+
+  That is: non-empty segments; no scheme or `:`; no authority (`//`); no
+  leading or trailing `/`; no `\`, whitespace or control characters; no
+  `?`, `#` or `%` (no percent-encoding, so byte-exact comparison stays
+  exact). Absolute URLs are excluded too, even though ETSI allows them: a
+  validator may dereference them, which leaks names and opens a request
+  surface for third-party verifiers. Size limits are those of the signing
+  endpoints and are unchanged. SDKs generate `objects/<uuid>` (lower-case
+  UUID) by default. **Transition allowance (§10.1):** until the signing
+  service enforces this profile, a new seal may re-reference an object an
+  earlier seal bound under a legacy URI (an evaluation of a run that
+  straddles an upgrade reuses the control set its Control Artifact sealed);
+  the URI is kept, never renamed. Once the profile is enforced, such a seal is
+  refused, and the producer starts a fresh run whose objects conform. This
+  governs emission only: historical and transitional seals stay verifiable.
 - **On any remote path, opacity is a privacy requirement, not a style
   choice**: URIs sent to the platform (blind signing, blind verification)
   MUST carry no personal data and no content-derived names — hashing
   anonymity is defeated by a `pars` entry like
-  `contract-olsen-vs-hansen.pdf`. SDKs generate `urn:uuid:`-based
-  identifiers by default; human-meaningful names (filenames, paths) belong
-  in the object's `metadata`, which stays inside the envelope and never
-  leaves the producer. (A stored-seal opt-in on the platform retains the
-  JWS, which embeds the signed URIs — opaque URNs are what keep that
-  retention clean.)
+  `contract-olsen-vs-hansen.pdf`. The `objects/<uuid>` default is opaque;
+  human-meaningful names (filenames, paths) belong in the object's
+  `metadata`, which stays inside the envelope and never leaves the producer.
+  (A stored-seal opt-in on the platform retains the JWS, which embeds the
+  signed URIs — opaque identifiers are what keep that retention clean.)
 - **URIs MUST be unique** across `objects[]`, compared **byte-exactly** as
   strings (no normalization, no case folding). Producers MUST reject
   duplicates; verifiers MUST fail on them. The same content MAY appear under
   two URIs (e.g. the same bytes as both `input` and `context`) — identity is
   the URI, not the digest.
-- `urn:sigill:envelope` is **reserved** for the envelope itself (§4) and MUST
-  NOT appear in `objects[]`.
+- `sigill-envelope.json` and `urn:sigill:envelope` are **reserved** for the
+  envelope itself (§5.2) and MUST NOT appear in `objects[]`. Producers MUST
+  reject both; verifiers MUST fail on either.
 - **`encoding`** records how the hashed bytes were derived: `utf-8` (text
   serialized as UTF-8) or `binary` (raw file bytes). RECOMMENDED for text
   payloads — a verifier handed a *string* cannot otherwise reliably reproduce
@@ -241,7 +271,7 @@ bytes** (§5.2.8.1, item 1) — never of a base64 intermediate.
 ### 5.2 sigD layout
 
 ```
-pars[0]  = "urn:sigill:envelope"          hashV[0] = b64url(digest(JCS(envelope)))
+pars[0]  = "sigill-envelope.json"         hashV[0] = b64url(digest(JCS(envelope)))
 pars[1…] = objects[0…].uri, in order      hashV[1…] = b64url(digest(payload bytes))
 ctys[0]  = "application/vnd.sigill.ai-evidence+json"
 ctys[1…] = objects[0…].contentType, or "" when absent
@@ -251,11 +281,20 @@ Alignment rules (normative — these resolve the "1:1 by uri" ambiguity):
 
 1. `pars`, `hashV` and `ctys` have equal length and are index-aligned
    (§5.2.8.1).
-2. `pars[0]` is exactly `urn:sigill:envelope`; `ctys[0]` is exactly the
-   AI-evidence content type. `ctys[0]` is the **profile discriminator** —
-   TS 119 182-1 §5.1.3 keeps the `cty` header parameter out of
-   sigD-bearing signatures, so the type of object 0 is where a consumer
-   learns "this is AI evidence".
+2. `pars[0]` names the envelope. New output MUST use exactly
+   `sigill-envelope.json` (the *locator* envelope reference). Verifiers MUST
+   accept exactly two values: `sigill-envelope.json` and the v2.0 value
+   `urn:sigill:envelope` (the *legacy* envelope reference); anything else is
+   `alignment_invalid`. The form is read from the individual classical
+   signature entry being verified, after its header has been structurally
+   validated — never from configuration, a neighbouring artifact or the
+   producer's version. The two values are not aliases: no normalization, no
+   general URI equivalence, and the digest map supplied for verification
+   (§7.1) is keyed by the value this very signature carries. `ctys[0]` is
+   exactly the AI-evidence content type. `ctys[0]` is the **profile
+   discriminator** — TS 119 182-1 §5.1.3 keeps the `cty` header parameter
+   out of sigD-bearing signatures, so the type of object 0 is where a
+   consumer learns "this is AI evidence".
 3. `pars[i]` for `i ≥ 1` equals `envelope.objects[i-1].uri` — same order,
    byte-exact string equality. No entry may be added, dropped, or reordered
    on either side; duplicate `pars` entries are invalid.
@@ -263,8 +302,10 @@ Alignment rules (normative — these resolve the "1:1 by uri" ambiguity):
    byte-exactly, or the empty string when the envelope omits `contentType`
    (§5.2.8.1: empty string when the type is implied).
 5. When the PQC signer is present, its `sigD` carries the **same `pars` and
-   `ctys`** and SHA-512 digests of the **same bytes** in `hashV`. One evidence
-   record, two independent cryptographic commitments to it.
+   `ctys`** — byte-identical, including the envelope reference form — and
+   SHA-512 digests of the **same bytes** in `hashV`. One evidence record, two
+   independent cryptographic commitments to it. A form mismatch between the
+   two entries is `alignment_invalid`.
 
 Each signature entry carries at most one `sigD` (§5.2.8.1); in the hybrid
 case each signer has its own (§5.2.8.1 NOTE 1). Referenced objects never pull
@@ -278,6 +319,39 @@ no-chaining rule is satisfied by construction.
 `sigTst` token becomes the linked transaction on the platform's evidence
 rails: renewal horizons and archival restamps work unchanged, so AI evidence
 enters the preservation story on day one.
+
+### 5.4 Resolving references (v2.1)
+
+`pars` entries are resolved against a **logical, per-artifact HTTP base**,
+for example `http://artifact.invalid/<n>/` — an offline mapping, never a live
+fetch. Whoever presents an artifact to a validator (an SDK, an export, an
+adapter) maps each resolved reference to a document it supplies: the
+envelope bytes for `pars[0]`, the payload bytes for an object it holds, or a
+digest record for an object it only knows by digest. A folder in an export
+archive is a convenience for that mapping, not the base itself.
+
+- Hash and signature verification is separate from document availability.
+  A validator that cannot obtain an object's bytes can still verify the
+  signature and every digest it is given.
+- **Sigill never fetches a `pars` reference** — neither the platform's blind
+  verifier nor the SDK verifiers, nor Sigill's exports and adapters, which
+  supply the documents themselves. Signed references are attacker-controlled
+  input; these are scoped digest/signature verifiers, not general
+  URI-fetching validators. A third-party validator may resolve references
+  against whatever base it is configured with; the reference syntax alone
+  does not prevent that, so artifacts are presented to validators with their
+  documents supplied.
+
+**Reference forms when reporting.** A legacy envelope reference
+(`urn:sigill:envelope`) is reported as an explanatory diagnostic —
+"legacy URN envelope reference; retained for compatibility, not locator
+form" — never as a warning or a failed check; the form classifier never
+asserts validity on its own (signature, digest, profile, chain and trust
+checks decide that). An artifact is described as using locator references
+only after *every* `pars` entry has been checked, never from `pars[0]`
+alone. A historical reference outside the production profile (an absolute
+URL, another URI form) is a Sigill production-profile distinction, not by
+itself an ETSI non-conformance.
 
 ## 6. The artifact
 
@@ -358,11 +432,14 @@ verification.
   `signature` member plus a SHA-256 digest per referenced `pars` URI
   (`digests`) and, for hybrid seals, the SHA-512 map (`digests512`) keyed
   by the same URIs — the envelope's own digests are simply the entries for
-  `urn:sigill:envelope`, computed client-side with JCS. No special case:
+  the envelope reference the signature carries (`pars[0]`: either
+  `sigill-envelope.json` or, for v2.0 seals, `urn:sigill:envelope`; §5.2
+  rule 2), computed client-side with JCS. A client builds that key from the
+  signature it is verifying and never inserts both values. No special case:
   the envelope is just object 0. Omitted or partial `digests512` on a
   hybrid seal yields `pqc: not_checked` (a mismatch yields `failed`) and
   can never produce `complete: true`. Sigill sees certificates, signed
-  hashes and opaque URNs; never the envelope, never content. The response
+  hashes and opaque identifiers; never the envelope, never content. The response
   is the cryptographic verdict set above (per-object,
   `missing`/`unreferenced`, `pqc`, `complete`, the multiple-signature
   policy applied server-side).
@@ -379,7 +456,7 @@ verification.
 | `schema_invalid` | The envelope does not validate against the v2 schema, or `objects[]` violates a normative rule (duplicate URI, reserved URI). |
 | `canonicalization_failed` | The envelope is not valid I-JSON or contains constructs JCS rejects. |
 | `envelope_hash_mismatch` | `JCS(envelope)` does not hash to `hashV[0]` — the envelope shown is not the envelope signed. |
-| `alignment_invalid` | `pars`/`hashV`/`ctys` lengths differ, `pars[1…]` does not match `objects[]` by the rules of §5.2, or `pars` contains duplicates. |
+| `alignment_invalid` | `pars`/`hashV`/`ctys` lengths differ, `pars[0]` is not one of the two envelope references, `pars[1…]` does not match `objects[]` by the rules of §5.2, `pars` contains duplicates, or the PQC entry's `pars`/`ctys` differ from the classical entry's. |
 | `object_hash_mismatch` | A supplied payload's digest does not match its signed `hashV` entry. Reported per object. |
 | `invalid_signature` | JWS signature verification failed for every sigD-bearing classical entry. |
 | `invalid_timestamp` | A `sigTst` token fails to parse, its message imprint does not match, or its TSA signature is invalid. |
@@ -458,6 +535,37 @@ Breaking changes producers must handle:
 v1 envelopes remain verifiable with the v1 verifier indefinitely. The SDKs
 keep the v1 path for `verify()`, deprecate it for `produce()`.
 
+### 10.1 From v2.0 to v2.1 (reference form)
+
+Nothing in the envelope changes; only `sigD.pars` does.
+
+| | v2.0 | v2.1 |
+|---|---|---|
+| Envelope, `pars[0]` (set by the signing service) | `urn:sigill:envelope` | `sigill-envelope.json` |
+| Objects, `pars[1…]` (chosen by the producer) | any opaque URI; SDK default `urn:uuid:<uuid>` | production profile (§3.1); SDK default `objects/<uuid>` |
+
+- **Verifiers first.** Every verifier accepts both envelope references
+  (§5.2 rule 2) before any producer emits the new one. A verifier that only
+  knows v2.0 rejects a v2.1 seal with `alignment_invalid`; it must be
+  upgraded to read v2.1 seals.
+- **Producers.** Object URIs in the production profile are readable by v2.0
+  verifiers too (object URIs were always opaque), so producers can switch
+  them independently. The envelope reference switches on the signing
+  service, after the verifiers.
+- **History is never rewritten.** `pars` lives in the protected header;
+  v2.0 seals keep their URN references and stay verifiable indefinitely.
+  They are reported with the legacy diagnostic (§5.4), not as failures.
+- **Unsigned state.** A producer holding objects it has not yet sealed (for
+  example a prompt waiting for the model's answer) may re-mint their URIs in
+  the new form before the envelope is canonicalized; a URI already bound by
+  a seal is never rewritten.
+- **Enforcement.** The signing service first accepts legacy object URIs (so
+  runs that straddle the upgrade can finish and be evaluated), then refuses
+  every object URI outside the production profile. After that, a seal that
+  would re-reference a legacy-bound object fails with an upgrade message:
+  the producer restarts with a fresh, conforming run. Nothing is renamed and
+  no exemption is kept for previously sealed objects.
+
 ## 11. Test vectors
 
 `test-vectors/` gains v2 scenarios alongside the v2 implementation
@@ -500,3 +608,30 @@ revisit them deliberately:
   the field name and shape were stable before multi-step producers existed.
   Closed by the Agent Evidence Profiles v1: the classical-signature preimage is
   normative, and step semantics belong to the agent profiles, not the family core.
+- **Locator references instead of URNs** (v2.1, 13 Oct 2026; §3.1, §5.2,
+  §5.4, §10.1). v2.0 used URNs deliberately as pure identifiers, relying on
+  EU DSS matching detached objects by name. TS 119 182-1 V1.2.1 §5.2.8.3.1
+  (unchanged since V1.1.1, and in draft EN 319 182-1 V1.2.4 §5.2.7.3.1)
+  requires each `pars` entry to resolve to a locator; a URN does not.
+  Evidence, from seals built with the production signer: EU DSS 6.3
+  validated URN and relative references alike (signature intact and valid,
+  every `sigD` entry found and intact); the ETSI JAdES Conformance Checker
+  (profile TS 119 182-1 V1.2.1) aborted its `sigD` check on URN references
+  and never ran signature verification, while relative references passed
+  every structural check and signature verification — its only remaining
+  errors were the expected "cannot get the referenced bytes" for detached
+  content it cannot be given. Choices: the envelope reference is a constant
+  (`sigill-envelope.json`) because blind signing never sees the envelope, and
+  resolution is per artifact (§5.4), so a constant cannot collide; the name
+  is not `envelope.json` so it cannot clash with a producer's own object
+  name. Object references use a UUID rather than a digest because the same
+  bytes may appear under two URIs. The production profile is narrower than
+  ETSI (no absolute URLs, no percent-encoding) to keep references opaque,
+  free of network locations and byte-exact. The opaque-identifier
+  requirement is unchanged. The checker and DSS results are a dated
+  observation (13 Oct 2026, the tools' versions of that day), not a blanket
+  conformance claim; digest verification against independently supplied
+  detached content remains the authoritative check. Rejected: an ASiC-E container for a run's seals (EN 319 162
+  defines ASiC for CAdES and XAdES only, and EU DSS has no JAdES ASiC
+  support) and several independent seals in one JWS (the ETSI checker does
+  not accept that input).

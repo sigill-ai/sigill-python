@@ -76,9 +76,9 @@ class Run:
             "agent": {"id": agent, "version": "1.0.0"},
             "controlSet": {"id": "ticket-close-v2", "version": "2"},
             "timestampPolicy": ar.POLICY,
-            "objects": ar.objects_block(ar.CONTROL_OBJS),
+            "objects": ar.objects_block(ar.control_objs()),
         }
-        self.control = ar.artifact(env, ar.CONTROL_OBJS, CTY["control"], stamp_at=stamp(t), cert=cert)
+        self.control = ar.artifact(env, ar.control_objs(), CTY["control"], stamp_at=stamp(t), cert=cert)
         binds = {"controlArtifactSignatureSha256": ar.signature_sha256(self.control["signature"])}
         if parent is not None:
             binds["parentDelegationSignatureSha256"], binds["parentCorrelationId"] = parent
@@ -149,8 +149,8 @@ class Run:
         return self.arts[-1]["envelope"]["step"]["runDisposition"]
 
     def evaluate(self) -> None:
-        cs = next(o for o in ar.CONTROL_OBJS if o[1] == "control-set")
-        bl = next(o for o in ar.CONTROL_OBJS if o[1] == "baseline-state")
+        cs = next(o for o in ar.control_objs() if o[1] == "control-set")
+        bl = next(o for o in ar.control_objs() if o[1] == "baseline-state")
         objs = [(f"urn:example:obj:{self.corr[-4:]}-observed", "observed-state", "application/json", b'{"ok":true}'),
                 (cs[0], "control-set", cs[2], cs[3]), (bl[0], "baseline-state", bl[2], bl[3])]
         t = self.clock.tick()

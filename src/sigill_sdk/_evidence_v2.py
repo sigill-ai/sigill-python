@@ -19,8 +19,9 @@ from typing import Any
 
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
+from sigill_sdk._references import LEGACY_REFERENCE, new_object_uri, require_emittable
 
-ENVELOPE_URI = "urn:sigill:envelope"
+ENVELOPE_URI = LEGACY_REFERENCE
 """The reserved sigD URI of the envelope (signed object 0)."""
 
 MEDIA_TYPE = "application/vnd.sigill.ai-evidence+json"
@@ -34,10 +35,10 @@ class EvidenceV2Payload:
     """One content payload of an AI evidence v2 record.
 
     The bytes NEVER leave the machine — the SDK hashes them locally and
-    transmits digests only. URIs are opaque identifiers; when omitted the SDK
-    generates a ``urn:uuid:`` (the normative choice for remote paths, spec
-    §3.1). Human-meaningful names belong in :attr:`metadata`, which stays
-    inside the envelope.
+    transmits digests only. URIs are opaque locator references; when omitted
+    the SDK generates ``objects/<uuid>``, and a URI you set must match the
+    spec §3.1 production profile. Human-meaningful names belong in
+    :attr:`metadata`, which stays inside the envelope.
     """
 
     role: str
@@ -107,6 +108,9 @@ class EvidenceV2VerificationResult:
     missing_roles: list[str]
     issues: list[str]
     raw: dict[str, Any] = field(repr=False)
+    notes: list[str] = field(default_factory=list)
+    """Informational notes — currently the legacy envelope reference diagnostic (spec §5.4). Never an issue:
+    notes do not affect :attr:`ok`."""
 
     @property
     def ok(self) -> bool:
@@ -148,9 +152,8 @@ def build_envelope_and_request_objects(
             raise SigillError(
                 f"Invalid payload role '{p.role}' — expected one of: {', '.join(sorted(V2_ROLES))}."
             )
-        uri = (p.uri or "").strip() or f"urn:uuid:{uuid.uuid4()}"
-        if uri == ENVELOPE_URI:
-            raise SigillError(f"'{ENVELOPE_URI}' is reserved for the envelope itself.")
+        uri = (p.uri or "").strip() or new_object_uri()
+        require_emittable(uri)
         if uri in seen:
             raise SigillError(
                 f"Duplicate payload URI '{uri}' — URIs are compared byte-exactly and must be unique."

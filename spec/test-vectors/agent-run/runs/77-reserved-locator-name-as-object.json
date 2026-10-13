@@ -1,0 +1,364 @@
+{
+  "description": "seq 1 uses the reserved envelope name 'sigill-envelope.json' as an object URI: a conformance failure, and that entry is never verified as an object.",
+  "bundle": {
+    "format": "AgentRunBundle",
+    "bundleVersion": "1",
+    "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001",
+    "controlArtifact": {
+      "envelope": {
+        "schemaName": "AgentControlArtifact",
+        "schemaVersion": "1",
+        "evidenceId": "00000000-0000-4000-8000-000000000001",
+        "createdAt": "2026-10-01T08:59:00.000Z",
+        "actor": {
+          "type": "system",
+          "id": "urn:example:harness:prod"
+        },
+        "activity": {
+          "name": "support-ticket-close",
+          "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+        },
+        "agent": {
+          "id": "urn:example:agent:support-triage",
+          "version": "2.4.0"
+        },
+        "controlSet": {
+          "id": "ticket-close-v2",
+          "version": "2"
+        },
+        "objects": [
+          {
+            "uri": "objects/instruction-set",
+            "role": "instruction-set",
+            "contentType": "text/plain",
+            "sizeBytes": 53
+          },
+          {
+            "uri": "objects/tool-manifest",
+            "role": "tool-manifest",
+            "contentType": "application/json",
+            "sizeBytes": 42
+          },
+          {
+            "uri": "objects/execution-policy",
+            "role": "execution-policy",
+            "contentType": "application/json",
+            "sizeBytes": 42
+          },
+          {
+            "uri": "objects/model-config",
+            "role": "model-config",
+            "contentType": "application/json",
+            "sizeBytes": 17
+          },
+          {
+            "uri": "objects/control-set",
+            "role": "control-set",
+            "contentType": "application/json",
+            "sizeBytes": 48
+          },
+          {
+            "uri": "objects/baseline-state",
+            "role": "baseline-state",
+            "contentType": "application/json",
+            "sizeBytes": 50
+          }
+        ],
+        "timestampPolicy": {
+          "profile": "throughput",
+          "everyEvents": 0,
+          "everySeconds": 0,
+          "consequential": false
+        }
+      },
+      "signature": {
+        "signatures": [
+          {
+            "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWNvbnRyb2wranNvbiIsInRleHQvcGxhaW4iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiIsImFwcGxpY2F0aW9uL2pzb24iLCJhcHBsaWNhdGlvbi9qc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJadHBMdExWc0k4V1ZTdlNnV0paNXFmeTYyWDlQUmpJSXZUTFlyVjB6ZHI0IiwiaHFNcGdXOVNJeTM4bG56SHREOTZHWnNwdllGUDlhZGRzQzRVSlRIbG96ZyIsIkRFeGZDRmk1MDJLU1NISEVjclhtYWFMcFZoam82RXJVdWNzZmVyZmY4clkiLCJpWExyQW9zdzRZZHBGR1JpTkg3c3V3VVlRVWlxNWcxSVR3aFQ2X1JwZ1hZIiwiNVA5SkVXbTRxZXA0VVlwNWNrSXJXaVRWNDNrT0RacWVYTC16aE5tMkllQSIsIkdkdjhqUTdaaEo3QVNjb20xcThkSlJud2ZqcG9ZbElIMWlVdVZJNjVyb0UiLCJmLTJTS2Y3d0FqS1N3dEV3ajBIdG92VGl5dDdPb3VOMUQyTDJCYzlaTzNrIl0sInBhcnMiOlsic2lnaWxsLWVudmVsb3BlLmpzb24iLCJvYmplY3RzL2luc3RydWN0aW9uLXNldCIsIm9iamVjdHMvdG9vbC1tYW5pZmVzdCIsIm9iamVjdHMvZXhlY3V0aW9uLXBvbGljeSIsIm9iamVjdHMvbW9kZWwtY29uZmlnIiwib2JqZWN0cy9jb250cm9sLXNldCIsIm9iamVjdHMvYmFzZWxpbmUtc3RhdGUiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+            "signature": "bRDSlad6QkN3aEXa0DxqHYwvth4vppZR0zzgzd1b3xM",
+            "header": {
+              "stubTimestamp": {
+                "genTime": "2026-10-01T08:59:01Z",
+                "valid": true
+              }
+            }
+          }
+        ]
+      },
+      "objectDigests": {
+        "objects/instruction-set": "86a329816f52232dfc967cc7b43f7a199b29bd814ff5a75db02e142531e5a338",
+        "objects/tool-manifest": "0c4c5f0858b9d362924871c472b5e669a2e95618e8e84ad4b9cb1f7ab7dff2b6",
+        "objects/execution-policy": "8972eb028b30e18769146462347eecbb05184148aae60d484f0853ebf4698176",
+        "objects/model-config": "e4ff491169b8a9ea78518a7972422b5a24d5e3790e0d9a9e5cbfb384d9b621e0",
+        "objects/control-set": "19dbfc8d0ed9849ec049ca26d6af1d2519f07e3a68625207d6252e548eb9ae81",
+        "objects/baseline-state": "7fed9229fef0023292c2d1308f41eda2f4e2cadecea2e3750f62f605cf593b79"
+      }
+    },
+    "artifacts": [
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000100",
+          "createdAt": "2026-10-01T09:00:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 0
+          },
+          "step": {
+            "type": "run_start",
+            "eventTime": "2026-10-01T09:00:00.000Z",
+            "consequential": false,
+            "timestamp": "none"
+          },
+          "objects": [
+            {
+              "uri": "objects/s0-model-input",
+              "role": "model-input",
+              "contentType": "text/plain",
+              "sizeBytes": 37
+            }
+          ],
+          "binds": {
+            "controlArtifactSignatureSha256": "4b733c5e9e761d856b23d62db18c184ace1167049fecfe67d48fee4ca9fad57d"
+          }
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJIZEhzSWNGZV84cEFHaHVQRDVCa0R6MkZUbktjUm9velRJRWd5U2dTZGM4IiwiVGhuZmRpdV90ZkdUZzlMamY3RXNGdWY4T3lETnZGWnpXRDZfS2dFZ3ZKMCJdLCJwYXJzIjpbInNpZ2lsbC1lbnZlbG9wZS5qc29uIiwib2JqZWN0cy9zMC1tb2RlbC1pbnB1dCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "ME6lt5atY4X76nQDJv0OWKEpr8yOi2iEYH8JCvd2Wpw"
+            }
+          ]
+        },
+        "objectDigests": {
+          "objects/s0-model-input": "4e19df762bbfb5f19383d2e37fb12c16e7fc3b20cdbc5673583ebf2a0120bc9d"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000101",
+          "createdAt": "2026-10-01T09:01:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 1,
+            "prevSignatureSha256": "af5cbd80573f1aee4a05fc756b1b6128d578b4c31528df5de4539d7892343912"
+          },
+          "step": {
+            "type": "tool_call",
+            "eventTime": "2026-10-01T09:01:00.000Z",
+            "consequential": false,
+            "timestamp": "none",
+            "tool": {
+              "name": "lookup_ticket",
+              "operation": "read"
+            }
+          },
+          "objects": [
+            {
+              "uri": "sigill-envelope.json",
+              "role": "tool-arguments",
+              "contentType": "application/json",
+              "sizeBytes": 17
+            }
+          ]
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJJVEtwdC1IWjhIMkZyM3JXZEZWRFMzRmNQamNSaVFQYjlfWG9hQVdLeUQ4IiwiZ2VONndFWU5zY2szNUVVNzBlV1lIVHNwVjhsVE0yZXVlZGk0c1hNcF9FZyJdLCJwYXJzIjpbInNpZ2lsbC1lbnZlbG9wZS5qc29uIiwic2lnaWxsLWVudmVsb3BlLmpzb24iXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "z_o8aYqDGrpvnSJSWE8t0i8n5iA2pHP5kAiGhPcxW6E"
+            }
+          ]
+        },
+        "objectDigests": {
+          "sigill-envelope.json": "81e37ac0460db1c937e4453bd1e5981d3b2957c9533367ae79d8b8b17329fc48"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000102",
+          "createdAt": "2026-10-01T09:02:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 2,
+            "prevSignatureSha256": "0a5e8d1b1931bb2a60bbd1f3a4340c3c82cae4b681cb79c8377c5ac08ec0de27"
+          },
+          "step": {
+            "type": "tool_result",
+            "eventTime": "2026-10-01T09:02:00.000Z",
+            "consequential": false,
+            "timestamp": "none",
+            "tool": {
+              "name": "lookup_ticket"
+            }
+          },
+          "objects": [
+            {
+              "uri": "objects/s2-tool-result",
+              "role": "tool-result",
+              "contentType": "application/json",
+              "sizeBytes": 17
+            }
+          ]
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwiYXBwbGljYXRpb24vanNvbiJdLCJoYXNoViI6WyJBSzB6bVZLQ3FVdldTanpmUS1vUXNFRnc0ZFpJaS1Vbno2VVFoY2FxRnRrIiwidkprR2FvdUJQbll5QWNFVTFIM1pNQWNRdWdyUEhFNVNLdWVPTEZ4SE80YyJdLCJwYXJzIjpbInNpZ2lsbC1lbnZlbG9wZS5qc29uIiwib2JqZWN0cy9zMi10b29sLXJlc3VsdCJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "cQiZVcu5d02S5O12B051oD5y3qGXvxYvTFEgM9rQKZc"
+            }
+          ]
+        },
+        "objectDigests": {
+          "objects/s2-tool-result": "bc99066a8b813e763201c114d47dd9300710ba0acf1c4e522ae78e2c5c473b87"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000103",
+          "createdAt": "2026-10-01T09:03:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 3,
+            "prevSignatureSha256": "5bf8540faa10c31104e381a690debae80299ad08819b1ae0f7064758675a2a30"
+          },
+          "step": {
+            "type": "model_output",
+            "eventTime": "2026-10-01T09:03:00.000Z",
+            "consequential": false,
+            "timestamp": "none"
+          },
+          "objects": [
+            {
+              "uri": "objects/s3-model-output",
+              "role": "model-output",
+              "contentType": "text/plain",
+              "sizeBytes": 34
+            }
+          ]
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIiwidGV4dC9wbGFpbiJdLCJoYXNoViI6WyJaMWcwSmdKMmNsQmlhVEhCN1JXOS1LbndzcUV2Qmlfa2Y0Yk44Zy10Nm9zIiwiLURZVHZDWjEtcUpNdVE2b0ZuRUVHakFndUpMS09LalB6VGk0NWt3T0RBayJdLCJwYXJzIjpbInNpZ2lsbC1lbnZlbG9wZS5qc29uIiwib2JqZWN0cy9zMy1tb2RlbC1vdXRwdXQiXX0sIng1YyI6WyJjM1IxWWlCemFXZHVhVzVuSUdObGNuUnBabWxqWVhSbElFRWdLSFJvWlNCd2NtOWtkV05sY2lrPSJdLCJ4NXQjUzI1NiI6IlNQNkJFZWRPV1VJOVBsSGJLU0I1Q1FZNVNBc2x2OWZkck9hdGZxVUZtNWsifQ",
+              "signature": "HEYORymXZFJDwY43xuOhQbQ9QUPRMAzVvpk6G5aGfvU"
+            }
+          ]
+        },
+        "objectDigests": {
+          "objects/s3-model-output": "f83613bc2675faa24cb90ea81671041a3020b892ca38a8cfcd38b8e64c0e0c09"
+        }
+      },
+      {
+        "envelope": {
+          "schemaName": "AgentExecutionEvidence",
+          "schemaVersion": "1",
+          "evidenceId": "00000000-0000-4000-8000-000000000104",
+          "createdAt": "2026-10-01T09:04:00.000Z",
+          "actor": {
+            "type": "agent",
+            "id": "urn:example:agent:support-triage",
+            "version": "2.4.0"
+          },
+          "activity": {
+            "name": "support-ticket-close",
+            "correlationId": "urn:uuid:00000000-0000-4000-9000-000000000001"
+          },
+          "chain": {
+            "seq": 4,
+            "prevSignatureSha256": "35e8562d82816629b9b8af2ab413270092cb9c5216f73eeb1798c1b02e24ddfe"
+          },
+          "step": {
+            "type": "run_end",
+            "eventTime": "2026-10-01T09:04:00.000Z",
+            "consequential": false,
+            "timestamp": "required",
+            "runDisposition": "completed",
+            "finalSeq": 4,
+            "finalPrevSignatureSha256": "35e8562d82816629b9b8af2ab413270092cb9c5216f73eeb1798c1b02e24ddfe"
+          },
+          "objects": []
+        },
+        "signature": {
+          "signatures": [
+            {
+              "protected": "eyJhbGciOiJFUzI1NiIsInNpZ0QiOnsiY3R5cyI6WyJhcHBsaWNhdGlvbi92bmQuc2lnaWxsLmFnZW50LWV4ZWN1dGlvbitqc29uIl0sImhhc2hWIjpbIjFfbXVaQ0VWQ0RSdlQxc0s0M3U5WjgwUnM2ai1BOTZody1hTTFwZDdlSk0iXSwicGFycyI6WyJzaWdpbGwtZW52ZWxvcGUuanNvbiJdfSwieDVjIjpbImMzUjFZaUJ6YVdkdWFXNW5JR05sY25ScFptbGpZWFJsSUVFZ0tIUm9aU0J3Y205a2RXTmxjaWs9Il0sIng1dCNTMjU2IjoiU1A2QkVlZE9XVUk5UGxIYktTQjVDUVk1U0FzbHY5ZmRyT2F0ZnFVRm01ayJ9",
+              "signature": "VdFUuZxlmrrik5T_99KjOPe6MuKT99n_f6HHjJr15lc",
+              "header": {
+                "stubTimestamp": {
+                  "genTime": "2026-10-01T09:04:00Z",
+                  "valid": true
+                }
+              }
+            }
+          ]
+        },
+        "objectDigests": {}
+      }
+    ]
+  },
+  "expected": {
+    "verdict": "run_invalid",
+    "checks": {
+      "correlation": "ok",
+      "sequence": "ok",
+      "chain": "ok",
+      "envelope": "bad",
+      "signatures": "ok",
+      "timestamps": "ok",
+      "objects": "bad",
+      "finalization": "ok",
+      "control": "ok"
+    },
+    "binding": "bound",
+    "missingSeqs": [],
+    "fingerprint": "fa2b699814e58b7739a095e5511fcaa2b87bd0ad1d24310226b32070a48d1bb3",
+    "findingsContain": [
+      "objects[] uses the reserved envelope URI"
+    ],
+    "warningsContain": [],
+    "warningCount": 0,
+    "controlSealedBeforeRun": true,
+    "eventTimesPlausible": true,
+    "evaluations": []
+  }
+}

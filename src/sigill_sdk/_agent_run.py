@@ -85,8 +85,9 @@ def _signed_digests(objects: Sequence[AgentRunObject]) -> list[SignedObjectDiges
 
 
 def _seal(client: Any, envelope: dict, digests: Sequence[SignedObjectDigest], profile_content_type: str,
-          certificate_id: str, *, timestamp: bool, qualified: bool) -> Any:
+          certificate_id: str, *, timestamp: bool, qualified: bool, reused_uris: frozenset[str] | None = None) -> Any:
     # No operation label: only digests, opaque URIs and content types reach the sealing service (§6).
+    extra = {"_reused_uris": reused_uris} if reused_uris else {}
     return client.sign_object_hashes(
         hash_bytes(canonicalize(envelope)),
         list(digests),
@@ -94,6 +95,7 @@ def _seal(client: Any, envelope: dict, digests: Sequence[SignedObjectDigest], pr
         envelope_content_type=profile_content_type,
         timestamp=timestamp,
         qualified=qualified and timestamp,
+        **extra,
     )
 
 
@@ -696,10 +698,12 @@ class ControlEvaluation:
         objects: list[dict] = []
         digests: dict[str, str] = {}
         seal: list[SignedObjectDigest] = []
+        reused: set[str] = set()
 
         def reuse(o: dict) -> None:
             # The control set and baseline are referred to by the Control Artifact's own URI and digest; no bytes.
             uri = o["uri"]
+            reused.add(uri)
             hex_ = control.object_digests.get(uri)
             if hex_ is None:
                 raise ValueError(f"The Control Artifact carries no digest for its '{_str(o.get('role'))}' object.")
@@ -746,7 +750,7 @@ class ControlEvaluation:
         }
         _prevalidate(envelope, CONTROL_EVALUATION_SCHEMA)
         result = _seal(client, envelope, seal, CONTROL_EVALUATION_CONTENT_TYPE, str(request.certificate_id),
-                       timestamp=True, qualified=request.qualified)
+                       timestamp=True, qualified=request.qualified, reused_uris=frozenset(reused))
         if result.timestamped_by is None:
             raise SigillError("A Control Evaluation must be timestamped, but the seal carries no timestamp.")
         return AgentRunArtifact(envelope, result.signature, digests)

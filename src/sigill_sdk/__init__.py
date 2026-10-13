@@ -67,6 +67,15 @@ from sigill_sdk._evidence_v2 import (
     EvidenceV2Payload,
     EvidenceV2VerificationResult,
 )
+from sigill_sdk._references import (
+    LEGACY_DIAGNOSTIC as LEGACY_ENVELOPE_REFERENCE_DIAGNOSTIC,
+    LEGACY_REFERENCE as LEGACY_ENVELOPE_REFERENCE,
+    LOCATOR_REFERENCE as LOCATOR_ENVELOPE_REFERENCE,
+    EnvelopeReferenceForm,
+    classify as classify_envelope_reference,
+    is_production_reference,
+    new_object_uri,
+)
 from sigill_sdk._sign_objects import (
     ObjectsVerificationResult,
     SignedObjectDigest,
@@ -130,6 +139,13 @@ try:
 except _PNF:
     __version__ = "0.0.0.dev"
 __all__ = [
+    "EnvelopeReferenceForm",
+    "LEGACY_ENVELOPE_REFERENCE",
+    "LEGACY_ENVELOPE_REFERENCE_DIAGNOSTIC",
+    "LOCATOR_ENVELOPE_REFERENCE",
+    "classify_envelope_reference",
+    "is_production_reference",
+    "new_object_uri",
     "SigillClient",
     "ISigillAiEvidenceClient",
     "EnvelopeBuilder",

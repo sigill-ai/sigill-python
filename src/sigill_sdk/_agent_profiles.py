@@ -20,7 +20,7 @@ from typing import Any, Mapping, Optional
 
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._schema import validate_profile
-from sigill_sdk._sign_objects import ENVELOPE_URI
+from sigill_sdk._references import EnvelopeReferenceForm, classify, pqc_pars_mismatch
 
 BUNDLE_FORMAT = "AgentRunBundle"
 """The bundle's ``format`` value (§7)."""
@@ -256,9 +256,12 @@ def _layout_problem(envelope: Mapping[str, Any], jws: Mapping[str, Any]) -> Opti
         return "the signature carries no sigD object"
     raw = envelope.get("objects")
     objects = [o if isinstance(o, dict) else None for o in raw] if isinstance(raw, list) else []
-    expected = [ENVELOPE_URI] + [_str(o.get("uri")) if o is not None else None for o in objects]
     pars = sig_d.get("pars")
-    if not isinstance(pars, list) or [_str(p) for p in pars] != expected:
+    # pars[0] is one of the two envelope references, read from this very signature (v2 §5.2 rule 2).
+    first = _str(pars[0]) if isinstance(pars, list) and pars else None
+    expected = [first] + [_str(o.get("uri")) if o is not None else None for o in objects]
+    if not isinstance(pars, list) or classify(first) is EnvelopeReferenceForm.INVALID \
+            or [_str(p) for p in pars] != expected:
         return "sigD.pars is not the envelope followed by objects[] in order"
     hash_v = sig_d.get("hashV")
     if not isinstance(hash_v, list) or len(hash_v) != len(pars):
@@ -266,6 +269,8 @@ def _layout_problem(envelope: Mapping[str, Any], jws: Mapping[str, Any]) -> Opti
     ctys = sig_d.get("ctys")
     if not isinstance(ctys, list) or len(ctys) != len(pars):
         return "sigD.ctys does not have one entry per signed object"
+    if pqc_pars_mismatch(jws):
+        return "the ML-DSA signature's sigD.pars differ from the classical signature's"
     for i, o in enumerate(objects):
         signed_type = _str(ctys[i + 1])
         envelope_type = (_str(o.get("contentType")) if o is not None else None) or ""

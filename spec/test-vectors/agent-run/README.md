@@ -8,6 +8,7 @@ Every SDK consumes them and must reproduce the expected values exactly.
 | `signature-sha256.json` | The binding digest (common rules §2) over General, hybrid (ML-DSA entry first), flattened and non-base64url JWS inputs. |
 | `runs/*.json` with `bundle` | A complete bundle (§7) and its expected run verdict, the nine check states, the binding state, the listed missing `seq` values, the §8.2 fingerprint, the per-evaluation outcomes, `controlSealedBeforeRun` and `eventTimesPlausible` (`null` when not comparable), substrings that must appear among the findings, and substrings that must appear among the warnings together with the exact number of warnings. |
 | `runs/*.json` with `bundleText` | A container that must not parse at all; `expected.parseError` must appear among the parse errors. |
+| `runs/71-*` … `runs/78-*` | The v2.1 reference form (AiEvidenceEnvelopeV2 §3.1, §5.2, §5.4): runs whose envelope reference is `sigill-envelope.json` and whose object URIs are production-profile references (`objects/…`); a run that switches form at seq 2 while its evaluation reuses the legacy URIs the Control Artifact sealed; both transitional combinations; an unknown envelope reference; each reserved envelope name used as an object URI. A legacy reference is never a warning, so vectors 01–70 are unchanged. |
 
 The reference run is three timestamps for the whole run — the Control
 Artifact, `run_end` and the Control Evaluation — with every other event
@@ -22,7 +23,10 @@ of `POST /seal/verify-objects`.
 
 Stub signer, per artifact:
 
-- `pars = ["urn:sigill:envelope", objects[].uri…]`;
+- `pars = [<envelope reference>, objects[].uri…]`, where the envelope
+  reference is `urn:sigill:envelope` (legacy, vectors 01–70 and parts of
+  73–75) or `sigill-envelope.json` (v2.1). A verifier reads it from each
+  artifact's own signature and keys the envelope digest it supplies by it;
   `hashV = [b64url(SHA-256(JCS(envelope))), b64url(SHA-256(object))…]`;
   `ctys = [<profile content type>, objects[].contentType…]` (`""` when absent),
   index-aligned with `pars` as the platform signs it.
@@ -42,7 +46,9 @@ Stub verifier, given `{signature, digests}`:
    header is the profile layer's job.
 2. `signatureValid` ⇔ its `signature` equals `b64url(SHA-256(ASCII(protected)))`.
 3. For each `pars[i]`: `supplied` ⇔ a digest is given for it; `hashMatch` ⇔
-   that digest equals `hex(b64url-decode(hashV[i]))`.
+   that digest equals `hex(b64url-decode(hashV[i]))`. The stub knows nothing
+   about envelope references: it matches digests to `pars` entries by exact
+   string, as the platform does.
 4. `missing` = pars with no digest; `unreferenced` = digests whose URI is not
    in pars.
 5. `complete` ⇔ `signatureValid` and every par matched.

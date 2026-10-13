@@ -29,6 +29,7 @@ from sigill_sdk._agent_profiles import (
 )
 from sigill_sdk._canonical import canonicalize
 from sigill_sdk._errors import SigillError
+from sigill_sdk._references import new_object_uri
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
@@ -95,8 +96,9 @@ class AgentRunObject:
     """The profile role, e.g. ``model-input``, ``tool-arguments``, ``model-output``."""
     data: bytes
     content_type: str = "application/octet-stream"
-    uri: str = field(default_factory=lambda: f"urn:uuid:{uuid.uuid4()}")
-    """Opaque URI; generated as ``urn:uuid:`` when omitted. No personal data."""
+    uri: str = field(default_factory=lambda: new_object_uri())
+    """Opaque URI; generated as ``objects/<uuid>`` when omitted. A URI you set must be a production-profile
+    reference (AiEvidenceEnvelopeV2 §3.1) and carry no personal data."""
 
     @classmethod
     def text(cls, role: str, text: str, content_type: str = "text/plain") -> "AgentRunObject":

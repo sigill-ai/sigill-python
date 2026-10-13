@@ -30,8 +30,8 @@ seals the claim; it does not evaluate anything.
   "overall": "FAIL",
   "evaluatedAt": "2026-09-16T08:00:58Z",
   "objects": [
-    { "uri": "urn:uuid:…", "role": "observed-state", "contentType": "application/json" },
-    { "uri": "urn:uuid:…", "role": "control-set",    "contentType": "application/json" }
+    { "uri": "objects/<uuid>", "role": "observed-state", "contentType": "application/json" },
+    { "uri": "objects/<uuid>", "role": "control-set",    "contentType": "application/json" }
   ]
 }
 ```
