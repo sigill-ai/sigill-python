@@ -251,7 +251,8 @@ def append_dss(
     new_cat = _add_dss_to_catalog(s.catalog_content, dss_id)
     emit(cat_id, f"{cat_id} 0 obj\n{new_cat}\nendobj\n".encode("latin-1"))
 
-    xref = _xref_trailer(offmap, next_id, cat_id, s.startxref, pos).encode("latin-1")
+    # Cross-reference section in the base document's own format (table or stream).
+    xref = _xref_section(offmap, next_id, cat_id, s.startxref, pos, s.uses_xref_stream)
     return signed_pdf + b"".join(chunks) + xref
 
 
@@ -370,12 +371,13 @@ def _append_signature_revision(
     append_obj(cat_id, _add_acroform_to_catalog(s.catalog_content, af_id))
 
     xref_pos = base_off + inc_len
-    xref = _xref_trailer(offmap, next_id, cat_id, s.startxref, xref_pos)
+    xref = _xref_section(offmap, next_id, cat_id, s.startxref, xref_pos, s.uses_xref_stream)
 
     # Latin-1 keeps a 1:1 byte↔char mapping so binary-ish PDF content survives
     # the string round-trip.
     full = bytearray(pdf)
-    full += ("".join(parts) + xref).encode("latin-1")
+    full += "".join(parts).encode("latin-1")
+    full += xref
 
     empty_hex = "0" * (reserved_bytes * 2)
     angle = full.find(f"<{empty_hex}>".encode("ascii"), len(pdf))
@@ -401,16 +403,56 @@ def _append_signature_revision(
     return bytes(full), hex_off, hex_len, doc_hash
 
 
-def _xref_trailer(
-    offmap: dict[int, int], size: int, root_id: int, prev: int, xref_pos: int,
-) -> str:
-    """Emit the xref table + trailer + startxref for an incremental update."""
-    lines = ["xref\n"]
-    for obj_id in sorted(offmap):
-        lines.append(f"{obj_id} 1\n{offmap[obj_id]:010d} 00000 n \n")
-    lines.append(f"trailer\n<< /Size {size} /Root {root_id} 0 R /Prev {prev} >>\n")
-    lines.append(f"startxref\n{xref_pos}\n%%EOF\n")
-    return "".join(lines)
+def _xref_section(
+    offmap: dict[int, int],
+    next_id: int,
+    root_id: int,
+    prev: int,
+    xref_pos: int,
+    uses_xref_stream: bool,
+) -> bytes:
+    """Emit the cross-reference section + startxref for one incremental update.
+
+    The format matches the base document's most recent revision. A classic
+    ``xref`` table + ``trailer`` for a classic base; a cross-reference STREAM
+    (PDF 1.5+) for a cross-reference-stream base — a classic trailer whose
+    /Prev points at a cross-reference stream is a chain strict readers (Adobe
+    Acrobat among them) refuse to follow, reporting the signature as invalid.
+
+    The returned bytes are written at ``xref_pos`` and end with
+    ``startxref``/``%%EOF``. ``next_id`` is the first free object number
+    (highest existing + 1); the stream form uses it for the cross-reference
+    stream object itself.
+    """
+    if not uses_xref_stream:
+        lines = ["xref\n"]
+        for obj_id in sorted(offmap):
+            lines.append(f"{obj_id} 1\n{offmap[obj_id]:010d} 00000 n \n")
+        lines.append(f"trailer\n<< /Size {next_id} /Root {root_id} 0 R /Prev {prev} >>\n")
+        lines.append(f"startxref\n{xref_pos}\n%%EOF\n")
+        return "".join(lines).encode("latin-1")
+
+    # Cross-reference STREAM. The stream is itself a new indirect object
+    # (number next_id) located at xref_pos, so it lists itself too.
+    xref_obj_id = next_id
+    size = next_id + 1
+    entries = sorted([*offmap.items(), (xref_obj_id, xref_pos)])
+
+    # /W [1 4 2]: type (1 = in use, at offset), 4-byte big-endian offset,
+    # 2-byte generation. Written unfiltered — a cross-reference stream needs
+    # no /Filter (ISO 32000-1 §7.5.8.2).
+    data = bytearray()
+    for _obj_id, off in entries:
+        if not 0 <= off <= 0xFFFFFFFF:
+            raise ValueError("PDF too large for a 4-byte cross-reference stream offset")
+        data += b"\x01" + off.to_bytes(4, "big") + b"\x00\x00"
+    index = " ".join(f"{obj_id} 1" for obj_id, _ in entries)
+    head = (
+        f"{xref_obj_id} 0 obj\n<< /Type /XRef /Size {size} /Root {root_id} 0 R "
+        f"/Prev {prev} /W [1 4 2] /Index [{index}] /Length {len(data)} >>\nstream\n"
+    ).encode("latin-1")
+    tail = f"\nendstream\nendobj\nstartxref\n{xref_pos}\n%%EOF\n".encode("latin-1")
+    return head + bytes(data) + tail
 
 
 # ------------------------------------------------------- PDF structure parser
@@ -428,6 +470,7 @@ class _Struct:
     annots_array_id: int
     annots_array_content: str | None
     startxref: int
+    uses_xref_stream: bool
 
 
 def _parse_structure(pdf: bytes) -> _Struct:
@@ -438,6 +481,21 @@ def _parse_structure(pdf: bytes) -> _Struct:
     if not sx_matches:
         raise ValueError("startxref not found in PDF")
     sx = int(sx_matches[-1].group(1))
+
+    # Cross-reference FORMAT of the most recent revision: a classic section
+    # starts with the "xref" keyword; a cross-reference STREAM (PDF 1.5+) is an
+    # object "N 0 obj << ... /Type /XRef ... >>". Incremental updates must
+    # match it (see _xref_section). Only treat it as a stream when the object
+    # at startxref actually carries /Type /XRef — a malformed or approximate
+    # startxref (some synthetic PDFs point it at the first object) falls back
+    # to the classic table, preserving behaviour for such inputs.
+    uses_xref_stream = False
+    if (0 <= sx < len(t)
+            and not t.startswith("xref", sx)
+            and re.match(r"\d+\s+\d+\s+obj\b", t[sx:sx + 40])):
+        stream_kw = t.find("stream", sx)
+        scan_end = stream_kw if stream_kw > sx else min(sx + 400, len(t))
+        uses_xref_stream = re.search(r"/Type\s*/XRef\b", t[sx:scan_end]) is not None
 
     # Object discovery: top-level "N 0 obj" offsets plus objects unpacked from
     # /Type /ObjStm streams. Last write wins so incremental updates override
@@ -481,7 +539,7 @@ def _parse_structure(pdf: bytes) -> _Struct:
     max_id = max(max(offsets, default=0), max(compressed, default=0))
 
     return _Struct(max_id, cat_id, cat, p1_id, p1, af_id, af_content,
-                   annots_id, annots_content, sx)
+                   annots_id, annots_content, sx, uses_xref_stream)
 
 
 def _walk_to_first_leaf_page(

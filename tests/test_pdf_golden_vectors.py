@@ -57,3 +57,32 @@ def test_signer_output_matches_cross_repo_golden_vectors() -> None:
 
     final = _pdf.embed_doc_timestamp(dt, token)
     assert _sha(final) == "fb4fa1d61ec7a178a005fb9314ecf9650f4a12b111d483be4bf45c507751bdc5"
+
+
+def test_xref_stream_base_matches_cross_repo_golden_vectors() -> None:
+    """Same inputs as above on a base whose cross-reference section is a
+    STREAM (PDF 1.5+): every appended revision must be a cross-reference stream
+    too, byte-identical across implementations. Pinned with the same constants
+    in the .NET SDK (tests/Sigill.Sdk.Tests/PdfSignerXrefStreamTests.cs)."""
+    from test_pdf_xref_stream import build_xref_stream_pdf
+
+    pdf = build_xref_stream_pdf()
+    cms = _pattern(900, 251)
+    assert _sha(pdf) == "f1453825b415c460ef1cc3fb4803c2a6bad0a8fc99cead5f13ed286f889f7ccb"
+
+    prep = _pdf.prepare(pdf, T1, "Golden Vector", "Golden", "Vector (X)")
+    assert _sha(prep.bytes) == "7525b1739ee2d3d1684cabef5afda8d4a556fd5923e4a9763ba8e56980e0b75f"
+    assert prep.document_hash.hex() == "74f0fbcf173edf47607bc019f343d941f60ad900cc85763bbe1565b45a04500a"
+
+    embedded = _pdf.embed(prep, cms)
+    assert _sha(embedded) == "5cb46d3b0d407355f4098b6809d83d10541cc8b5b1cb9c429380ecfa35338825"
+
+    dss = _pdf.append_dss(embedded, [_pattern(300, 13)], [_pattern(200, 17)], cms)
+    assert _sha(dss) == "3d48f64fd256131d06597730184d6ff9a8cf5f53c99e01b8be431cf8bfd11736"
+
+    dt = _pdf.prepare_doc_timestamp(dss)
+    assert _sha(dt.bytes) == "d8bae000cce77ec1760da90607d1ab2e9e605cc57d83593c65c5512d33f6b4eb"
+    assert dt.document_hash.hex() == "01ba2ea5fe8aee72611c068e383bb32996d351685b45db6246a3d3c7f015d257"
+
+    final = _pdf.embed_doc_timestamp(dt, _pattern(400, 23))
+    assert _sha(final) == "1f678126c36df68081749989c442021d60868a9812b91670200264f0bf4c3c07"
