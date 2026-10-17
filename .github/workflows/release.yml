@@ -65,9 +65,39 @@ jobs:
           pip install -e ".[dev]"
           pytest -q
 
+  # Every release is sealed by Sigill before it is published: a detached CAdES
+  # seal (.p7s) with an RFC 3161 timestamp and a post-quantum hybrid signature,
+  # over the exact wheel and sdist that go to PyPI. Only digests leave the
+  # runner. No seal, no release. Verify a download at https://sigill.ai/verify
+  # with the .p7s from the GitHub release.
+  seal:
+    name: Seal with Sigill
+    needs: [build, test-before-publish]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # GitHub OIDC token, exchanged for a short-lived Sigill token
+      contents: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: sigill-ai/evidence-action@be2e7dafdd3c86ca5689995917b5e98f8c882a01 # v1.0.1
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          mode: seal
+          pqc: true
+      - uses: actions/upload-artifact@v4
+        with:
+          name: evidence
+          path: dist/*.p7s
+          if-no-files-found: error
+
   publish:
     name: Publish to PyPI
-    needs: [build, test-before-publish]
+    needs: [build, test-before-publish, seal]
     runs-on: ubuntu-latest
     environment: pypi   # MUST match the trusted-publisher entry on PyPI
     steps:
@@ -75,6 +105,12 @@ jobs:
         with:
           name: dist
           path: dist/
+
+      # Kept out of dist/: the PyPI upload accepts distributions only.
+      - uses: actions/download-artifact@v4
+        with:
+          name: evidence
+          path: evidence/
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -85,5 +121,7 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/*
+          files: |
+            dist/*
+            evidence/*.p7s
           generate_release_notes: true

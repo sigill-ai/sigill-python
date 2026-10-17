@@ -1,0 +1,48 @@
+# Seal a release that is already on PyPI (e.g. one published before releases
+# were sealed automatically). Downloads the exact files PyPI serves, seals
+# them with Sigill and attaches the .p7s files to the GitHub release.
+# The timestamp is the time of this run, not of the original release.
+name: Seal published release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Released version, e.g. 0.9.1"
+        required: true
+
+jobs:
+  seal:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+    steps:
+      - name: Download the published files from PyPI
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          mkdir dist
+          curl -fsSL "https://pypi.org/pypi/sigill-sdk/$VERSION/json" -o meta.json
+          python3 - <<'PY'
+          import json, hashlib, urllib.request
+          for f in json.load(open("meta.json"))["urls"]:
+              data = urllib.request.urlopen(f["url"]).read()
+              if hashlib.sha256(data).hexdigest() != f["digests"]["sha256"]:
+                  raise SystemExit(f"digest mismatch for {f['filename']}")
+              open("dist/" + f["filename"], "wb").write(data)
+              print(f["filename"], f["digests"]["sha256"])
+          PY
+      - uses: sigill-ai/evidence-action@be2e7dafdd3c86ca5689995917b5e98f8c882a01 # v1.0.1
+        with:
+          files: |
+            dist/*.whl
+            dist/*.tar.gz
+          mode: seal
+          pqc: true
+      - name: Attach the seals to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: gh release upload "v$VERSION" dist/*.p7s --clobber --repo "$GITHUB_REPOSITORY"
