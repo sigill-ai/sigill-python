@@ -633,7 +633,7 @@ validation, use a dedicated library like
 ## Verifying a release
 
 Every release is sealed with Sigill before it is published: the wheel and the
-sdist each get a detached CAdES seal (`.p7s`) with an RFC 3161 timestamp and a
+sdist each get a detached CAdES seal (`.p7s`) with a qualified (eIDAS) RFC 3161 timestamp and a
 post-quantum hybrid signature (ML-DSA-87 strengthens the classic seal). The
 seals are attached to the [GitHub release](https://github.com/sigill-ai/sigill-python/releases).
 PyPI serves the same bytes, so to check a download, put the file and its `.p7s`

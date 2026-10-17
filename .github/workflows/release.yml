@@ -82,13 +82,14 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: sigill-ai/evidence-action@be2e7dafdd3c86ca5689995917b5e98f8c882a01 # v1.0.1
+      - uses: sigill-ai/evidence-action@29c7582a2072557734f1d566abeaf292462ce46b # v1.1.0
         with:
           files: |
             dist/*.whl
             dist/*.tar.gz
           mode: seal
           pqc: true
+          qualified: true
       - uses: actions/upload-artifact@v4
         with:
           name: evidence
