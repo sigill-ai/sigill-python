@@ -1,0 +1,39 @@
+{
+  "": {
+    "commonTypes": {
+      "Facts": {
+        "type": "Record",
+        "attributes": {
+          "consequential": { "type": "Boolean", "required": true },
+          "operation": { "type": "String", "required": true },
+          "stepsSoFar": { "type": "Long", "required": true },
+          "approval": { "type": "String", "required": true },
+          "isChildRun": { "type": "Boolean", "required": true },
+          "totalSteps": { "type": "Long", "required": true },
+          "consequentialCount": { "type": "Long", "required": true },
+          "unpairedConsequential": { "type": "Long", "required": true }
+        }
+      }
+    },
+    "entityTypes": {
+      "Agent": {},
+      "Tool": {},
+      "Step": {},
+      "Run": {}
+    },
+    "actions": {
+      "run_start": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "retrieval": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "tool_call": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Tool"], "context": { "type": "Facts" } } },
+      "authorization": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "human_approval": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "tool_result": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Tool"], "context": { "type": "Facts" } } },
+      "model_output": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "checkpoint": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "run_end": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "delegation": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "delegation_result": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Step"], "context": { "type": "Facts" } } },
+      "run": { "appliesTo": { "principalTypes": ["Agent"], "resourceTypes": ["Run"], "context": { "type": "Facts" } } }
+    }
+  }
+}

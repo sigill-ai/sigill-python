@@ -92,6 +92,7 @@ from sigill_sdk._agent_types import (
     AgentControlSet,
     AgentDefinition,
     AgentDelegation,
+    AgentIndexResult,
     AgentRunActor,
     AgentRunArtifact,
     AgentRunBundle,
@@ -101,6 +102,12 @@ from sigill_sdk._agent_types import (
     ControlEvaluationRequest,
     ControlResult,
     PER_EVENT,
+    QualifiedArtifacts,
+)
+from sigill_sdk._agent_policy import (
+    POLICY_CONTROL_SET_CONTENT_TYPE,
+    AgentPolicy,
+    PolicyDigests,
 )
 from sigill_sdk._agent_run import (
     AgentRun,
@@ -187,7 +194,9 @@ __all__ = [
     "AgentDefinition",
     "AgentDelegation",
     "AgentEvaluationVerdict",
+    "AgentIndexResult",
     "AgentObjectVerdict",
+    "AgentPolicy",
     "AgentRun",
     "AgentRunActor",
     "AgentRunArtifact",
@@ -210,6 +219,9 @@ __all__ = [
     "ControlEvaluationRequest",
     "ControlResult",
     "PER_EVENT",
+    "POLICY_CONTROL_SET_CONTENT_TYPE",
+    "PolicyDigests",
+    "QualifiedArtifacts",
     "SignatureTimestampInfo",
     "SignerCertificateInfo",
     "TREE_SCOPE",

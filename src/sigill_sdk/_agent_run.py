@@ -43,13 +43,16 @@ from sigill_sdk._agent_types import (
     AgentControlSet,
     AgentDefinition,
     AgentDelegation,
+    AgentIndexResult,
     AgentRunActor,
     AgentRunArtifact,
     AgentRunBundle,
     AgentRunObject,
     AgentTimestampPolicy,
     ControlEvaluationRequest,
+    QualifiedArtifacts,
 )
+from sigill_sdk._agent_policy import POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
 from sigill_sdk._sign_objects import SignedObjectDigest
@@ -106,6 +109,22 @@ def _validate_policy(p: AgentTimestampPolicy) -> None:
         raise ValueError("timestamp_policy cadence values must be zero or positive.")
 
 
+def _validate_control_set(control_set: AgentControlSet, disclose_policy: bool) -> None:
+    """A policy control set is checked before anything is sealed: a malformed policy must never
+    become the run's control basis."""
+    if control_set.content_type != POLICY_CONTROL_SET_CONTENT_TYPE:
+        if disclose_policy:
+            raise ValueError(f"disclose_policy requires a control set of type {POLICY_CONTROL_SET_CONTENT_TYPE} "
+                             "(AgentPolicy.control_set_from_document).")
+        return
+    errors = AgentPolicy.validate(control_set.content)
+    if errors:
+        raise ValueError("Invalid policy control set: " + "; ".join(errors))
+    doc = json.loads(control_set.content)
+    if doc["id"] != control_set.id or doc["version"] != control_set.version:
+        raise ValueError("control_set id and version must equal the document's id and version.")
+
+
 def _tool_block(name: str, operation: Optional[str], use_id: Optional[str]) -> dict:
     if not name:
         raise ValueError("tool name is required.")
@@ -146,13 +165,15 @@ class AgentRun:
     def __init__(self, *, _client: Any, _agent: AgentDefinition, _certificate_id: str, _activity: str,
                  _policy: AgentTimestampPolicy, _correlation_id: str, _retain: bool, _qualified: bool,
                  _on_sealed: Optional[Callable[[AgentRunArtifact], None]], _clock: Callable[[], datetime],
-                 _schema_version: str = "1", _parent: Optional[AgentDelegation] = None):
+                 _schema_version: str = "1", _parent: Optional[AgentDelegation] = None,
+                 _qualified_for: QualifiedArtifacts = QualifiedArtifacts.NONE):
         self._client = _client
         self._agent = _agent
         self._certificate_id = _certificate_id
         self._activity = _activity
         self._retain = _retain
         self._qualified = _qualified
+        self._qualified_for = _qualified_for
         self._on_sealed = _on_sealed
         self._clock = _clock
         self._lock = threading.RLock()
@@ -176,6 +197,8 @@ class AgentRun:
         """The run identifier (``activity.correlationId``)."""
         self.control_artifact: AgentRunArtifact = None  # type: ignore[assignment]
         """The run's Control Artifact, sealed before ``run_start``."""
+        self.policy_disclosure: Optional[AgentIndexResult] = None
+        """Outcome of ``disclose_policy=True``; None when the policy was not shared."""
 
     @classmethod
     def start(cls, client: Any, agent: AgentDefinition, *, certificate_id: str, activity: str,
@@ -185,7 +208,8 @@ class AgentRun:
               timestamp_policy: Optional[AgentTimestampPolicy] = None, correlation_id: Optional[str] = None,
               start_objects: Optional[Sequence[AgentRunObject]] = None, retain_payloads: bool = False,
               qualified: bool = False, on_artifact_sealed: Optional[Callable[[AgentRunArtifact], None]] = None,
-              delegating: bool = False, _clock: Optional[Callable[[], datetime]] = None,
+              delegating: bool = False, qualified_for: QualifiedArtifacts = QualifiedArtifacts.NONE,
+              disclose_policy: bool = False, _clock: Optional[Callable[[], datetime]] = None,
               _parent: Optional[AgentDelegation] = None) -> "AgentRun":
         """Opens a run: seals the Control Artifact (always timestamped), then
         ``run_start`` binding it.
@@ -210,11 +234,19 @@ class AgentRun:
         :param delegating: the run may start sub-agent runs (``spec/agent-delegation-v1.md``). Its events
             are sealed as ``AgentExecutionEvidence`` ``schemaVersion "2"``, which a run must use throughout
             once it delegates. Child runs (:meth:`start_child`) always use version 2.
+        :param qualified_for: request qualified timestamps for these artifacts only, in addition to
+            ``qualified``: the Control Artifact and ``run_end`` are the ones a declared policy rests on.
+        :param disclose_policy: **preview** — share the declared policy with your Sigill organisation's evidence index:
+            after the Control Artifact is sealed, upload its signed envelope (metadata and digests, no
+            content) together with the control-set document, so the organisation can review, approve and
+            track the policy. Requires an :class:`AgentPolicy` control set. Off by default. The upload never
+            fails the run; its outcome is :attr:`policy_disclosure`. Execution events are not uploaded.
         """
         if control_set is None:
             raise ValueError("control_set is required.")
         policy = timestamp_policy or AgentTimestampPolicy()
         _validate_policy(policy)
+        _validate_control_set(control_set, disclose_policy)
         if _parent is not None:
             if not _parent.child_correlation_id or not _parent.parent_correlation_id \
                     or not _parent.delegation_signature_sha256:
@@ -231,7 +263,8 @@ class AgentRun:
         run = cls(_client=client, _agent=agent, _certificate_id=str(certificate_id), _activity=activity,
                   _policy=policy, _correlation_id=correlation,
                   _retain=retain_payloads, _qualified=qualified, _on_sealed=on_artifact_sealed, _clock=clock,
-                  _schema_version="2" if delegating or _parent is not None else "1", _parent=_parent)
+                  _schema_version="2" if delegating or _parent is not None else "1", _parent=_parent,
+                  _qualified_for=QualifiedArtifacts(qualified_for))
 
         now = _truncate(clock())
         config = agent.configuration
@@ -270,7 +303,8 @@ class AgentRun:
         digests = _digests(objects)
 
         result = _seal(client, envelope, _signed_digests(objects), CONTROL_ARTIFACT_CONTENT_TYPE,
-                       str(certificate_id), timestamp=True, qualified=qualified)
+                       str(certificate_id), timestamp=True,
+                       qualified=qualified or bool(qualified_for & QualifiedArtifacts.CONTROL_ARTIFACT))
         if result.timestamped_by is None:
             raise SigillError("The Control Artifact must be timestamped, but the seal carries no timestamp.")
         signer, problem = signer_of(result.signature)
@@ -284,6 +318,14 @@ class AgentRun:
 
         # Seal run_start before any callback runs, so a failing callback cannot strand a sealed control basis.
         start = run._seal_event("run_start", list(start_objects or []), {}, consequential=False)
+        if disclose_policy:
+            # Sharing is a side channel: it never fails the run (the evidence is in the producer's bundle either way).
+            try:
+                upload = getattr(client, "_index_agent_artifact", None)
+                run.policy_disclosure = upload(run.control_artifact, control_set.content) if upload else \
+                    AgentIndexResult("failed", error="Only SigillClient can share a policy with the evidence index.")
+            except Exception as ex:  # noqa: BLE001
+                run.policy_disclosure = AgentIndexResult("failed", error=str(ex))
         # Both are delivered even when the first callback fails: later events wait for their turn in order.
         failure: Optional[BaseException] = None
         for artifact, seq in ((run.control_artifact, -1), (start, 0)):
@@ -587,7 +629,9 @@ class AgentRun:
         _prevalidate(envelope, _execution_schema_for(envelope))  # raises before anything is sealed
         try:
             result = _seal(self._client, envelope, _signed_digests(objects), EXECUTION_EVIDENCE_CONTENT_TYPE,
-                           self._certificate_id, timestamp=stamp, qualified=self._qualified)
+                           self._certificate_id, timestamp=stamp,
+                           qualified=self._qualified or (step_type == "run_end"
+                                                         and bool(self._qualified_for & QualifiedArtifacts.RUN_END)))
             if stamp and result.timestamped_by is None:
                 raise SigillError(f"{step_type}: a timestamp is required by the run's policy, but the seal carries none.")
             signer, problem = signer_of(result.signature)

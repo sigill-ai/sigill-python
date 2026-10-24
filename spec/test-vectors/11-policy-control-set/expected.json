@@ -1,0 +1,14 @@
+{
+  "contentType": "application/vnd.sigill.control-set+json",
+  "objectSha256": "bf91bb753529de5265075880291b5804b1da549b7804b8685b70ad99a4e441d1",
+  "cedarDigest": "bc1d126277a604e2f04d7b8a6b186b9eed4bc80feff3b569565521ad893a528c",
+  "approvalScopeDigest": "d80d93d858b7117a234a438b987dec90b33014bc9193a14daaf89e8b4ec9d343",
+  "schemaSha256": "3bb5de5a78da26341ee26e240acb96015d20e4da303af32311520950ab1daf73",
+  "versionOnlyApprovalScopeDigest": "d80d93d858b7117a234a438b987dec90b33014bc9193a14daaf89e8b4ec9d343",
+  "ruleIds": [
+    "allowed-tools",
+    "consequential-needs-approval",
+    "max-steps",
+    "no-unpaired-consequential"
+  ]
+}
