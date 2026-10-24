@@ -1,0 +1,198 @@
+{
+  "id": "acme-support-agent-controls",
+  "version": "3",
+  "controls": [],
+  "cedar": {
+    "policies": {
+      "staticPolicies": {
+        "allowed-tools": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [
+            {
+              "kind": "unless",
+              "body": {
+                "contains": {
+                  "left": {
+                    "Set": [
+                      {
+                        "Value": {
+                          "__entity": {
+                            "type": "Tool",
+                            "id": "crm.read_customer"
+                          }
+                        }
+                      },
+                      {
+                        "Value": {
+                          "__entity": {
+                            "type": "Tool",
+                            "id": "crm.update_address"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "right": {
+                    "Var": "resource"
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "id": "allowed-tools"
+          }
+        },
+        "consequential-needs-approval": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                "&&": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "consequential"
+                    }
+                  },
+                  "right": {
+                    "==": {
+                      "left": {
+                        ".": {
+                          "left": {
+                            "Var": "context"
+                          },
+                          "attr": "approval"
+                        }
+                      },
+                      "right": {
+                        "Value": "none"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "id": "consequential-needs-approval"
+          }
+        },
+        "max-steps": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "All"
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "stepsSoFar"
+                    }
+                  },
+                  "right": {
+                    "Value": 20
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "id": "max-steps"
+          }
+        },
+        "no-unpaired-consequential": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "run"
+            }
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "unpairedConsequential"
+                    }
+                  },
+                  "right": {
+                    "Value": 0
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "id": "no-unpaired-consequential"
+          }
+        }
+      }
+    },
+    "schemaSha256": "3bb5de5a78da26341ee26e240acb96015d20e4da303af32311520950ab1daf73"
+  },
+  "privateControls": [
+    {
+      "id": "no-card-numbers-in-replies"
+    }
+  ],
+  "coverage": {
+    "sourceProfile": "urn:sigill:recorder:producer-declared",
+    "scope": "all instrumented SDK tool calls",
+    "idleSeconds": 1800
+  }
+}

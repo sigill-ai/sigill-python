@@ -24,6 +24,7 @@ from sigill_sdk._agent_tree import (
 from sigill_sdk._agent_types import (
     AgentDefinition,
     AgentDelegation,
+    AgentIndexResult,
     AgentRunArtifact,
     AgentRunBundle,
     ControlEvaluationRequest,
@@ -827,6 +828,27 @@ class SigillClient:
         seals the Control Artifact, then ``run_start``. Options are those of
         :meth:`AgentRun.start`."""
         return AgentRun.start(self, agent, certificate_id=certificate_id, **options)
+
+    def _index_agent_artifact(self, artifact: AgentRunArtifact,
+                              control_set_document: bytes | None = None) -> AgentIndexResult:
+        """Uploads a sealed Control Artifact (with its policy control-set document) to the organisation's
+        evidence index — the transport of ``disclose_policy``. Private on purpose: a general upload of
+        execution events is sharing with the index, which waits for its data-processing terms.
+        Returns a failed result instead of raising when the index refuses the upload."""
+        body: dict = {"envelope": artifact.envelope, "signature": artifact.signature,
+                      "objectDigests": dict(artifact.object_digests)}
+        if control_set_document is not None:
+            body["controlSet"] = base64.b64encode(control_set_document).decode("ascii")
+        resp = self._http.post("/api/agent-evidence/artifacts", json=body)
+        try:
+            data = resp.json()
+        except ValueError:  # a non-JSON error page: the status code says enough
+            data = {}
+        if not isinstance(data, dict):
+            data = {}
+        if resp.status_code >= 400:
+            return AgentIndexResult("failed", error=f"{resp.status_code} {data.get('code') or resp.reason_phrase}")
+        return AgentIndexResult(data.get("status") or "indexed", run_id=data.get("runId"))
 
     def seal_control_evaluation(self, request: ControlEvaluationRequest) -> AgentRunArtifact:
         """Seals a Control Evaluation of a finished run. See :class:`ControlEvaluation`."""

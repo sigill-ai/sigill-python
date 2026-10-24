@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import base64
+import enum
 import json
 import re
 import uuid
@@ -76,6 +77,30 @@ class AgentControlSet:
     version: str
     content: bytes
     content_type: str = "application/json"
+
+
+class QualifiedArtifacts(enum.IntFlag):
+    """Artifacts that get a qualified timestamp (``qualified_for=``). A declared policy rests on the
+    Control Artifact's timestamp ("sealed before the run") and the run's outcome on ``run_end``'s."""
+
+    NONE = 0
+    CONTROL_ARTIFACT = 1
+    RUN_END = 2
+
+
+@dataclass(frozen=True)
+class AgentIndexResult:
+    """Outcome of an upload to the organisation's evidence index."""
+
+    status: str
+    """``indexed`` or ``exists`` on success, ``failed`` otherwise."""
+    run_id: Optional[str] = None
+    error: Optional[str] = None
+    """Why the upload failed (status code and the index's error code)."""
+
+    @property
+    def succeeded(self) -> bool:
+        return self.status in ("indexed", "exists")
 
 
 @dataclass(frozen=True)
