@@ -20,7 +20,7 @@ from sigill_sdk import (
 )
 from sigill_sdk._agent_profiles import CONTROL_ARTIFACT_SCHEMA
 from sigill_sdk._canonical import canonicalize, hash_bytes
-from tests.test_agent_run import REPO, StubSealer, _start
+from test_agent_run import REPO, StubSealer, _start
 
 VECTOR = REPO / "spec" / "test-vectors" / "11-policy-control-set"
 DOC = (VECTOR / "control-set.json").read_bytes()

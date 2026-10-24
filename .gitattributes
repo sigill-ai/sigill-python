@@ -1,0 +1,2 @@
+# Test vectors are compared byte-for-byte (object digests): never normalise their line endings.
+spec/test-vectors/** -text
