@@ -15,16 +15,28 @@ from sigill_sdk import (
     POLICY_CONTROL_SET_CONTENT_TYPE,
     AgentControlSet,
     AgentPolicy,
+    AgentRunArtifact,
+    AgentRunBundle,
+    AttestedEvaluationRequest,
+    ControlEvaluation,
+    ControlResult,
+    EvaluationReference,
+    PolicyEvaluationRequest,
+    PolicyRuleResult,
     QualifiedArtifacts,
     SigillClient,
+    verify_agent_run,
 )
 from sigill_sdk._agent_profiles import CONTROL_ARTIFACT_SCHEMA
 from sigill_sdk._canonical import canonicalize, hash_bytes
-from test_agent_run import REPO, StubSealer, _start
+from test_agent_run import CERT_A, CERT_V, REPO, VERIFIER_CERT, StubSealer, _clock, _start, stub_verify
 
 VECTOR = REPO / "spec" / "test-vectors" / "11-policy-control-set"
 DOC = (VECTOR / "control-set.json").read_bytes()
 EXPECTED = json.loads((VECTOR / "expected.json").read_text())
+
+
+FACTS = REPO / "spec" / "test-vectors" / "12-policy-evaluation"
 
 
 def _mutate(change) -> bytes:
@@ -162,3 +174,92 @@ def test_qualified_for_stamps_only_the_chosen_artifacts_qualified() -> None:
     run.finish("completed")
     # control, run_start, checkpoint, run_end
     assert [r.get("qualified", False) for r in sealer.requests] == [True, False, False, True]
+
+
+# ── Control Evaluation v2 (spec/control-evaluation-v2.md) ───────────────────
+
+@pytest.mark.parametrize("run", sorted(p.stem for p in (FACTS / "runs").glob("*.json")))
+def test_build_facts_is_byte_exact_with_the_vector(run: str) -> None:
+    given = json.loads((FACTS / "runs" / f"{run}.json").read_text(encoding="utf-8"))
+    facts = AgentPolicy.build_facts(given["agentId"], given["correlationId"], reversed(given["events"]))  # any order
+    assert facts.data == (FACTS / "expected" / f"{run}.facts.json").read_bytes()
+    expected = json.loads((FACTS / "expected" / f"{run}.results.json").read_text(encoding="utf-8"))
+    assert facts.sha256 == expected["factsSha256"]
+    assert facts.through_seq == expected["throughSeq"]
+    assert facts.run_level == expected["runLevel"]
+    assert facts.missing_seqs == expected["missingSeqs"]
+
+
+def test_build_facts_refuses_two_events_with_the_same_seq() -> None:
+    e = {"chain": {"seq": 0}, "step": {"type": "run_start"}}
+    with pytest.raises(ValueError, match="seq 0"):
+        AgentPolicy.build_facts("a", "r", [e, json.loads(json.dumps(e))])
+
+
+def test_policy_and_attested_evaluations_seal_and_verify_as_control_evaluation_v2() -> None:
+    sealer = StubSealer()
+    client = _client(sealer)
+    run = _start(client, control_set=AgentPolicy.control_set_from_document(DOC))
+    run.record_tool_call("crm.read_customer", b"{}", operation="read", use_id="c1")
+    run.record_tool_result("crm.read_customer", b"{}", use_id="c1")
+    run.record_tool_call("crm.delete_customer", b"{}", operation="delete", consequential=True, use_id="c2")
+    run.record_tool_result("crm.delete_customer", b"{}", use_id="c2")
+    bundle = run.finish("completed")
+
+    sealer.cert = CERT_V
+    rules = [
+        PolicyRuleResult("allowed-tools", "FAIL", ["3"]),
+        PolicyRuleResult("consequential-needs-approval", "FAIL", ["3"]),
+        PolicyRuleResult("max-steps", "PASS"),
+        PolicyRuleResult("no-unpaired-consequential", "PASS"),
+    ]
+    partial = ControlEvaluation.prepare_policy(PolicyEvaluationRequest(
+        certificate_id=VERIFIER_CERT, evaluator_id="urn:example:policy-evaluator", evaluator_version="1.0.0",
+        control_artifact=run.control_artifact, control_set_document=DOC, events=bundle.artifacts[:3],
+        rules=[PolicyRuleResult(r.id, "PASS") for r in rules], policy_status="unapproved",
+        engine="cedar-policy@4.14.0", private_controls_reported="pending"), _clock=_clock())
+    assert partial.envelope["policy"]["state"] == "partial"
+    first = ControlEvaluation.seal(client, partial, VERIFIER_CERT)
+
+    prepared = ControlEvaluation.prepare_policy(PolicyEvaluationRequest(
+        certificate_id=VERIFIER_CERT, evaluator_id="urn:example:policy-evaluator", evaluator_version="1.0.0",
+        control_artifact=run.control_artifact, control_set_document=DOC, events=bundle.artifacts,
+        rules=rules, policy_status="unapproved", engine="cedar-policy@4.14.0", private_controls_reported="reported",
+        supersedes=EvaluationReference(first.evidence_id, first.signature_sha256)), _clock=_clock())
+    assert prepared.envelope["overall"] == "FAIL", "overall is derived from the rules"
+    final = ControlEvaluation.seal(client, prepared, VERIFIER_CERT)
+
+    sealer.cert = CERT_A  # the producer seals its own private-control results with the run's certificate
+    attested_prep = ControlEvaluation.prepare_attested(AttestedEvaluationRequest(
+        certificate_id=VERIFIER_CERT, producer_id="urn:example:harness", producer_version="1.0.0",
+        control_artifact=run.control_artifact, run_end=bundle.artifacts[-1], control_set_document=DOC,
+        controls=[ControlResult("no-card-numbers-in-replies", "PASS")]), _clock=_clock())
+    attested = ControlEvaluation.seal(client, attested_prep, VERIFIER_CERT)
+
+    payloads: dict = {}
+    for p in (partial.payloads, prepared.payloads, attested_prep.payloads):
+        for uri, data in p.items():
+            payloads.setdefault(uri, data)
+    bundle = bundle.with_evaluations(first, final, attested).with_payloads(payloads)
+    result = verify_agent_run(AgentRunBundle.parse(bundle.to_json()), stub_verify)
+
+    assert result.verdict == "run_finalized", result.findings
+    assert len(result.evaluations) == 3
+    for e in result.evaluations:
+        assert e.valid, e.findings
+    p0, p1, a = result.evaluations
+    assert p0.kind == "policy" and p0.policy_state == "partial" and not p0.current
+    assert p1.kind == "policy" and p1.facts_match is True and p1.policy_digests_match is True and p1.current
+    assert p1.overall == "FAIL" and not p1.results_recomputed
+    assert a.kind == "attested"
+    cs_uri = next(o["uri"] for o in run.control_artifact.envelope["objects"] if o["role"] == "control-set")
+    assert cs_uri in payloads, "the control set travels as a payload"
+
+
+def test_prepare_policy_refuses_what_would_not_verify() -> None:
+    request = PolicyEvaluationRequest(
+        certificate_id=VERIFIER_CERT, evaluator_id="e", evaluator_version="1",
+        control_artifact=AgentRunArtifact({}, {}, {}), control_set_document=b"{}", events=[], rules=[],
+        policy_status="unapproved", engine="cedar-policy@4.14.0")
+    with pytest.raises(ValueError, match="policy control set"):
+        ControlEvaluation.prepare_policy(request)

@@ -1,0 +1,28 @@
+{
+ "factsSha256": "e406f6aea6599f17b823c27ab2a3808a9390408676a293d582223d561a7663da",
+ "engine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "allowed-tools",
+   "result": "PASS"
+  },
+  {
+   "id": "consequential-needs-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "max-steps",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  }
+ ],
+ "overall": "PASS",
+ "throughSeq": 1,
+ "missingSeqs": [
+  2
+ ],
+ "runLevel": false
+}

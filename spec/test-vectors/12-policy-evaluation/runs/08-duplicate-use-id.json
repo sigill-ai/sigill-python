@@ -1,0 +1,61 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-000000000107",
+ "events": [
+  {
+   "chain": {
+    "seq": 0
+   },
+   "step": {
+    "type": "run_start"
+   }
+  },
+  {
+   "chain": {
+    "seq": 1
+   },
+   "step": {
+    "type": "tool_call",
+    "tool": {
+     "name": "crm.update_address",
+     "useId": "dup"
+    },
+    "consequential": true
+   }
+  },
+  {
+   "chain": {
+    "seq": 2
+   },
+   "step": {
+    "type": "tool_call",
+    "tool": {
+     "name": "crm.update_address",
+     "useId": "dup"
+    },
+    "consequential": true
+   }
+  },
+  {
+   "chain": {
+    "seq": 3
+   },
+   "step": {
+    "type": "tool_result",
+    "tool": {
+     "name": "crm.update_address",
+     "useId": "dup"
+    }
+   }
+  },
+  {
+   "chain": {
+    "seq": 4
+   },
+   "step": {
+    "type": "run_end",
+    "finalSeq": 4
+   }
+  }
+ ]
+}

@@ -1,0 +1,95 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-000000000101",
+ "events": [
+  {
+   "chain": {
+    "seq": 0
+   },
+   "step": {
+    "type": "run_start"
+   }
+  },
+  {
+   "chain": {
+    "seq": 1
+   },
+   "step": {
+    "type": "tool_call",
+    "tool": {
+     "name": "crm.read_customer",
+     "useId": "u1"
+    }
+   }
+  },
+  {
+   "chain": {
+    "seq": 2
+   },
+   "step": {
+    "type": "tool_result",
+    "tool": {
+     "name": "crm.read_customer",
+     "useId": "u1"
+    }
+   }
+  },
+  {
+   "chain": {
+    "seq": 3
+   },
+   "step": {
+    "type": "tool_call",
+    "tool": {
+     "name": "crm.delete_customer",
+     "operation": "delete",
+     "useId": "u2"
+    },
+    "consequential": true
+   }
+  },
+  {
+   "chain": {
+    "seq": 4
+   },
+   "step": {
+    "type": "tool_result",
+    "tool": {
+     "name": "crm.delete_customer",
+     "useId": "u2"
+    }
+   }
+  },
+  {
+   "chain": {
+    "seq": 5
+   },
+   "step": {
+    "type": "tool_call",
+    "tool": {
+     "name": "crm.update_address",
+     "operation": "update",
+     "useId": "u3"
+    },
+    "consequential": true
+   }
+  },
+  {
+   "chain": {
+    "seq": 6
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 7
+   },
+   "step": {
+    "type": "run_end",
+    "finalSeq": 7
+   }
+  }
+ ]
+}

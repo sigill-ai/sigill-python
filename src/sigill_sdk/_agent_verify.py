@@ -9,6 +9,7 @@ SDK one-to-one: same checks, same findings, same verdicts.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -18,9 +19,10 @@ from sigill_sdk._agent_profiles import (
     CONTROL_ARTIFACT_CONTENT_TYPE,
     CONTROL_ARTIFACT_SCHEMA,
     CONTROL_EVALUATION_CONTENT_TYPE,
-    CONTROL_EVALUATION_SCHEMA,
     EXECUTION_EVIDENCE_CONTENT_TYPE,
+    _b64u_decode,
     _content_type_problem,
+    _evaluation_schema_for,
     _execution_schema_for,
     _layout_problem,
     _format_time,
@@ -34,6 +36,7 @@ from sigill_sdk._agent_profiles import (
     signature_sha256,
     signer_of,
 )
+from sigill_sdk._agent_policy import POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy, _build_facts
 from sigill_sdk._agent_types import (
     AgentRunArtifact,
     AgentRunBundle,
@@ -262,6 +265,30 @@ class AgentEvaluationVerdict:
     overall: Optional[str] = None
     controls: list[ControlResult] = field(default_factory=list)
     findings: list[str] = field(default_factory=list)
+    schema_version: Optional[str] = None
+    """"1" or "2"."""
+    kind: Optional[str] = None
+    """v2: state | policy | attested (``spec/control-evaluation-v2.md``); None for v1."""
+    policy_status: Optional[str] = None
+    """policy: approved_before_run | approved_after_start | unapproved, as the evaluator states it."""
+    policy_state: Optional[str] = None
+    """policy: finalized | partial."""
+    facts_match: Optional[bool] = None
+    """policy: the facts rebuilt from this run's signed events equal the sealed facts byte for byte (§4.5);
+    None when not checked."""
+    policy_digests_match: Optional[bool] = None
+    """policy: approvalScopeDigest and cedarDigest recompute from the sealed control set; None when not checked."""
+    results_recomputed: bool = False
+    """policy: the per-rule results were recomputed with a Cedar engine (§4.6). This SDK has no Cedar engine, so
+    it is always False: the facts are checked, the results are the evaluator's."""
+    sealed_for: Optional[str] = None
+    """The role in the seal's ``srAts.claimed`` "sealed for" attribute (§8), e.g.
+    ``urn:sigill:role:policy-evaluator``. Meaningful only together with the signer: a shared service
+    certificate's operator emits it for its own statements only."""
+    supersedes: Optional[str] = None
+    """The evidenceId this evaluation supersedes (§6), when it names one."""
+    current: bool = True
+    """No other valid evaluation of the same kind and control set supersedes it (§6)."""
 
 
 @dataclass(frozen=True)
@@ -491,6 +518,241 @@ def _check_artifact(sa: _Signed, art: AgentRunArtifact, payloads: Mapping[str, b
 
 def _time(s: Optional[str]) -> Optional[datetime]:
     return parse_date_time(s) if isinstance(s, str) else None
+
+
+# ── Control Evaluation v2 ───────────────────────────────────────────────────
+
+_SEALED_FOR_MEDIA_TYPE = "application/vnd.sigill.sealed-for"
+_RESULT_RANK = {"PASS": 0, "INDETERMINATE": 1, "FAIL": 2}
+
+
+def _normalize_id(id_: str) -> str:
+    return (id_[9:] if id_.lower().startswith("urn:uuid:") else id_).lower()
+
+
+def _sealed_for_of(jws: dict) -> Optional[str]:
+    """The "sealed for" role of the classical signature's protected header (CE v2 §8), or None."""
+    entries = jws.get("signatures") if isinstance(jws.get("signatures"), list) else [jws]
+    for e in entries:
+        if not isinstance(e, dict) or not isinstance(e.get("protected"), str):
+            continue
+        try:
+            header = json.loads(_b64u_decode(e["protected"]).decode("utf-8"))
+        except ValueError:  # bad base64url, UTF-8 or JSON
+            continue
+        header = _obj(header)
+        alg = _str(header.get("alg")) if header else None
+        if alg is not None and alg.upper().startswith("ML-DSA"):
+            continue
+        claimed = (_obj((header or {}).get("srAts")) or {}).get("claimed")
+        for claim in claimed if isinstance(claimed, list) else []:
+            if isinstance(claim, dict) and claim.get("mediaType") == _SEALED_FOR_MEDIA_TYPE \
+                    and isinstance(claim.get("qVals"), list) and len(claim["qVals"]) == 1:
+                return _str(claim["qVals"][0])
+        return None
+    return None
+
+
+def _policy_subject_bound(env: dict, subject: dict, events: list[_Signed], ctl_sig: Optional[str],
+                          run_end_sig: Optional[str]) -> bool:
+    """CE v2 §4.2: a policy evaluation names the Control Artifact, the event at throughSeq and, when finalized,
+    run_end."""
+    if ctl_sig is None or _str(subject.get("controlArtifactSignatureSha256")) != ctl_sig:
+        return False
+    policy = _obj(env.get("policy")) or {}
+    through = _int((_obj(policy.get("prefix")) or {}).get("throughSeq"))
+    at = next((e for e in events if e.seq is not None and e.seq == through), None)
+    if at is None or _str(subject.get("throughSignatureSha256")) != signature_sha256(at.jws):
+        return False
+    return _str(policy.get("state")) != "finalized" \
+        or (run_end_sig is not None and _str(subject.get("runEndSignatureSha256")) == run_end_sig)
+
+
+@dataclass
+class _EvaluationV2Check:
+    findings: list[str] = field(default_factory=list)
+    facts_match: Optional[bool] = None
+    digests_match: Optional[bool] = None
+    policy_status: Optional[str] = None
+    state: Optional[str] = None
+
+
+def _ids_of(arr: Any) -> list[str]:
+    out = []
+    for x in arr if isinstance(arr, list) else []:
+        v = _str(x.get("id")) if isinstance(x, dict) else _str(x)
+        if v is not None:
+            out.append(v)
+    return out
+
+
+def _check_evaluation_v2(sa: _Signed, c: _ArtifactCheck, payloads: Mapping[str, bytes], ctl: Optional[_Signed],
+                         events: list[_Signed], label: str) -> _EvaluationV2Check:
+    """The kind-specific rules of ``spec/control-evaluation-v2.md`` §2–§5. Schema conformance is checked elsewhere."""
+    r = _EvaluationV2Check()
+
+    def bad(m: str) -> None:
+        r.findings.append(f"{label}: {m}.")
+    env = sa.env
+    kind = _str(env.get("kind"))
+    controls = [x for x in (env.get("controls") if isinstance(env.get("controls"), list) else [])
+                if isinstance(x, dict)]
+
+    # §2: overall follows from the controls.
+    worst = "PASS"
+    for x in controls:
+        res = _str(x.get("result")) or ""
+        if res in _RESULT_RANK and _RESULT_RANK[res] > _RESULT_RANK[worst]:
+            worst = res
+    if _str(env.get("overall")) != worst:
+        bad(f"overall is {_n(_str(env.get('overall')))}, but its controls give {worst}")
+    ids = [_str(x.get("id")) or "" for x in controls]
+    for dup in dict.fromkeys(i for i in ids if ids.count(i) > 1):
+        bad(f"control '{dup}' is reported more than once")
+    for x in controls:
+        has_where = x.get("where") is not None
+        is_pass = _str(x.get("result")) == "PASS"
+        if kind != "policy" and has_where:
+            bad(f"control '{_n(_str(x.get('id')))}' carries where, which only a policy evaluation may")
+        if kind == "policy" and has_where == is_pass:
+            bad(f"control '{_n(_str(x.get('id')))}': where must be present exactly when the result is not PASS")
+
+    def signed_bytes(role: str) -> Optional[bytes]:
+        """The bytes of a signed object: only when supplied and equal to what the signature confirmed."""
+        o = next((x for x in sa.objects if x.role == role), None)
+        if o is None or o.uri not in payloads:
+            return None
+        b = payloads[o.uri]
+        if c.signed_digest(o.uri) != hash_bytes(b):
+            bad(f"the supplied {role} bytes are not the signed ones")
+            return None
+        return b
+
+    def same_ids(expected: list[str], what: str) -> None:
+        want, got = set(expected), set(ids)
+        for m in sorted(want - got, key=utf16_key):
+            bad(f"{what} '{m}' is not reported")
+        for m in sorted(got - want, key=utf16_key):
+            bad(f"control '{m}' is not one of the control set's {what}s")
+
+    cs_bytes = signed_bytes("control-set")
+    cs = _json_doc(cs_bytes)
+    if kind == "state":
+        if cs is not None:  # digests-only bundles keep v1 behaviour
+            same_ids(_ids_of(cs.get("controls")), "state control")
+    elif kind == "attested":
+        if cs is None:
+            bad("the control-set object is not supplied, so it cannot be checked that every private control was "
+                "reported")
+        else:
+            same_ids(_ids_of(cs.get("privateControls")), "private control")
+    elif kind == "policy":
+        facts_bytes = signed_bytes("evaluation-facts")
+        approval_bytes = signed_bytes("policy-approval")
+        _check_policy(env, cs_bytes, cs, facts_bytes, approval_bytes, sa, ctl, events, r, bad, same_ids)
+    return r
+
+
+def _json_doc(b: Optional[bytes]) -> Optional[dict]:
+    if b is None:
+        return None
+    try:
+        return _obj(json.loads(b))
+    except ValueError:
+        return None
+
+
+def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], facts_bytes: Optional[bytes],
+                  approval_bytes: Optional[bytes], sa: _Signed, ctl: Optional[_Signed], events: list[_Signed],
+                  r: _EvaluationV2Check, bad: Callable[[str], None],
+                  same_ids: Callable[[list[str], str], None]) -> None:
+    policy = _obj(env.get("policy")) or {}
+    r.policy_status = _str(policy.get("policyStatus"))
+    r.state = _str(policy.get("state"))
+    if cs_bytes is None or cs is None:
+        bad("the control-set object is not supplied, so the evaluation cannot be checked")
+        return
+    cs_object = next((o for o in sa.objects if o.role == "control-set"), None)
+    if (cs_object.content_type if cs_object else None) != POLICY_CONTROL_SET_CONTENT_TYPE:
+        bad("its control set is not a policy control set")
+    cedar = cs.get("cedar")
+    if AgentPolicy.validate(cs_bytes) or not isinstance(cedar, dict):
+        bad("its control set is not a valid policy control set with Cedar rules")
+        return
+
+    digests = AgentPolicy.compute_digests(cs_bytes)
+    r.digests_match = (digests.approval_scope_digest == _str(policy.get("approvalScopeDigest"))
+                       and digests.cedar_digest == _str(policy.get("cedarDigest")))
+    if r.digests_match is False:
+        bad("approvalScopeDigest or cedarDigest does not recompute from its control set")
+    if _str((_obj(policy.get("evaluator")) or {}).get("schemaSha256")) != _str(cedar.get("schemaSha256")):
+        bad("evaluator.schemaSha256 is not the control set's cedar.schemaSha256")
+    same_ids(list(_obj((_obj(cedar.get("policies")) or {}).get("staticPolicies")) or {}), "rule")
+    declares_private = isinstance(cs.get("privateControls"), list) and len(cs["privateControls"]) > 0
+    if declares_private != (policy.get("privateControlsReported") is not None):
+        bad("privateControlsReported must be present exactly when the control set declares private controls")
+
+    # Prefix (§4.2).
+    prefix = _obj(policy.get("prefix")) or {}
+    through = _int(prefix.get("throughSeq"))
+    through = -2 if through is None else through
+    raw_missing = prefix.get("missingSeqs")
+    missing = [_int(m) for m in (raw_missing if isinstance(raw_missing, list) else [])]
+    missing_ok = all(m is not None for m in missing) and all(a < b for a, b in zip(missing, missing[1:])) \
+        and (not missing or missing[0] == through + 1)
+    if not missing_ok:
+        bad("prefix.missingSeqs must be ascending, start right after throughSeq and repeat nothing")
+    prefix_events = [e for e in events if e.seq is not None and e.seq <= through]
+    contiguous = through >= -1 and len(prefix_events) == through + 1 \
+        and len({e.seq for e in prefix_events}) == through + 1
+    run_end = next((e for e in prefix_events if e.step_type == "run_end"), None)
+    final_seq = _int(prefix.get("finalSeq"))
+    if final_seq != (_int((_obj(run_end.env.get("step")) or {}).get("finalSeq")) if run_end else None):
+        bad("prefix.finalSeq is not the evaluated run_end's finalSeq")
+    finalized = run_end is not None and not missing
+    if (r.state == "finalized") != finalized:
+        bad(f"state is {_n(r.state)}, but the evaluated prefix is {'finalized' if finalized else 'partial'}")
+
+    # Facts (§4.5): rebuilt from the signed events, byte for byte.
+    agent_id = _str((_obj(ctl.env.get("agent")) or {}).get("id")) if ctl is not None else None
+    if facts_bytes is None:
+        bad("the evaluation-facts object is not supplied, so the facts cannot be rebuilt")
+    elif not contiguous:
+        bad(f"the bundle lacks events of the evaluated prefix seq 0…{through}")
+    elif agent_id is None or sa.correlation_id is None:
+        bad("the agent id or correlationId the facts depend on is missing")
+    elif missing_ok:
+        rebuilt = _build_facts(agent_id, sa.correlation_id, [e.env for e in prefix_events], missing)
+        r.facts_match = rebuilt.data == facts_bytes
+        if r.facts_match is False:
+            bad("its facts are not the facts of this run's signed events")
+        else:
+            requests = json.loads(facts_bytes).get("requests")
+            seqs = set()
+            for q in requests if isinstance(requests, list) else []:
+                v = q.get("seq") if isinstance(q, dict) else None
+                v = v if isinstance(v, str) else None if _int(v) is None else str(_int(v))
+                if v is not None:
+                    seqs.add(v)
+            wheres = [w for x in env.get("controls") or [] if isinstance(x, dict)
+                      for w in (x.get("where") if isinstance(x.get("where"), list) else []) if isinstance(w, str)]
+            for w in dict.fromkeys(wheres):
+                if w not in seqs:
+                    bad(f"where names request '{w}', which is not in its facts")
+
+    # Approval (§4.4).
+    if r.policy_status == "unapproved":
+        return
+    approval = _json_doc(approval_bytes)
+    if approval is None:
+        bad(f"policyStatus is {_n(r.policy_status)}, but the approval record is not supplied")
+        return
+    if _str(approval.get("schemaName")) != "AgentPolicyApproval" or _str(approval.get("decision")) != "approved":
+        bad("its policy-approval object is not an approval record")
+    if _str(approval.get("approvalScopeDigest")) != _str(policy.get("approvalScopeDigest")):
+        bad("the approval record approves another approval scope")
+    if _str(approval.get("agentId")) != agent_id:
+        bad("the approval record is for another agent")
 
 
 # ── The run ─────────────────────────────────────────────────────────────────
@@ -864,7 +1126,8 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             findings.append(f"Object '{o.uri}' is signed with different content in {seen[0]} and {label}.")
 
     # ── every payload must be a signed object of some artifact (§7)
-    eval_parsed = [_parse_signed(e.envelope, e.signature, CONTROL_EVALUATION_SCHEMA) for e in bundle.evaluations]
+    eval_parsed = [_parse_signed(e.envelope, e.signature, _evaluation_schema_for(e.envelope))
+                   for e in bundle.evaluations]
     signed_uris = {o.uri for s in good for o in s.objects}
     signed_uris.update(o.uri for o in (ctl.objects if ctl else []))
     signed_uris.update(o.uri for s, _ in eval_parsed if s is not None for o in s.objects)
@@ -953,10 +1216,16 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             ef.append(f"{label}: a timestamp is required and it is {'invalid' if c.timestamp_present else 'missing'}.")
 
         subject = _obj(sa.env.get("subject")) or {}
-        subject_bound = (run_end_sig is not None and ctl_sig is not None
-                         and subject.get("runEndSignatureSha256") == run_end_sig
-                         and subject.get("controlArtifactSignatureSha256") == ctl_sig
-                         and (correlation is None or sa.correlation_id == correlation))
+        is_v2 = _str(sa.env.get("schemaVersion")) == "2"
+        kind = _str(sa.env.get("kind")) if is_v2 else None
+        if kind == "policy":
+            subject_bound = (_policy_subject_bound(sa.env, subject, good, ctl_sig, run_end_sig)
+                             and (correlation is None or sa.correlation_id == correlation))
+        else:
+            subject_bound = (run_end_sig is not None and ctl_sig is not None
+                             and subject.get("runEndSignatureSha256") == run_end_sig
+                             and subject.get("controlArtifactSignatureSha256") == ctl_sig
+                             and (correlation is None or sa.correlation_id == correlation))
         if not subject_bound:
             ef.append(f"{label}: its subject does not name this run's run_end and Control Artifact.")
 
@@ -983,6 +1252,9 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                             f"bundle: events may have been withheld.")
         if baseline_matches is False:
             ef.append(f"{label}: its baseline is not the one sealed in the Control Artifact.")
+        v2 = _check_evaluation_v2(sa, c, bundle.payloads, ctl, good, label) if is_v2 else None
+        if v2 is not None:
+            ef.extend(v2.findings)
 
         controls = [ControlResult(_str(x.get("id")) or "", _str(x.get("result")) or "", _str(x.get("detail")))
                     for x in (sa.env.get("controls") if isinstance(sa.env.get("controls"), list) else [])
@@ -993,9 +1265,26 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             baseline_digest_matches=baseline_matches, signature_valid=signature_valid,
             timestamp_valid=c.timestamp_ok, timestamp_gen_time=c.gen_time, objects_complete=c.objects_complete,
             valid=(signature_valid and c.timestamp_ok and c.objects_complete and not sa.conformance
-                   and subject_bound and control_set_matches and baseline_matches is not False),
+                   and subject_bound and control_set_matches and baseline_matches is not False
+                   and (v2 is None or not v2.findings)),
             well_formed=not sa.conformance, signer=signer, certificate=c.certificate,
-            overall=_str(sa.env.get("overall")), controls=controls, findings=ef))
+            overall=_str(sa.env.get("overall")), controls=controls, findings=ef,
+            schema_version=_str(sa.env.get("schemaVersion")), kind=kind,
+            policy_status=v2.policy_status if v2 else None, policy_state=v2.state if v2 else None,
+            facts_match=v2.facts_match if v2 else None, policy_digests_match=v2.digests_match if v2 else None,
+            sealed_for=_sealed_for_of(sa.jws), supersedes=_str((_obj(sa.env.get("supersedes")) or {}).get("evidenceId"))))
+
+    # v2 §6: evaluations are append-only; the current one of a kind is the one no valid evaluation supersedes.
+    superseded = {_normalize_id(e.supersedes) for e in evaluations if e.valid and e.supersedes is not None}
+    evaluations = [replace(e, current=False) if e.evidence_id is not None and _normalize_id(e.evidence_id) in superseded
+                   else e for e in evaluations]
+    current_by_kind: dict[str, int] = {}
+    for e in evaluations:
+        if e.valid and e.current and e.kind is not None:
+            current_by_kind[e.kind] = current_by_kind.get(e.kind, 0) + 1
+    for k, count in current_by_kind.items():
+        if count > 1:
+            warnings.append(f"{count} valid {k} evaluations each claim to be current: none supersedes the others.")
 
     # A timestamp proves time only if its TSA is trusted (§8); the signature service reports that per timestamp.
     timestamped = [(lb, ck) for lb, ck in ([("control artifact", ctl_check)] if ctl_check is not None else [])
