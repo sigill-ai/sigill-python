@@ -1217,6 +1217,18 @@ def main() -> None:
              evaluations=[dict(EVAL_OK, baselineDigestMatches=None, kind="attested", current=True),
                           dict(EVAL_OK, baselineDigestMatches=None, kind="attested", current=True, valid=False)])
 
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=b"not an approval record")
+    scenario("91-policy-approval-not-json", "The sealed policy-approval object is not JSON: reported as not valid, "
+             "never an exception.", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, extra={"srAts": "urn:sigill:role:policy-evaluator"})
+    scenario("92-sealed-for-malformed", "srAts is a string, not the TS 119 182-1 object: no role is read, and the "
+             "evaluation is otherwise valid.", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, sealedFor=None)])
+
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))
     needle = '"consequential":false'

@@ -150,7 +150,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 90
+    assert len(RUN_VECTORS) == 92
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
