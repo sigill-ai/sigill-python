@@ -328,6 +328,10 @@ class PolicyEvaluationRequest:
     """The sealed approval record's exact bytes; required unless :attr:`policy_status` is unapproved."""
     private_controls_reported: Optional[str] = None
     """reported, missing or pending — required when the control set declares private controls."""
+    not_qualified: Optional[Sequence[str]] = None
+    """When the approval record requires qualified time (§4.7): the timestamps that are not qualified —
+    "approval", "control", event seqs, "run_end" — empty when every one is. None exactly when there is no such
+    requirement."""
     supersedes: Optional[EvaluationReference] = None
     evaluated_at: Optional[datetime] = None
     qualified: bool = False
@@ -369,6 +373,9 @@ class PreparedEvaluation:
     object_digests: dict[str, str]
     payloads: dict[str, bytes]
     """Bytes a verifier needs (control set, facts, approval record): add them to the bundle's payloads."""
+    requires_qualified_timestamp: bool = False
+    """The approval requires qualified time (§4.7): the evaluation itself must be sealed with a qualified
+    timestamp."""
 
 
 class AgentRunBundleFormatError(SigillError):

@@ -495,9 +495,10 @@ def facts(agent_id: str, correlation_id: str, events: list, missing: list | None
                              "runLevel": run_level, "requests": reqs})
 
 
-def approval_record(doc: bytes, *, scope: str | None = None, agent: str = AGENT["id"]) -> bytes:
+def approval_record(doc: bytes, *, scope: str | None = None, agent: str = AGENT["id"], timestamps: str | None = None) -> bytes:
     approval_scope, cedar = policy_digests(doc)
-    return jcs.canonicalize({
+    extra = {"timestamps": timestamps} if timestamps else {}
+    return jcs.canonicalize({**extra,
         "schemaName": "AgentPolicyApproval", "schemaVersion": "1", "decision": "approved",
         "approvalId": "00000000-0000-4000-a000-000000000001", "agentId": agent, "controlSet": dict(POLICY_ID),
         "approvalScopeDigest": scope or approval_scope, "cedarDigest": cedar, "controlSetSha256": sha256hex(doc),
@@ -519,7 +520,7 @@ def policy_run(steps=POLICY_STEPS):
 def policy_evaluation(payloads: dict, control: dict, arts: list, *, controls=None, overall=None, status="unapproved",
                       through: int | None = None, missing=None, n: int = 950, tweak=None, facts_bytes: bytes | None = None,
                       approval: bytes | None = None, extra: dict | None = SIGILL_ROLE, supersedes: dict | None = None,
-                      private_reported: str | None = "pending") -> dict:
+                      private_reported: str | None = "pending", timestamps: dict | None = None) -> dict:
     through = arts[-1]["envelope"]["chain"]["seq"] if through is None else through
     prefix = [a for a in arts if a["envelope"]["chain"]["seq"] <= through]
     end = next((a for a in prefix if a["envelope"]["step"]["type"] == "run_end"), None)
@@ -555,6 +556,8 @@ def policy_evaluation(payloads: dict, control: dict, arts: list, *, controls=Non
     }
     if private_reported is not None:
         env["policy"]["privateControlsReported"] = private_reported
+    if timestamps is not None:
+        env["policy"]["timestamps"] = timestamps
     if supersedes:
         env["supersedes"] = supersedes
     if tweak:
@@ -1228,6 +1231,42 @@ def main() -> None:
     scenario("92-sealed-for-malformed", "srAts is a string, not the TS 119 182-1 object: no role is read, and the "
              "evaluation is otherwise valid.", bundle(control, arts, [ev], p), "run_finalized", {},
              evaluations=[dict(V2_OK, sealedFor=None)])
+
+    # ── CE v2 §4.7: qualified time required by the approval ──────────────────
+    q_approval = approval_record(POLICY_DOC, timestamps="qualified")
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=q_approval,
+                           timestamps={"required": "qualified", "met": True, "where": []})
+    scenario("93-qualified-required-met", "The approval requires qualified time and every timestamp is qualified.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, sealedFor="urn:sigill:role:policy-evaluator", qualifiedRequired=True, qualifiedMet=True)])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=q_approval,
+                           timestamps={"required": "qualified", "met": False, "where": ["approval", "control", "run_end"]})
+    scenario("94-qualified-required-not-met", "Qualified time required, but the approval, the control basis and run_end carry "
+             "best-effort stamps: a valid evaluation that says the requirement is not met.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, sealedFor="urn:sigill:role:policy-evaluator", qualifiedRequired=True, qualifiedMet=False)])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=q_approval)
+    scenario("95-qualified-required-omitted", "The approval requires qualified time but the evaluation is silent about it: "
+             "not valid (no loophole by omission).", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=q_approval,
+                           timestamps={"required": "qualified", "met": True, "where": ["control"]})
+    scenario("96-qualified-met-contradicted", "met says true while where lists the control basis: not valid.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator", qualifiedRequired=True)])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, timestamps={"required": "qualified", "met": True, "where": []})
+    scenario("97-qualified-claimed-unapproved", "An unapproved run claims a qualified-time requirement no approval made: "
+             "not valid.", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))

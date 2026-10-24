@@ -19,6 +19,7 @@ import copy
 import json
 import threading
 import uuid
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -752,8 +753,10 @@ class ControlEvaluation:
         if isinstance(request, PreparedEvaluation):
             if certificate_id is None:
                 raise ValueError("certificate_id is required to seal a prepared evaluation.")
+            # §4.7: an evaluation under a qualified-time requirement is itself qualified — never a best-effort stamp.
             result = _seal(client, request.envelope, request.objects, CONTROL_EVALUATION_CONTENT_TYPE,
-                           str(certificate_id), timestamp=True, qualified=qualified,
+                           str(certificate_id), timestamp=True,
+                           qualified=qualified or request.requires_qualified_timestamp,
                            reused_uris=frozenset(request.reused_uris))
             if result.timestamped_by is None:
                 raise SigillError("A Control Evaluation must be timestamped, but the seal carries no timestamp.")
@@ -937,6 +940,15 @@ class ControlEvaluation:
         }
         if request.private_controls_reported is not None:
             policy["privateControlsReported"] = request.private_controls_reported
+        # §4.7: present exactly when the approval record requires qualified time.
+        requires_qualified = request.approval_record is not None \
+            and _str((_obj(json.loads(request.approval_record)) or {}).get("timestamps")) == "qualified"
+        if requires_qualified != (request.not_qualified is not None):
+            raise ValueError("not_qualified is required exactly when the approval record requires qualified "
+                             "timestamps.")
+        if request.not_qualified is not None:
+            policy["timestamps"] = {"required": "qualified", "met": len(request.not_qualified) == 0,
+                                    "where": list(request.not_qualified)}
         controls = []
         for r in rules:
             j: dict = {"id": r.id, "result": r.result}
@@ -949,7 +961,8 @@ class ControlEvaluation:
                                         subject, now, request.evaluated_at, controls, [r.result for r in rules],
                                         objects, request.supersedes)
         envelope["policy"] = policy
-        return _prepared(envelope, seal, [cs_uri], digests, payloads)
+        return replace(_prepared(envelope, seal, [cs_uri], digests, payloads),
+                       requires_qualified_timestamp=requires_qualified)
 
     @staticmethod
     def prepare_attested(request: AttestedEvaluationRequest, *,

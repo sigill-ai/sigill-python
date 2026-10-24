@@ -111,6 +111,7 @@ or `"run"` for the run-level request, in request order. `where` is absent for `P
 | `prefix.finalSeq` | yes | `run_end`'s `finalSeq`, or `null` when no `run_end` was received. |
 | `prefix.missingSeqs` | yes | Seqs below the highest received seq that were missing; the events after the first gap were not evaluated. |
 | `state` | yes | `finalized`: `run_end` received and no gap. `partial`: sealed with a gap or without `run_end` after the evaluator's waiting period (§7). |
+| `timestamps` | exactly when the approval record requires qualified time | `{ required, met, where }` (§4.7). |
 | `privateControlsReported` | when the control set declares `privateControls` | `reported`, `missing` or `pending`: whether an `attested` evaluation covering every private control had been received when this evaluation was made (`pending`: still within the waiting period). |
 
 `subject.throughSignatureSha256` is REQUIRED: the `signatureSha256` of the event at
@@ -175,6 +176,26 @@ The facts and the policy are enough to recompute every result with the official 
 named in `evaluator.engine`: `controls[]` MUST equal Control Set v1 §6 applied to the facts.
 A verifier that has the engine MUST recompute. A verifier without it MUST report the
 results as not recomputed; the facts are still checked (§4.5).
+
+### 4.7 Required qualified time
+
+An owner may approve a policy with the requirement that all time in the evidence is
+qualified (eIDAS); the sealed approval record then carries `"timestamps": "qualified"`. The
+evaluation then carries `timestamps`:
+
+| Field | Rule |
+|---|---|
+| `required` | `"qualified"`. |
+| `met` | `true` exactly when `where` is empty. |
+| `where` | Every timestamp the run and the approval rest on that is not qualified: `"approval"` (the approval record's own timestamp), `"control"` (the Control Artifact), a decimal seq (an event of the evaluated prefix that carries a timestamp), `"run_end"`. In that order, no repeats. |
+
+"Qualified" means the timestamp token's policy is a qualified one **and** its issuing TSA is
+listed as a qualified time-stamping service on the EU trusted lists at issuance — a policy
+identifier alone is not enough. Events without a timestamp are anchored by the chain to the
+next one and are not listed. A verifier checks that `timestamps` is present exactly when the
+approval record requires it and that `met` follows from `where`; the qualified determination
+itself is the evaluator's, reported as such. An evaluation of a run under this requirement is
+itself sealed with a qualified timestamp.
 
 ## 5. `kind: "attested"`
 

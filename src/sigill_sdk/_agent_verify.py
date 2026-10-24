@@ -10,6 +10,7 @@ SDK one-to-one: same checks, same findings, same verdicts.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -285,6 +286,12 @@ class AgentEvaluationVerdict:
     """The role in the seal's ``srAts.claimed`` "sealed for" attribute (§8), e.g.
     ``urn:sigill:role:policy-evaluator``. Meaningful only together with the signer: a shared service
     certificate's operator emits it for its own statements only."""
+    qualified_timestamps_required: bool = False
+    """policy: the approval requires qualified time across the evidence (§4.7)."""
+    qualified_timestamps_met: Optional[bool] = None
+    """policy, when required: every timestamp the run and the approval rest on is qualified, as the evaluator
+    determined (§4.7); None when not required. The SDK checks the claim's shape and its binding to the approval,
+    not the TSAs."""
     supersedes: Optional[str] = None
     """The evidenceId this evaluation supersedes (§6), when it names one."""
     current: bool = True
@@ -573,6 +580,8 @@ class _EvaluationV2Check:
     findings: list[str] = field(default_factory=list)
     facts_match: Optional[bool] = None
     digests_match: Optional[bool] = None
+    qualified_required: bool = False
+    qualified_met: Optional[bool] = None
     policy_status: Optional[str] = None
     state: Optional[str] = None
 
@@ -740,13 +749,39 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
                 if w not in seqs:
                     bad(f"where names request '{w}', which is not in its facts")
 
-    # Approval (§4.4).
+    # Approval (§4.4) and required qualified time (§4.7).
+    timestamps = _obj(policy.get("timestamps"))
     if r.policy_status == "unapproved":
+        if timestamps is not None:
+            bad("timestamps is present, but no approval requires qualified time")
         return
     approval = _json_doc(approval_bytes)
     if approval is None:
         bad(f"policyStatus is {_n(r.policy_status)}, but the approval record is not supplied")
         return
+    requires_qualified = _str(approval.get("timestamps")) == "qualified"
+    if requires_qualified != (timestamps is not None):
+        bad("timestamps must be present exactly when the approval record requires qualified time")
+    if timestamps is not None:
+        r.qualified_required = True
+        raw_where = timestamps.get("where")
+        where = [w for w in (raw_where if isinstance(raw_where, list) else []) if isinstance(w, str)]
+        met = timestamps.get("met") is True
+        if met != (not where):
+            bad("timestamps.met does not follow from timestamps.where")
+        # Order: approval, control, events by seq, run_end — each at most once, events inside the evaluated prefix.
+        fixed = {"approval": -3, "control": -2, "run_end": float("inf")}
+        ranks = [fixed[w] if w in fixed else int(w) if re.fullmatch(r"0|[1-9][0-9]*", w) else None for w in where]
+        if None in ranks:
+            bad("timestamps.where names an entry that is not approval, control, a seq or run_end")
+        else:
+            if not all(a < b for a, b in zip(ranks, ranks[1:])):
+                bad("timestamps.where is not in order or repeats an entry")
+            if any(w not in fixed and rk > through for w, rk in zip(where, ranks)):
+                bad("timestamps.where names an event outside the evaluated prefix")
+        if "run_end" in where and r.state != "finalized":
+            bad("timestamps.where names run_end, but the evaluated prefix has none")
+        r.qualified_met = met and not where
     if _str(approval.get("schemaName")) != "AgentPolicyApproval" or _str(approval.get("decision")) != "approved":
         bad("its policy-approval object is not an approval record")
     if _str(approval.get("approvalScopeDigest")) != _str(policy.get("approvalScopeDigest")):
@@ -1272,7 +1307,10 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             schema_version=_str(sa.env.get("schemaVersion")), kind=kind,
             policy_status=v2.policy_status if v2 else None, policy_state=v2.state if v2 else None,
             facts_match=v2.facts_match if v2 else None, policy_digests_match=v2.digests_match if v2 else None,
-            sealed_for=_sealed_for_of(sa.jws), supersedes=_str((_obj(sa.env.get("supersedes")) or {}).get("evidenceId"))))
+            sealed_for=_sealed_for_of(sa.jws),
+            qualified_timestamps_required=v2.qualified_required if v2 else False,
+            qualified_timestamps_met=v2.qualified_met if v2 else None,
+            supersedes=_str((_obj(sa.env.get("supersedes")) or {}).get("evidenceId"))))
 
     # v2 §6: evaluations are append-only; the current one of a kind is the one no valid evaluation supersedes.
     superseded = {_normalize_id(e.supersedes) for e in evaluations if e.valid and e.supersedes is not None}

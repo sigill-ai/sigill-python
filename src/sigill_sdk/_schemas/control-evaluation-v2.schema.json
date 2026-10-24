@@ -381,6 +381,31 @@
             "missing",
             "pending"
           ]
+        },
+        "timestamps": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "required",
+            "met",
+            "where"
+          ],
+          "properties": {
+            "required": {
+              "type": "string",
+              "const": "qualified"
+            },
+            "met": {
+              "type": "boolean"
+            },
+            "where": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(approval|control|run_end|0|[1-9][0-9]*)$"
+              }
+            }
+          }
         }
       }
     },
