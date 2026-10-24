@@ -1268,6 +1268,13 @@ def main() -> None:
              "not valid.", bundle(control, arts, [ev], p), "run_finalized", {},
              evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
 
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=q_approval,
+                           timestamps={"required": "qualified", "met": False, "where": ["99999999999999999999"]})
+    scenario("98-qualified-where-beyond-any-run", "where names a seq no run can reach (beyond 64-bit): outside the "
+             "evaluated prefix — not valid, never an exception.", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator", qualifiedRequired=True, qualifiedMet=False)])
+
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))
     needle = '"consequential":false'

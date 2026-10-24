@@ -941,8 +941,15 @@ class ControlEvaluation:
         if request.private_controls_reported is not None:
             policy["privateControlsReported"] = request.private_controls_reported
         # §4.7: present exactly when the approval record requires qualified time.
-        requires_qualified = request.approval_record is not None \
-            and _str((_obj(json.loads(request.approval_record)) or {}).get("timestamps")) == "qualified"
+        approval_doc = None
+        if request.approval_record is not None:
+            try:
+                approval_doc = _obj(json.loads(request.approval_record))
+            except ValueError:
+                approval_doc = None
+            if approval_doc is None:
+                raise ValueError("approval_record is not a JSON object")
+        requires_qualified = _str((approval_doc or {}).get("timestamps")) == "qualified"
         if requires_qualified != (request.not_qualified is not None):
             raise ValueError("not_qualified is required exactly when the approval record requires qualified "
                              "timestamps.")
