@@ -150,7 +150,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 92
+    assert len(RUN_VECTORS) == 98
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -192,7 +192,9 @@ def test_run_vector_reproduces_expected_verdict(name: str) -> None:
         assert r.overall == e["overall"]
         # Control Evaluation v2 expectations, present only in the v2 scenarios.
         for key, attr in (("kind", "kind"), ("factsMatch", "facts_match"), ("policyDigestsMatch", "policy_digests_match"),
-                          ("current", "current"), ("sealedFor", "sealed_for")):
+                          ("current", "current"), ("sealedFor", "sealed_for"),
+                          ("qualifiedRequired", "qualified_timestamps_required"),
+                          ("qualifiedMet", "qualified_timestamps_met")):
             if key in e:
                 assert getattr(r, attr) == e[key], (key, r.findings)
 

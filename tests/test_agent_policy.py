@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -254,6 +255,35 @@ def test_policy_and_attested_evaluations_seal_and_verify_as_control_evaluation_v
     assert a.kind == "attested"
     cs_uri = next(o["uri"] for o in run.control_artifact.envelope["objects"] if o["role"] == "control-set")
     assert cs_uri in payloads, "the control set travels as a payload"
+
+
+def test_under_a_qualified_time_requirement_the_evaluation_states_it_and_is_sealed_qualified() -> None:
+    sealer = StubSealer()
+    client = _client(sealer)
+    run = _start(client, control_set=AgentPolicy.control_set_from_document(DOC))
+    run.record_tool_call("crm.read_customer", b"{}", operation="read", use_id="c1")
+    bundle = run.finish("completed")
+    approval = json.dumps({
+        "schemaName": "AgentPolicyApproval", "decision": "approved",
+        "agentId": run.control_artifact.envelope["agent"]["id"],
+        "approvalScopeDigest": AgentPolicy.compute_digests(DOC).approval_scope_digest, "timestamps": "qualified",
+    }).encode()
+    request = PolicyEvaluationRequest(
+        certificate_id=VERIFIER_CERT, evaluator_id="e", evaluator_version="1", control_artifact=run.control_artifact,
+        control_set_document=DOC, events=bundle.artifacts,
+        rules=[PolicyRuleResult(i, "PASS") for i in ("allowed-tools", "consequential-needs-approval", "max-steps",
+                                                     "no-unpaired-consequential")],
+        policy_status="approved_before_run", approval_record=approval, engine="cedar-policy@4.14.0",
+        private_controls_reported="missing")
+    # Silence is a loophole: a requirement in the approval must be answered.
+    with pytest.raises(ValueError, match="not_qualified"):
+        ControlEvaluation.prepare_policy(request)
+
+    prepared = ControlEvaluation.prepare_policy(replace(request, not_qualified=["control", "run_end"]), _clock=_clock())
+    assert prepared.requires_qualified_timestamp
+    assert prepared.envelope["policy"]["timestamps"]["met"] is False
+    ControlEvaluation.seal(client, prepared, VERIFIER_CERT)  # qualified=False is overridden
+    assert sealer.requests[-1]["qualified"] is True, "an evaluation under the requirement is never best-effort"
 
 
 def test_prepare_policy_refuses_what_would_not_verify() -> None:
