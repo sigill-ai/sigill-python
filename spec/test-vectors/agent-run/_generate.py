@@ -87,14 +87,14 @@ class locator:
 
 
 def stub_sign(envelope: dict, digests: dict, cty: str, *, timestamp: str | None, cert: bytes = CERT_A,
-              hybrid: bool = False, dup_alg: bool = False, envelope_ref: str | None = None) -> dict:
+              hybrid: bool = False, dup_alg: bool = False, envelope_ref: str | None = None, extra: dict | None = None) -> dict:
     pars = [envelope_ref or FORM["envelope"]] + [o["uri"] for o in envelope["objects"]]
     hash_v = [b64u(hashlib.sha256(jcs.canonicalize(envelope)).digest())] + \
              [b64u(bytes.fromhex(digests[u])) for u in pars[1:]]
     # ctys is index-aligned with pars: the profile type, then each object's contentType ("" when absent).
     ctys = [cty] + [o.get("contentType", "") for o in envelope["objects"]]
     header = jcs.canonicalize({"alg": "ES256", "sigD": {"pars": pars, "hashV": hash_v, "ctys": ctys},
-                               **signer_header(cert)})
+                               **signer_header(cert), **(extra or {})})
     if dup_alg:  # a repeated member name: parsers disagree on which value wins, so the header is unreadable
         header = header.replace(b'{"alg":"ES256"', b'{"alg":"ES256","alg":"ES256"', 1)
     protected = b64u(header)
@@ -122,9 +122,10 @@ def objects_block(objs: list) -> list:
 
 
 def artifact(env: dict, objs: list, cty: str, *, stamp_at: str | None, cert: bytes = CERT_A,
-             dup_alg: bool = False) -> dict:
+             dup_alg: bool = False, extra: dict | None = None) -> dict:
     digests = {uri: sha256hex(data) for uri, _, _, data in objs}
-    return {"envelope": env, "signature": stub_sign(env, digests, cty, timestamp=stamp_at, cert=cert, dup_alg=dup_alg),
+    return {"envelope": env, "signature": stub_sign(env, digests, cty, timestamp=stamp_at, cert=cert, dup_alg=dup_alg,
+                                                    extra=extra),
             "objectDigests": digests}
 
 
@@ -150,8 +151,9 @@ def envelope_ref_of(a: dict) -> str | None:
 POLICY = {"profile": "throughput", "everyEvents": 0, "everySeconds": 0, "consequential": False}
 
 
-def control_objs() -> list:
-    return [
+def control_objs(control_set: tuple | None = None) -> list:
+    """control_set: (contentType, bytes) replacing the state control set (a policy control set, CE v2)."""
+    objs = [
         (ouri("instruction-set"), "instruction-set", "text/plain", b"You triage support tickets. Close only with approval."),
         (ouri("tool-manifest"), "tool-manifest", "application/json", b'{"tools":["lookup_ticket","close_ticket"]}'),
         (ouri("execution-policy"), "execution-policy", "application/json", b'{"allow":["lookup_ticket","close_ticket"]}'),
@@ -159,18 +161,22 @@ def control_objs() -> list:
         (ouri("control-set"), "control-set", "application/json", b'{"controls":["ticket-closed","owner-unchanged"]}'),
         (ouri("baseline-state"), "baseline-state", "application/json", b'{"ticket":"4411","status":"open","owner":"team-a"}'),
     ]
+    if control_set is not None:
+        objs = [o if o[1] != "control-set" else (o[0], o[1], control_set[0], control_set[1]) for o in objs if o[1] != "baseline-state"]
+    return objs
 
 
 def control_artifact(payloads: dict, *, policy=POLICY, cert: bytes = CERT_A, n: int = 1, tweak=None,
-                     stamp_at: str | None = "2026-10-01T08:59:01Z", cty: str = CTY["control"]) -> dict:
-    objs = control_objs()
+                     stamp_at: str | None = "2026-10-01T08:59:01Z", cty: str = CTY["control"],
+                     control_set: tuple | None = None, control_set_id: dict | None = None) -> dict:
+    objs = control_objs(control_set)
     env = {
         "schemaName": "AgentControlArtifact", "schemaVersion": "1", "evidenceId": uuid(n),
         "createdAt": "2026-10-01T08:59:00.000Z",
         "actor": {"type": "system", "id": "urn:example:harness:prod"},
         "activity": {"name": ACTIVITY, "correlationId": RUN},
         "agent": dict(AGENT),
-        "controlSet": {"id": "ticket-close-v2", "version": "2"},
+        "controlSet": control_set_id or {"id": "ticket-close-v2", "version": "2"},
         "objects": objects_block(objs),
     }
     if policy is not None:
@@ -411,6 +417,172 @@ def standard(*, policy=POLICY, steps=STEPS, **kw):
     control = control_artifact(p, policy=policy)
     arts = build_run(steps, p, control=control, **kw)
     return p, control, arts
+
+
+# ── Control Evaluation v2 (spec/control-evaluation-v2.md) ───────────────────
+
+POLICY_DOC = (HERE.parent / "11-policy-control-set" / "control-set.json").read_bytes()
+POLICY_CT = "application/vnd.sigill.control-set+json"
+POLICY_ID = {"id": "acme-support-agent-controls", "version": "3"}
+SIGILL_ROLE = {"srAts": {"claimed": [{"mediaType": "application/vnd.sigill.sealed-for", "encoding": "8bit",
+                                      "qVals": ["urn:sigill:role:policy-evaluator"]}]}}
+POLICY_STEPS = [
+    {"type": "tool_call", "minute": 1, "step": {"tool": {"name": "crm.read_customer", "operation": "read", "useId": "u1"}},
+     "objects": [("tool-arguments", "application/json", b'{"customer":"C-1"}')]},
+    {"type": "tool_result", "minute": 2, "step": {"tool": {"name": "crm.read_customer", "useId": "u1"}},
+     "objects": [("tool-result", "application/json", b'{"name":"A"}')]},
+    {"type": "model_output", "minute": 3, "objects": [("model-output", "text/plain", b"Done.")]},
+]
+ROGUE_STEPS = POLICY_STEPS[:2] + [
+    {"type": "tool_call", "minute": 3, "consequential": True,
+     "step": {"tool": {"name": "crm.delete_customer", "operation": "delete", "useId": "u2"}},
+     "objects": [("tool-arguments", "application/json", b'{"customer":"C-1"}')]},
+    {"type": "tool_result", "minute": 4, "step": {"tool": {"name": "crm.delete_customer", "useId": "u2"}},
+     "objects": [("tool-result", "application/json", b'{"deleted":true}')]},
+]
+
+
+def policy_digests(doc: bytes) -> tuple:
+    d = json.loads(doc)
+    scope = {k: v for k, v in d.items() if k not in ("id", "version")}
+    return sha256hex(jcs.canonicalize(scope)), sha256hex(jcs.canonicalize(d["cedar"]))
+
+
+def facts(agent_id: str, correlation_id: str, events: list, missing: list | None = None) -> bytes:
+    """Agent Policy Control Set v1 §5 over the given (contiguous) events; `missing` as the evaluator reported it."""
+    evs = sorted(events, key=lambda e: e["chain"]["seq"])
+    missing = missing or []
+    through = evs[-1]["chain"]["seq"] if evs else -1
+    first = evs[0] if evs else None
+    child = bool(first and first["step"]["type"] == "run_start" and first.get("binds", {}).get("parentCorrelationId"))
+    principal = {"type": "Agent", "id": agent_id}
+    reqs, count, approval = [], 0, False
+    for e in evs:
+        st, seq = e["step"], e["chain"]["seq"]
+        cons = st.get("consequential") is True
+        count += cons
+        tool = st.get("tool") or {}
+        toolstep = st["type"] in ("tool_call", "tool_result")
+        reqs.append({"seq": seq, "principal": principal, "action": {"type": "Action", "id": st["type"]},
+                     "resource": {"type": "Tool", "id": tool.get("name", "")} if toolstep else {"type": "Step", "id": str(seq)},
+                     "context": {"consequential": cons, "operation": tool.get("operation", ""), "stepsSoFar": seq,
+                                 "approval": "unbound" if approval else "none", "isChildRun": child, "totalSteps": 0,
+                                 "consequentialCount": count, "unpairedConsequential": 0}})
+        approval = approval or st["type"] == "human_approval"
+    end = next((e for e in evs if e["step"]["type"] == "run_end"), None)
+    run_level = end is not None and not missing
+    if run_level:
+        final = end["step"].get("finalSeq", end["chain"]["seq"])
+        calls = [e for e in evs if e["step"]["type"] == "tool_call"]
+        uses = {}
+        for c in calls:
+            u = (c["step"].get("tool") or {}).get("useId")
+            if u:
+                uses[u] = uses.get(u, 0) + 1
+
+        def paired(c):
+            u = (c["step"].get("tool") or {}).get("useId")
+            return bool(u) and uses[u] == 1 and any(
+                e["step"]["type"] == "tool_result" and e["chain"]["seq"] > c["chain"]["seq"]
+                and (e["step"].get("tool") or {}).get("useId") == u for e in evs)
+        unpaired = sum(1 for c in calls if not paired(c) and c["step"].get("consequential") is True)
+        reqs.append({"seq": "run", "principal": principal, "action": {"type": "Action", "id": "run"},
+                     "resource": {"type": "Run", "id": correlation_id},
+                     "context": {"consequential": False, "operation": "", "stepsSoFar": final, "approval": "none",
+                                 "isChildRun": child, "totalSteps": final, "consequentialCount": count,
+                                 "unpairedConsequential": unpaired}})
+    return jcs.canonicalize({"factsVersion": "1", "throughSeq": through, "missingSeqs": missing,
+                             "runLevel": run_level, "requests": reqs})
+
+
+def approval_record(doc: bytes, *, scope: str | None = None, agent: str = AGENT["id"]) -> bytes:
+    approval_scope, cedar = policy_digests(doc)
+    return jcs.canonicalize({
+        "schemaName": "AgentPolicyApproval", "schemaVersion": "1", "decision": "approved",
+        "approvalId": "00000000-0000-4000-a000-000000000001", "agentId": agent, "controlSet": dict(POLICY_ID),
+        "approvalScopeDigest": scope or approval_scope, "cedarDigest": cedar, "controlSetSha256": sha256hex(doc),
+        "effectiveAt": "2026-10-01T08:00:00.000Z", "approvalBasis": "sigill_attested",
+        "recordedBy": "urn:sigill:user:00000000-0000-4000-a000-000000000002"})
+
+
+PASS_RULES = [{"id": r, "result": "PASS"} for r in
+              ("allowed-tools", "consequential-needs-approval", "max-steps", "no-unpaired-consequential")]
+
+
+def policy_run(steps=POLICY_STEPS):
+    p: dict = {}
+    control = control_artifact(p, control_set=(POLICY_CT, POLICY_DOC), control_set_id=dict(POLICY_ID))
+    arts = build_run(steps, p, control=control)
+    return p, control, arts
+
+
+def policy_evaluation(payloads: dict, control: dict, arts: list, *, controls=None, overall=None, status="unapproved",
+                      through: int | None = None, missing=None, n: int = 950, tweak=None, facts_bytes: bytes | None = None,
+                      approval: bytes | None = None, extra: dict | None = SIGILL_ROLE, supersedes: dict | None = None,
+                      private_reported: str | None = "pending") -> dict:
+    through = arts[-1]["envelope"]["chain"]["seq"] if through is None else through
+    prefix = [a for a in arts if a["envelope"]["chain"]["seq"] <= through]
+    end = next((a for a in prefix if a["envelope"]["step"]["type"] == "run_end"), None)
+    finalized = end is not None and not missing
+    cs_uri = next(o["uri"] for o in control["envelope"]["objects"] if o["role"] == "control-set")
+    fb = facts_bytes if facts_bytes is not None else facts(AGENT["id"], RUN, [a["envelope"] for a in prefix], missing)
+    objs = [(cs_uri, "control-set", POLICY_CT, POLICY_DOC), (ouri(f"facts-{n}"), "evaluation-facts", "application/json", fb)]
+    if status != "unapproved":
+        objs.append((ouri(f"approval-{n}"), "policy-approval", "application/vnd.sigill.policy-approval+json",
+                     approval if approval is not None else approval_record(POLICY_DOC)))
+    scope, cedar = policy_digests(POLICY_DOC)
+    controls = controls if controls is not None else PASS_RULES
+    subject = {"controlArtifactSignatureSha256": signature_sha256(control["signature"]),
+               "throughSignatureSha256": signature_sha256(prefix[-1]["signature"])}
+    if finalized:
+        subject["runEndSignatureSha256"] = signature_sha256(end["signature"])
+    rank = {"PASS": 0, "INDETERMINATE": 1, "FAIL": 2}
+    env = {
+        "schemaName": "ControlEvaluation", "schemaVersion": "2", "kind": "policy", "evidenceId": uuid(n),
+        "createdAt": "2026-10-01T09:40:00.000Z",
+        "actor": {"type": "verifier", "id": "urn:example:policy-evaluator", "version": "1.0.0"},
+        "activity": {"name": ACTIVITY, "correlationId": RUN},
+        "subject": subject, "controlSet": dict(POLICY_ID), "controls": controls,
+        "overall": overall or max((c["result"] for c in controls), key=rank.get),
+        "evaluatedAt": "2026-10-01T09:39:00.000Z",
+        "policy": {"approvalScopeDigest": scope, "cedarDigest": cedar, "policyStatus": status,
+                   "evaluator": {"engine": "cedar-policy@4.14.0", "factsVersion": "1",
+                                 "schemaSha256": json.loads(POLICY_DOC)["cedar"]["schemaSha256"]},
+                   "prefix": {"throughSeq": through, "finalSeq": end["envelope"]["step"]["finalSeq"] if end else None,
+                              "missingSeqs": missing or []},
+                   "state": "finalized" if finalized else "partial"},
+        "objects": objects_block(objs),
+    }
+    if private_reported is not None:
+        env["policy"]["privateControlsReported"] = private_reported
+    if supersedes:
+        env["supersedes"] = supersedes
+    if tweak:
+        tweak(env)
+    for uri, _, _, data in objs:
+        payloads[uri] = data
+    return artifact(env, objs, CTY["evaluation"], stamp_at="2026-10-01T09:40:01Z", cert=CERT_V, extra=extra)
+
+
+def attested_evaluation(payloads: dict, control: dict, arts: list, *, controls) -> dict:
+    cs_uri = next(o["uri"] for o in control["envelope"]["objects"] if o["role"] == "control-set")
+    objs = [(cs_uri, "control-set", POLICY_CT, POLICY_DOC)]
+    env = {
+        "schemaName": "ControlEvaluation", "schemaVersion": "2", "kind": "attested", "evidenceId": uuid(970),
+        "createdAt": "2026-10-01T09:41:00.000Z",
+        "actor": {"type": "producer", "id": "urn:example:harness:prod", "version": "1.0.0"},
+        "activity": {"name": ACTIVITY, "correlationId": RUN},
+        "subject": {"controlArtifactSignatureSha256": signature_sha256(control["signature"]),
+                    "runEndSignatureSha256": signature_sha256(arts[-1]["signature"])},
+        "controlSet": dict(POLICY_ID), "controls": controls,
+        "overall": "FAIL" if any(c["result"] == "FAIL" for c in controls) else "PASS",
+        "evaluatedAt": "2026-10-01T09:40:30.000Z", "attested": {"evaluatorId": "urn:example:content-checker"},
+        "objects": objects_block(objs),
+    }
+    return artifact(env, objs, CTY["evaluation"], stamp_at="2026-10-01T09:41:01Z", cert=CERT_A)
+
+
+V2_OK = dict(EVAL_OK, baselineDigestMatches=None, kind="policy", factsMatch=True, policyDigestsMatch=True, current=True)
 
 
 def main() -> None:
@@ -960,6 +1132,102 @@ def main() -> None:
         scenario(name, f"seq 1 uses the reserved envelope name {reserved!r} as an object URI: a conformance "
                  "failure, and that entry is never verified as an object.", bundle(control, arts), "run_invalid",
                  {"objects": "bad", "envelope": "bad"}, findings=["objects[] uses the reserved envelope URI"])
+
+    # ── Control Evaluation v2 ─────────────────────────────────────────────────
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts)
+    scenario("80-policy-evaluation-pass", "A policy evaluation (CE v2) of a clean run, sealed with the operator's "
+             "'sealed for' role: its facts rebuild byte for byte from the signed events.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run(ROGUE_STEPS)
+    rogue = [{"id": "allowed-tools", "result": "FAIL", "where": ["3"]},
+             {"id": "consequential-needs-approval", "result": "FAIL", "where": ["3"]},
+             {"id": "max-steps", "result": "PASS"}, {"id": "no-unpaired-consequential", "result": "PASS"}]
+    ev = policy_evaluation(p, control, arts, controls=rogue, status="approved_before_run")
+    scenario("81-policy-evaluation-fail-approved", "A FAIL policy evaluation under an approved policy, with the "
+             "approval record it rests on. The run itself still finalizes: evaluations never change the run verdict.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, overall="FAIL", sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    forged = json.loads(facts(AGENT["id"], RUN, [a["envelope"] for a in arts]))
+    forged["requests"][1]["resource"]["id"] = "crm.read_only_tool"
+    ev = policy_evaluation(p, control, arts, facts_bytes=jcs.canonicalize(forged))
+    scenario("82-policy-facts-not-the-runs", "The sealed facts name another tool than the signed event: not valid.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, factsMatch=False, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, tweak=lambda e: e["policy"].update(approvalScopeDigest="0" * 64))
+    scenario("83-policy-digest-mismatch", "approvalScopeDigest does not recompute from the control set: not valid.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, policyDigestsMatch=False, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run(ROGUE_STEPS)
+    ev = policy_evaluation(p, control, arts, controls=rogue, overall="PASS")
+    scenario("84-policy-overall-not-from-controls", "Two rules FAIL but overall says PASS: v2 derives overall.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, overall="PASS", valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, controls=PASS_RULES[:3])
+    scenario("85-policy-rule-not-reported", "One Cedar rule is missing from controls[]: not valid.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    other = approval_record(POLICY_DOC, scope="1" * 64)
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=other)
+    scenario("86-policy-approval-of-another-scope", "The approval record approves another scope: not valid.",
+             bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    early = policy_evaluation(p, control, arts, through=1, missing=[2], n=951)
+    late = policy_evaluation(p, control, arts, n=952, supersedes={
+        "evidenceId": early["envelope"]["evidenceId"], "signatureSha256": signature_sha256(early["signature"])})
+    scenario("87-policy-partial-then-superseded", "A partial evaluation sealed while seq 2 was missing, then a "
+             "finalized one superseding it after the event arrived. Both are valid; only the second is current.",
+             bundle(control, arts, [early, late], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, current=False, sealedFor="urn:sigill:role:policy-evaluator"),
+                          dict(V2_OK, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, extra=None)
+    scenario("88-policy-evaluation-without-role", "A valid policy evaluation without the 'sealed for' role: valid, "
+             "but not attributable to a shared certificate's operator.", bundle(control, arts, [ev], p),
+             "run_finalized", {}, evaluations=[dict(V2_OK, sealedFor=None)])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts)
+    scenario("89-policy-evaluation-digests-only", "Without the control-set and facts bytes nothing can be checked: "
+             "not valid.", bundle(control, arts, [ev]), "run_finalized", {"objects": "warn"},
+             evaluations=[dict(V2_OK, factsMatch=None, policyDigestsMatch=None, valid=False,
+                               sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    ok = attested_evaluation(p, control, arts, controls=[{"id": "no-card-numbers-in-replies", "result": "PASS"}])
+    gap = attested_evaluation(p, control, arts, controls=[{"id": "something-else", "result": "PASS"}])
+    scenario("90-attested-private-controls", "The producer's own results for its private controls: valid when every "
+             "declared private control is reported, not valid when one is missing. Signed by the run's own "
+             "certificate, which is a warning.", bundle(control, arts, [ok, gap], p), "run_finalized", {},
+             warnings=["evaluation 0 is signed by the run's own certificate", "evaluation 1 is signed by the run's own certificate"],
+             evaluations=[dict(EVAL_OK, baselineDigestMatches=None, kind="attested", current=True),
+                          dict(EVAL_OK, baselineDigestMatches=None, kind="attested", current=True, valid=False)])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, status="approved_before_run", approval=b"not an approval record")
+    scenario("91-policy-approval-not-json", "The sealed policy-approval object is not JSON: reported as not valid, "
+             "never an exception.", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator")])
+
+    p, control, arts = policy_run()
+    ev = policy_evaluation(p, control, arts, extra={"srAts": "urn:sigill:role:policy-evaluator"})
+    scenario("92-sealed-for-malformed", "srAts is a string, not the TS 119 182-1 object: no role is read, and the "
+             "evaluation is otherwise valid.", bundle(control, arts, [ev], p), "run_finalized", {},
+             evaluations=[dict(V2_OK, sealedFor=None)])
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))

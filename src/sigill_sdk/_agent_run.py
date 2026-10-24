@@ -27,11 +27,14 @@ from sigill_sdk._agent_profiles import (
     CONTROL_ARTIFACT_SCHEMA,
     CONTROL_EVALUATION_CONTENT_TYPE,
     CONTROL_EVALUATION_SCHEMA,
+    CONTROL_EVALUATION_SCHEMA_V2,
     EXECUTION_EVIDENCE_CONTENT_TYPE,
     EXECUTION_EVIDENCE_SCHEMA,
     MAX_ARTIFACTS,
     _execution_schema_for,
     _format_time,
+    _int,
+    _obj,
     _prevalidate,
     _str,
     _TimestampCoverage,
@@ -49,12 +52,17 @@ from sigill_sdk._agent_types import (
     AgentRunBundle,
     AgentRunObject,
     AgentTimestampPolicy,
+    AttestedEvaluationRequest,
     ControlEvaluationRequest,
+    EvaluationReference,
+    PolicyEvaluationRequest,
+    PreparedEvaluation,
     QualifiedArtifacts,
 )
-from sigill_sdk._agent_policy import POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy
+from sigill_sdk._agent_policy import FACTS_VERSION, POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy, _build_facts
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
+from sigill_sdk._references import new_object_uri
 from sigill_sdk._sign_objects import SignedObjectDigest
 
 _RESERVED_STEP_FIELDS = frozenset({
@@ -710,17 +718,46 @@ class AgentRunCallbackError(SigillError):
         self.run = run
 
 
+_RANK = {"PASS": 0, "INDETERMINATE": 1, "FAIL": 2}
+_STATUSES = ("approved_before_run", "approved_after_start", "unapproved")
+_POLICY_APPROVAL_CONTENT_TYPE = "application/vnd.sigill.policy-approval+json"
+
+
+def _worst(results: Sequence[str]) -> str:
+    """§2: overall is derived from the results, never asserted."""
+    worst = "PASS"
+    for r in results:
+        if _RANK[r] > _RANK[worst]:
+            worst = r
+    return worst
+
+
 class ControlEvaluation:
-    """Seals a Control Evaluation (``spec/control-evaluation-v1.md``): what an
-    independent verifier observed after a run and how each control came out.
-    Always timestamped. Seal it with the verifier's own certificate."""
+    """Seals a Control Evaluation: what an independent verifier observed after a
+    run and how each control came out (``spec/control-evaluation-v1.md``), or a
+    v2 policy or attested evaluation (``spec/control-evaluation-v2.md``), built
+    with :meth:`prepare_policy` or :meth:`prepare_attested`. Always timestamped.
+    Seal it with the verifier's own certificate."""
 
     @staticmethod
-    def seal(client: Any, request: ControlEvaluationRequest, *,
+    def seal(client: Any, request: "ControlEvaluationRequest | PreparedEvaluation",
+             certificate_id: Optional[str] = None, *, qualified: bool = False,
              _clock: Optional[Callable[[], datetime]] = None) -> AgentRunArtifact:
-        """:raises ValueError: the evaluation would not verify; nothing was sealed."""
+        """Seals a v1 :class:`ControlEvaluationRequest`, or signs a :class:`PreparedEvaluation` through the
+        blind sealing endpoint with ``certificate_id`` (and ``qualified``).
+
+        :raises ValueError: the evaluation would not verify; nothing was sealed."""
         if request is None:
             raise ValueError("request is required.")
+        if isinstance(request, PreparedEvaluation):
+            if certificate_id is None:
+                raise ValueError("certificate_id is required to seal a prepared evaluation.")
+            result = _seal(client, request.envelope, request.objects, CONTROL_EVALUATION_CONTENT_TYPE,
+                           str(certificate_id), timestamp=True, qualified=qualified,
+                           reused_uris=frozenset(request.reused_uris))
+            if result.timestamped_by is None:
+                raise SigillError("A Control Evaluation must be timestamped, but the seal carries no timestamp.")
+            return ControlEvaluation.complete(request, result.signature)
         control = request.control_artifact
         if control is None:
             raise ValueError("control_artifact is required.")
@@ -798,6 +835,225 @@ class ControlEvaluation:
         if result.timestamped_by is None:
             raise SigillError("A Control Evaluation must be timestamped, but the seal carries no timestamp.")
         return AgentRunArtifact(envelope, result.signature, digests)
+
+    @staticmethod
+    def prepare_policy(request: PolicyEvaluationRequest, *,
+                       _clock: Optional[Callable[[], datetime]] = None) -> PreparedEvaluation:
+        """Builds a policy evaluation (``spec/control-evaluation-v2.md`` §4) ready to sign. Nothing is sent.
+
+        :raises ValueError: the evaluation would not verify."""
+        if request is None:
+            raise ValueError("request is required.")
+        control = request.control_artifact
+        if control is None:
+            raise ValueError("control_artifact is required.")
+        doc = request.control_set_document
+        if doc is None:
+            raise ValueError("control_set_document is required.")
+        problems = AgentPolicy.validate(doc)
+        if problems:
+            raise ValueError("Invalid policy control set: " + "; ".join(problems))
+        policy_doc = json.loads(doc)
+        cedar = policy_doc.get("cedar")
+        if not isinstance(cedar, dict):
+            raise ValueError("The control set carries no Cedar rules.")
+        cs_uri, cs_node = _control_set_object(control, doc)
+        if _str(cs_node.get("contentType")) != POLICY_CONTROL_SET_CONTENT_TYPE:
+            raise ValueError("The Control Artifact's control set is not a policy control set.")
+        if request.policy_status not in _STATUSES:
+            raise ValueError(f"Unknown policy status '{request.policy_status or ''}'.")
+        if (request.policy_status == "unapproved") != (request.approval_record is None):
+            raise ValueError("approval_record is required exactly when the policy status is not unapproved.")
+        declares_private = isinstance(policy_doc.get("privateControls"), list) and len(policy_doc["privateControls"]) > 0
+        if declares_private != (request.private_controls_reported is not None):
+            raise ValueError("private_controls_reported is required exactly when the control set declares private "
+                             "controls.")
+
+        agent_id = _str((_obj(control.envelope.get("agent")) or {}).get("id"))
+        if agent_id is None:
+            raise ValueError("The Control Artifact names no agent.")
+        correlation_id = _str((_obj(control.envelope.get("activity")) or {}).get("correlationId"))
+        if correlation_id is None:
+            raise ValueError("The Control Artifact has no correlationId.")
+        events = sorted(request.events or [], key=lambda e: (e.seq is not None, e.seq or 0))
+        if not events:
+            raise ValueError("events must hold the evaluated prefix, starting at seq 0.")
+        facts = _build_facts(agent_id, correlation_id, [e.envelope for e in events], list(request.missing_seqs or []))
+        if facts.missing_seqs and facts.missing_seqs[0] != facts.through_seq + 1:
+            raise ValueError("missing_seqs must start right after the evaluated prefix.")
+        last = events[-1]
+        run_end = next((e for e in events if e.step_type == "run_end"), None)
+        finalized = run_end is not None and not facts.missing_seqs
+
+        rules = list(request.rules or [])
+        rule_ids = list(cedar["policies"]["staticPolicies"])
+        if set(rule_ids) != {r.id for r in rules} or len(rules) != len(rule_ids):
+            raise ValueError("rules must hold exactly one result per Cedar rule of the control set.")
+        for r in rules:
+            if r.result not in _RANK:
+                raise ValueError(f"Rule '{r.id}': unknown result '{r.result}'.")
+            if (r.result == "PASS") != (not r.where):
+                raise ValueError(f"Rule '{r.id}': where is required exactly when the result is not PASS.")
+
+        now = _truncate((_clock or _utcnow)())
+        objects: list[dict] = [copy.deepcopy(cs_node)]
+        seal = [SignedObjectDigest(uri=cs_uri, hash_hex=control.object_digests[cs_uri],
+                                   content_type=POLICY_CONTROL_SET_CONTENT_TYPE)]
+        digests = {cs_uri: control.object_digests[cs_uri]}
+        payloads = {cs_uri: bytes(doc)}
+
+        def add(uri: str, role: str, content_type: str, data: bytes) -> None:
+            hex_ = hash_bytes(data)
+            objects.append({"uri": uri, "role": role, "contentType": content_type, "sizeBytes": len(data)})
+            seal.append(SignedObjectDigest(uri=uri, hash_hex=hex_, content_type=content_type))
+            digests[uri] = hex_
+            payloads[uri] = bytes(data)
+        add(new_object_uri(), "evaluation-facts", "application/json", facts.data)
+        if request.approval_record is not None:
+            add(new_object_uri(), "policy-approval", _POLICY_APPROVAL_CONTENT_TYPE, request.approval_record)
+
+        policy_digests = AgentPolicy.compute_digests(doc)
+        control_sig = control.signature_sha256
+        if control_sig is None:
+            raise ValueError("The Control Artifact carries no classical signature.")
+        through_sig = last.signature_sha256
+        if through_sig is None:
+            raise ValueError("An event carries no classical signature.")
+        subject = {"controlArtifactSignatureSha256": control_sig, "throughSignatureSha256": through_sig}
+        if finalized:
+            subject["runEndSignatureSha256"] = run_end.signature_sha256
+        policy: dict = {
+            "approvalScopeDigest": policy_digests.approval_scope_digest,
+            "cedarDigest": policy_digests.cedar_digest,
+            "policyStatus": request.policy_status,
+            "evaluator": {"engine": request.engine, "factsVersion": FACTS_VERSION,
+                          "schemaSha256": _str(cedar.get("schemaSha256"))},
+            "prefix": {
+                "throughSeq": facts.through_seq,
+                "finalSeq": None if run_end is None else _int((_obj(run_end.envelope.get("step")) or {}).get("finalSeq")),
+                "missingSeqs": list(facts.missing_seqs),
+            },
+            "state": "finalized" if finalized else "partial",
+        }
+        if request.private_controls_reported is not None:
+            policy["privateControlsReported"] = request.private_controls_reported
+        controls = []
+        for r in rules:
+            j: dict = {"id": r.id, "result": r.result}
+            if r.where:
+                j["where"] = list(r.where)
+            if r.detail is not None:
+                j["detail"] = r.detail
+            controls.append(j)
+        envelope = _evaluation_envelope("policy", "verifier", request.evaluator_id, request.evaluator_version, control,
+                                        subject, now, request.evaluated_at, controls, [r.result for r in rules],
+                                        objects, request.supersedes)
+        envelope["policy"] = policy
+        return _prepared(envelope, seal, [cs_uri], digests, payloads)
+
+    @staticmethod
+    def prepare_attested(request: AttestedEvaluationRequest, *,
+                         _clock: Optional[Callable[[], datetime]] = None) -> PreparedEvaluation:
+        """Builds an attested evaluation (``spec/control-evaluation-v2.md`` §5) ready to sign. Nothing is sent.
+
+        :raises ValueError: the evaluation would not verify."""
+        if request is None:
+            raise ValueError("request is required.")
+        control = request.control_artifact
+        if control is None:
+            raise ValueError("control_artifact is required.")
+        if request.run_end is None or request.run_end.step_type != "run_end":
+            raise ValueError("run_end must be the run's run_end artifact.")
+        doc = request.control_set_document
+        if doc is None:
+            raise ValueError("control_set_document is required.")
+        cs_uri, cs_node = _control_set_object(control, doc)
+        parsed = json.loads(doc)
+        private = parsed.get("privateControls") if isinstance(parsed, dict) else None
+        declared = [x["id"] for x in (private if isinstance(private, list) else [])
+                    if isinstance(x, dict) and isinstance(x.get("id"), str)]
+        controls = list(request.controls or [])
+        if not declared:
+            raise ValueError("The control set declares no private controls.")
+        if set(declared) != {c.id for c in controls} or len(controls) != len(declared):
+            raise ValueError("controls must hold exactly one result per declared private control.")
+        if any(c.result not in _RANK for c in controls):
+            raise ValueError("A control has an unknown result.")
+
+        control_sig = control.signature_sha256
+        if control_sig is None:
+            raise ValueError("The Control Artifact carries no classical signature.")
+        run_end_sig = request.run_end.signature_sha256
+        if run_end_sig is None:
+            raise ValueError("run_end carries no classical signature.")
+        subject = {"controlArtifactSignatureSha256": control_sig, "runEndSignatureSha256": run_end_sig}
+        results = []
+        for c in controls:
+            j: dict = {"id": c.id, "result": c.result}
+            if c.detail is not None:
+                j["detail"] = c.detail
+            results.append(j)
+        envelope = _evaluation_envelope("attested", "producer", request.producer_id, request.producer_version, control,
+                                        subject, _truncate((_clock or _utcnow)()), request.evaluated_at, results,
+                                        [c.result for c in controls], [copy.deepcopy(cs_node)], request.supersedes)
+        if request.evaluator_id is not None or request.evaluator_version is not None:
+            a: dict = {}
+            if request.evaluator_id is not None:
+                a["evaluatorId"] = request.evaluator_id
+            if request.evaluator_version is not None:
+                a["evaluatorVersion"] = request.evaluator_version
+            envelope["attested"] = a
+        hex_ = control.object_digests[cs_uri]
+        return _prepared(envelope, [SignedObjectDigest(uri=cs_uri, hash_hex=hex_,
+                                                       content_type=_str(cs_node.get("contentType")))],
+                         [cs_uri], {cs_uri: hex_}, {cs_uri: bytes(doc)})
+
+    @staticmethod
+    def complete(prepared: PreparedEvaluation, signature: dict) -> AgentRunArtifact:
+        """The evaluation artifact, once ``signature`` (a JAdES JWS over the prepared hashes) exists."""
+        return AgentRunArtifact(prepared.envelope, signature, dict(prepared.object_digests))
+
+
+def _control_set_object(control: AgentRunArtifact, doc: bytes) -> tuple[str, dict]:
+    objs = control.envelope.get("objects")
+    node = next((o for o in (objs if isinstance(objs, list) else [])
+                 if isinstance(o, dict) and o.get("role") == "control-set"), None)
+    if node is None:
+        raise ValueError("The Control Artifact carries no control-set object.")
+    uri = _str(node.get("uri"))
+    if control.object_digests.get(uri) != hash_bytes(doc):
+        raise ValueError("control_set_document is not the control set sealed in the Control Artifact.")
+    return uri, node
+
+
+def _evaluation_envelope(kind: str, actor_type: str, actor_id: str, actor_version: str, control: AgentRunArtifact,
+                         subject: dict, now: datetime, evaluated_at: Optional[datetime], controls: list[dict],
+                         results: Sequence[str], objects: list[dict],
+                         supersedes: Optional[EvaluationReference]) -> dict:
+    envelope = {
+        "schemaName": CONTROL_EVALUATION_SCHEMA,
+        "schemaVersion": "2",
+        "kind": kind,
+        "evidenceId": str(uuid.uuid4()),
+        "createdAt": _format_time(now),
+        "actor": {"type": actor_type, "id": actor_id, "version": actor_version},
+        "activity": copy.deepcopy(control.envelope.get("activity")),
+        "subject": subject,
+        "controlSet": copy.deepcopy(control.envelope.get("controlSet")),
+        "controls": controls,
+        "overall": _worst(results),
+        "evaluatedAt": _format_time(_truncate(evaluated_at or now)),
+        "objects": objects,
+    }
+    if supersedes is not None:
+        envelope["supersedes"] = {"evidenceId": supersedes.evidence_id, "signatureSha256": supersedes.signature_sha256}
+    return envelope
+
+
+def _prepared(envelope: dict, seal: list[SignedObjectDigest], reused: Sequence[str], digests: dict[str, str],
+              payloads: dict[str, bytes]) -> PreparedEvaluation:
+    _prevalidate(envelope, CONTROL_EVALUATION_SCHEMA_V2)
+    return PreparedEvaluation(envelope, hash_bytes(canonicalize(envelope)), seal, frozenset(reused), digests, payloads)
 
 
 def seal_control_evaluation(client: Any, request: ControlEvaluationRequest) -> AgentRunArtifact:

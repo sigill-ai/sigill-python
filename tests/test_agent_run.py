@@ -150,7 +150,7 @@ RUN_VECTORS = sorted(p.name for p in (VECTORS / "runs").glob("*.json"))
 
 
 def test_run_vectors_are_all_present() -> None:
-    assert len(RUN_VECTORS) == 79
+    assert len(RUN_VECTORS) == 92
 
 
 @pytest.mark.parametrize("name", RUN_VECTORS)
@@ -184,19 +184,25 @@ def test_run_vector_reproduces_expected_verdict(name: str) -> None:
     for e, r in zip(expected["evaluations"], result.evaluations):
         assert r.subject_bound == e["subjectBound"], r.findings
         assert r.control_set_digest_matches == e["controlSetDigestMatches"], r.findings
-        assert r.baseline_digest_matches == e["baselineDigestMatches"], r.findings
+        assert r.baseline_digest_matches == e.get("baselineDigestMatches"), r.findings
         assert r.signature_valid == e["signatureValid"], r.findings
         assert r.timestamp_valid == e["timestampValid"], r.findings
         assert r.objects_complete == e["objectsComplete"], r.findings
         assert r.valid == e["valid"], r.findings
         assert r.overall == e["overall"]
+        # Control Evaluation v2 expectations, present only in the v2 scenarios.
+        for key, attr in (("kind", "kind"), ("factsMatch", "facts_match"), ("policyDigestsMatch", "policy_digests_match"),
+                          ("current", "current"), ("sealedFor", "sealed_for")):
+            if key in e:
+                assert getattr(r, attr) == e[key], (key, r.findings)
 
 
 def _bundle_from_vector(name: str) -> AgentRunBundle:
     return AgentRunBundle.parse(json.loads((VECTORS / "runs" / name).read_text(encoding="utf-8"))["bundle"])
 
 
-@pytest.mark.parametrize("name", ["agent-control-artifact-v1", "agent-execution-evidence-v1", "control-evaluation-v1"])
+@pytest.mark.parametrize("name", ["agent-control-artifact-v1", "agent-execution-evidence-v1", "control-evaluation-v1",
+                                  "control-evaluation-v2"])
 def test_bundled_schema_is_a_byte_exact_copy_of_the_spec(name: str) -> None:
     bundled = REPO / "src" / "sigill_sdk" / "_schemas" / f"{name}.schema.json"
     assert bundled.read_bytes() == (REPO / "spec" / f"{name}.schema.json").read_bytes()

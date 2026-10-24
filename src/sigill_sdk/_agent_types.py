@@ -31,6 +31,7 @@ from sigill_sdk._agent_profiles import (
 from sigill_sdk._canonical import canonicalize
 from sigill_sdk._errors import SigillError
 from sigill_sdk._references import new_object_uri
+from sigill_sdk._sign_objects import SignedObjectDigest
 
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
@@ -275,6 +276,99 @@ class ControlEvaluationRequest:
     include_baseline: bool = True
     """Also bind the Control Artifact's ``baseline-state``, when it has one."""
     qualified: bool = False
+
+
+@dataclass(frozen=True)
+class PolicyRuleResult:
+    """One Cedar rule's result in a policy evaluation (``spec/control-evaluation-v2.md`` §4.1)."""
+
+    id: str
+    """The rule's ``id`` annotation."""
+    result: str
+    """PASS, FAIL or INDETERMINATE."""
+    where: Optional[Sequence[str]] = None
+    """For FAIL and INDETERMINATE: the requests that produced it (seq as a decimal string, or ``run``)."""
+    detail: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class EvaluationReference:
+    """An earlier evaluation this one supersedes (``spec/control-evaluation-v2.md`` §6)."""
+
+    evidence_id: str
+    signature_sha256: str
+
+
+@dataclass(frozen=True)
+class PolicyEvaluationRequest:
+    """A policy evaluation of a run (``spec/control-evaluation-v2.md`` §4): the results of the control set's
+    Cedar rules over the run's facts, computed by the caller with the official Cedar core. The SDK builds the
+    facts from :attr:`events`, derives ``overall``, the prefix and the state, and refuses anything that would
+    not verify. See :meth:`ControlEvaluation.prepare_policy`."""
+
+    certificate_id: str
+    """The evaluator's seal certificate — SHOULD differ from the run's."""
+    evaluator_id: str
+    evaluator_version: str
+    control_artifact: AgentRunArtifact
+    """The run's Control Artifact; its control set must be a policy control set."""
+    control_set_document: bytes
+    """The policy control set's exact bytes, as sealed in the Control Artifact."""
+    events: Sequence[AgentRunArtifact]
+    """The evaluated contiguous prefix seq 0…k of the run's events."""
+    rules: Sequence[PolicyRuleResult]
+    """One result per Cedar rule."""
+    policy_status: str
+    """approved_before_run, approved_after_start or unapproved (§4.4)."""
+    engine: str
+    """The Cedar core that evaluated, e.g. ``cedar-policy@4.14.0``."""
+    missing_seqs: Sequence[int] = ()
+    """Seqs missing above the prefix when the evaluation was made (ascending, starting at k+1)."""
+    approval_record: Optional[bytes] = None
+    """The sealed approval record's exact bytes; required unless :attr:`policy_status` is unapproved."""
+    private_controls_reported: Optional[str] = None
+    """reported, missing or pending — required when the control set declares private controls."""
+    supersedes: Optional[EvaluationReference] = None
+    evaluated_at: Optional[datetime] = None
+    qualified: bool = False
+
+
+@dataclass(frozen=True)
+class AttestedEvaluationRequest:
+    """The producer's own results for its private controls (``spec/control-evaluation-v2.md`` §5): one per
+    declared private control id. Sealed with the producer's certificate.
+    See :meth:`ControlEvaluation.prepare_attested`."""
+
+    certificate_id: str
+    producer_id: str
+    """The producer (``actor.id``, type producer)."""
+    producer_version: str
+    control_artifact: AgentRunArtifact
+    run_end: AgentRunArtifact
+    control_set_document: bytes
+    """The policy control set's exact bytes, as sealed in the Control Artifact."""
+    controls: Sequence[ControlResult]
+    evaluator_id: Optional[str] = None
+    """The producer's evaluating component, optional."""
+    evaluator_version: Optional[str] = None
+    supersedes: Optional[EvaluationReference] = None
+    evaluated_at: Optional[datetime] = None
+    qualified: bool = False
+
+
+@dataclass(frozen=True)
+class PreparedEvaluation:
+    """A Control Evaluation v2 ready to sign: the envelope, the object digests to seal (with the URIs it reuses
+    from the Control Artifact) and the payloads a verifier needs. Sign it with :meth:`ControlEvaluation.seal`,
+    or through another signing path and complete it with :meth:`ControlEvaluation.complete`."""
+
+    envelope: dict
+    envelope_hash_hex: str
+    objects: list[SignedObjectDigest]
+    reused_uris: frozenset[str]
+    object_digests: dict[str, str]
+    payloads: dict[str, bytes]
+    """Bytes a verifier needs (control set, facts, approval record): add them to the bundle's payloads."""
 
 
 class AgentRunBundleFormatError(SigillError):

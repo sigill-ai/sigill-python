@@ -1,0 +1,191 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-000000000106",
+ "events": [
+  {
+   "chain": {
+    "seq": 0
+   },
+   "step": {
+    "type": "run_start"
+   }
+  },
+  {
+   "chain": {
+    "seq": 1
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 2
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 3
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 4
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 5
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 6
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 7
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 8
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 9
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 10
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 11
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 12
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 13
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 14
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 15
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 16
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 17
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 18
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 19
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 20
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 21
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 22
+   },
+   "step": {
+    "type": "run_end",
+    "finalSeq": 22
+   }
+  }
+ ]
+}

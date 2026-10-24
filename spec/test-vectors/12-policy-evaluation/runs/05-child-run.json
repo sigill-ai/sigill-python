@@ -1,0 +1,34 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-000000000104",
+ "events": [
+  {
+   "chain": {
+    "seq": 0
+   },
+   "step": {
+    "type": "run_start"
+   },
+   "binds": {
+    "parentCorrelationId": "urn:uuid:00000000-0000-4000-8000-000000000001"
+   }
+  },
+  {
+   "chain": {
+    "seq": 1
+   },
+   "step": {
+    "type": "model_output"
+   }
+  },
+  {
+   "chain": {
+    "seq": 2
+   },
+   "step": {
+    "type": "run_end",
+    "finalSeq": 2
+   }
+  }
+ ]
+}
