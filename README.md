@@ -365,7 +365,18 @@ cover one controlled run:
 |---|---|---|
 | Before | [Control Artifact](spec/agent-control-artifact-v1.md) | configuration, control set, baseline, timestamp policy |
 | During | [Execution Evidence](spec/agent-execution-evidence-v1.md) | one artifact per event, chained by signature |
+| During | [Model Calls](spec/agent-model-calls-v1.md) (execution `schemaVersion "3"`) | per model call: the model that served it and the provider's own ids for the call, so the provider can confirm it against its logs; prompts and responses as digests only |
 | After | [Control Evaluation](spec/control-evaluation-v1.md), [v2 (draft)](spec/control-evaluation-v2.md) | what an independent verifier observed, and each control's result; v2 adds policy evaluations (reproducible from the run's facts) and the producer's own attested results |
+
+To record model calls, start the run with `records_model_calls=True` and give any
+provider client built on httpx a `ModelCallTransport` (Anthropic, OpenAI, Azure
+OpenAI, Amazon Bedrock, Gemini API, Vertex AI; `AsyncModelCallTransport` for async
+clients). Values come from the provider's response; for any other provider call
+`record_model_call`.
+
+```python
+http = httpx.Client(transport=ModelCallTransport(run))
+```
 
 ```python
 from sigill_sdk import (AgentAuthorization, AgentConfiguration, AgentControlSet, AgentDefinition,
