@@ -150,8 +150,14 @@ another call. The provider's own lookup (step 2) closes that gap.
 | `anthropic` | Anthropic Messages API | `message` (body `id`, `msg_…`), `request` (`request-id` header) |
 | `openai` | OpenAI Responses / Chat Completions | `response` (body `id`), `completion` (`chatcmpl-…`), `request` (`x-request-id`) |
 | `aws-bedrock` | Amazon Bedrock Runtime | `request` (`x-amzn-requestid`), `message` (body id where present) |
-| `azure-openai` | Azure OpenAI | `completion`, `request` (`apim-request-id`) |
+| `azure-openai` | Azure OpenAI (`*.openai.azure.com`, `*.cognitiveservices.azure.com`, `*.services.ai.azure.com`) | `completion`, `response`, `request` (`apim-request-id`) |
+| `google` | Gemini API | `response` (`responseId`) |
 | `google-vertex` | Vertex AI | `response` (`responseId`) |
+
+Any other provider uses its own lowercase identifier. A gateway or proxy in front of a
+provider records the identifiers it actually returns under its own `provider` value: they
+name the gateway's request, not the upstream provider's, unless the gateway passes the
+upstream identifiers through unchanged.
 
 ## 8. Privacy
 

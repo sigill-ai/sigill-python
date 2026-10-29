@@ -7,8 +7,10 @@ Put :class:`ModelCallTransport` under any provider SDK that accepts an httpx cli
     http = httpx.Client(transport=ModelCallTransport(run))
     anthropic = Anthropic(http_client=http)          # or OpenAI(http_client=http)
 
-Recognised: the Anthropic Messages API, OpenAI Responses and Chat Completions (also via Azure OpenAI) and the
-Amazon Bedrock Runtime Converse / InvokeModel APIs. Other requests pass through unrecorded. The request and
+Recognised: the Anthropic Messages API, OpenAI Responses and Chat Completions (also via Azure OpenAI), the
+Amazon Bedrock Runtime Converse / InvokeModel APIs and Google's generateContent (Gemini API and Vertex AI). For
+any other provider, or a gateway in front of one, call ``AgentRun.record_model_call`` directly. Other requests
+pass through unrecorded. The request and
 response bodies are sealed as digests only; their content never leaves the process. A streamed response
 (server-sent events) is recorded with the identifiers in its headers only. The run must be started with
 ``records_model_calls=True``. A failure to record never fails the model call: it is reported to ``on_error``.
@@ -28,6 +30,8 @@ import httpx
 from sigill_sdk._agent_types import ModelCall, ModelInfo, ModelUsage, VendorRef
 
 _ANTHROPIC, _OPENAI, _AZURE_OPENAI, _BEDROCK = "anthropic", "openai", "azure-openai", "bedrock"
+_GEMINI, _VERTEX = "google", "google-vertex"
+_AZURE_AI_DOMAINS = (".openai.azure.com", ".cognitiveservices.azure.com", ".services.ai.azure.com")
 
 
 def _path(request: httpx.Request) -> str:
@@ -44,8 +48,14 @@ def _classify(request: httpx.Request) -> Optional[str]:
         return _ANTHROPIC
     if host == "api.openai.com" and (path.endswith("/responses") or path.endswith("/chat/completions")):
         return _OPENAI
-    if host.endswith(".openai.azure.com") and "/openai/" in path:
+    # Azure OpenAI resources live under all three Azure AI domains; only the /openai/ API is OpenAI-shaped.
+    if host.endswith(_AZURE_AI_DOMAINS) and "/openai/" in path:
         return _AZURE_OPENAI
+    if path.endswith(":generateContent"):
+        if host == "generativelanguage.googleapis.com":
+            return _GEMINI
+        if host == "aiplatform.googleapis.com" or host.endswith("-aiplatform.googleapis.com"):
+            return _VERTEX
     if host.startswith("bedrock-runtime.") and host.endswith(".amazonaws.com") and path.startswith("/model/"):
         return _BEDROCK
     return None
@@ -114,6 +124,26 @@ def _parse(api: str, request: httpx.Request, request_body: Optional[bytes], resp
         return _build(None if served is None else ModelInfo(provider, served, s(req.get("model")), deployment), refs,
                       ModelUsage(n(first(u, "prompt_tokens", "input_tokens")),
                                  n(first(u, "completion_tokens", "output_tokens")), stop_reason=stop))
+    if api in (_GEMINI, _VERTEX):
+        ref(api, "response", s(res.get("responseId")))
+        # .../models/{model}:generateContent; Vertex also names the region: .../locations/{region}/...
+        segments = [p for p in _path(request).split("/") if p]
+
+        def after(name: str) -> Optional[str]:
+            i = segments.index(name) if name in segments else -1
+            return segments[i + 1] if 0 <= i < len(segments) - 1 else None
+
+        model = after("models")
+        requested = model.split(":")[0] if model is not None else None
+        region = after("locations") if api == _VERTEX else None
+        served = s(res.get("modelVersion"))
+        um = res.get("usageMetadata") if isinstance(res.get("usageMetadata"), dict) else {}
+        candidates = res.get("candidates")
+        stop = (s(candidates[0].get("finishReason")) if isinstance(candidates, list) and candidates
+                and isinstance(candidates[0], dict) else None)
+        return _build(None if served is None else ModelInfo(api, served, requested, region=region), refs,
+                      ModelUsage(n(um.get("promptTokenCount")), n(um.get("candidatesTokenCount")),
+                                 n(um.get("cachedContentTokenCount")), stop_reason=stop))
     # Bedrock
     ref("aws-bedrock", "request",
         response.headers.get("x-amzn-requestid") or response.headers.get("x-amzn-request-id"))

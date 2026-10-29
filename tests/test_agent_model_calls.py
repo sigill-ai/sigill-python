@@ -167,6 +167,38 @@ def test_transport_records_openai_azure_and_bedrock_calls() -> None:
     assert b["vendorRefs"][0]["id"] == "4b0a8d3e-1f2c-4d5e-9a7b-0c1d2e3f4a5b"
 
 
+@pytest.mark.parametrize("url", [
+    "https://acme.openai.azure.com/openai/deployments/gpt-6-prod/chat/completions?api-version=2026-06-01",
+    "https://acme.cognitiveservices.azure.com/openai/deployments/gpt-6-prod/chat/completions?api-version=2026-06-01",
+    "https://acme.services.ai.azure.com/openai/deployments/gpt-6-prod/chat/completions?api-version=2026-06-01",
+])
+def test_transport_records_azure_openai_on_every_azure_ai_domain(url: str) -> None:
+    run, _, _ = _through(url, "{}", _provider(
+        '{"id":"chatcmpl-AZ1","model":"gpt-6-2026-09-01","choices":[{"finish_reason":"stop"}]}',
+        headers={"apim-request-id": "6f1e2d3c-aaaa-bbbb-cccc-0123456789ab"}))
+    step = _model_step(run)
+    assert (step["model"]["provider"], step["model"]["deployment"]) == ("azure-openai", "gpt-6-prod")
+    assert [r["kind"] for r in step["vendorRefs"]] == ["completion", "request"]
+
+
+def test_transport_records_google_generate_content_on_the_gemini_api_and_vertex() -> None:
+    body = ('{"responseId":"mT4xaKXyJ8-tz7IPq9GJ","modelVersion":"gemini-3.0-pro-001",'
+            '"candidates":[{"finishReason":"STOP"}],'
+            '"usageMetadata":{"promptTokenCount":12,"candidatesTokenCount":4,"cachedContentTokenCount":8}}')
+    gemini, _, _ = _through("https://generativelanguage.googleapis.com/v1beta/models/gemini-3.0-pro:generateContent",
+                            "{}", _provider(body))
+    g = _model_step(gemini)
+    assert g["model"] == {"provider": "google", "served": "gemini-3.0-pro-001", "requested": "gemini-3.0-pro"}
+    assert [(r["kind"], r["id"]) for r in g["vendorRefs"]] == [("response", "mT4xaKXyJ8-tz7IPq9GJ")]
+    assert g["usage"] == {"inputTokens": 12, "outputTokens": 4, "cacheReadTokens": 8, "stopReason": "STOP"}
+
+    vertex, _, _ = _through(
+        "https://europe-west4-aiplatform.googleapis.com/v1/projects/acme/locations/europe-west4/publishers/google/"
+        "models/gemini-3.0-pro:generateContent", "{}", _provider(body))
+    v = _model_step(vertex)
+    assert (v["model"]["provider"], v["model"]["region"]) == ("google-vertex", "europe-west4")
+
+
 def test_transport_passes_other_requests_through_records_streams_by_header_and_never_fails_the_call() -> None:
     other, _, _ = _through("https://example.com/api", "{}", _provider('{"id":"x"}'))
     assert _model_step(other) is None
