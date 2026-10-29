@@ -203,7 +203,8 @@ def _bundle_from_vector(name: str) -> AgentRunBundle:
     return AgentRunBundle.parse(json.loads((VECTORS / "runs" / name).read_text(encoding="utf-8"))["bundle"])
 
 
-@pytest.mark.parametrize("name", ["agent-control-artifact-v1", "agent-execution-evidence-v1", "control-evaluation-v1",
+@pytest.mark.parametrize("name", ["agent-control-artifact-v1", "agent-execution-evidence-v1", "agent-execution-evidence-v2",
+                                  "agent-execution-evidence-v3", "control-evaluation-v1",
                                   "control-evaluation-v2"])
 def test_bundled_schema_is_a_byte_exact_copy_of_the_spec(name: str) -> None:
     bundled = REPO / "src" / "sigill_sdk" / "_schemas" / f"{name}.schema.json"

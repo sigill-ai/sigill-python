@@ -560,3 +560,47 @@ class AgentRunBundle:
         if errors:
             raise AgentRunBundleFormatError(errors)
         return cls(_str(value.get("correlationId")), control, artifacts, evaluations, payloads)
+
+
+@dataclass(frozen=True)
+class ModelInfo:
+    """The model that served the call. ``provider`` is a lowercase identifier (e.g. ``anthropic``, ``openai``,
+    ``aws-bedrock``)."""
+
+    provider: str
+    served: str
+    requested: Optional[str] = None
+    deployment: Optional[str] = None
+    region: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class VendorRef:
+    """A provider's own identifier for the call. ``kind``: ``message``, ``response``, ``request``,
+    ``completion`` or ``trace``."""
+
+    provider: str
+    kind: str
+    id: str
+
+
+@dataclass(frozen=True)
+class ModelUsage:
+    """Token counts and the stop reason the provider reported."""
+
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    cache_read_tokens: Optional[int] = None
+    cache_write_tokens: Optional[int] = None
+    stop_reason: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ModelCall:
+    """One model call as the provider's response states it (``spec/agent-model-calls-v1.md``): which model
+    served it, the provider's own identifiers for the call, and the usage it reported. Take every value from
+    the response, never from configuration (only :attr:`ModelInfo.requested` comes from the request)."""
+
+    model: Optional[ModelInfo] = None
+    vendor_refs: Sequence[VendorRef] = ()
+    usage: Optional[ModelUsage] = None

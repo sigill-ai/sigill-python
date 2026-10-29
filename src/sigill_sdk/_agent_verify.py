@@ -329,6 +329,11 @@ class AgentRunVerificationResult:
     """Seal time, defence in depth (§8): the Control Artifact's timestamp is not later than run_start's."""
     event_times_plausible: Optional[bool] = None
     """No timestamped event claims an eventTime later than its own seal time (with allowance)."""
+    model_calls: int = 0
+    """Number of ``model_output`` steps in the run (Agent Model Calls v1 §5)."""
+    model_calls_with_vendor_refs: int = 0
+    """How many of them carry the provider's own identifiers (``step.vendorRefs``). Shape only: that an identifier
+    is genuine is confirmed by the provider, never by the verifier."""
     notes: list[str] = field(default_factory=list)
     """Informational notes — currently the legacy envelope reference diagnostic (AiEvidenceEnvelopeV2 §5.4). Never a
     warning: notes do not affect ``verdict``, ``checks`` or ``warnings``."""
@@ -1016,7 +1021,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         prev_sig_hash = signature_sha256(sa.jws)
         prev_seq = seq
 
-    # ── delegation §3.1: the execution artifacts of one run are all v1 or all v2, never mixed
+    # ── delegation §3.1: the execution artifacts of one run are all v1, v2 or v3, never mixed
     versions: list = []
     for g in good:
         v = _str(g.env.get("schemaVersion"))
@@ -1353,6 +1358,8 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         [a.signature for a in bundle.artifacts] + [e.signature for e in bundle.evaluations]
     legacy = sum(1 for j in all_signatures if strict_envelope_reference(j) == LEGACY_REFERENCE)
     notes = [f"{legacy} of {len(all_signatures)} artifact(s): {LEGACY_DIAGNOSTIC}."] if legacy else []
+    model_steps = [st for st in (_obj(g.env.get("step")) for g in good)
+                   if st is not None and _str(st.get("type")) == "model_output"]
     return AgentRunVerificationResult(
         verdict=verdict, checks=checks, binding=binding, findings=findings, warnings=warnings,
         disposition=disposition, agent_id=reference.actor_id if reference else None,
@@ -1362,7 +1369,10 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                                             policy_signed),
         certificates=certificates, control=control, artifacts=verdicts, evaluations=evaluations,
         fingerprint=_safe_fingerprint(bundle), signer=run_signer, control_sealed_before_run=sealed_before_run,
-        event_times_plausible=plausible, notes=notes)
+        event_times_plausible=plausible, notes=notes,
+        model_calls=len(model_steps),
+        model_calls_with_vendor_refs=sum(1 for st in model_steps
+                                         if isinstance(st.get("vendorRefs"), list) and st["vendorRefs"]))
 
 
 def _n(v: Any) -> str:
