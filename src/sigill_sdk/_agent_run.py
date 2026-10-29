@@ -56,6 +56,7 @@ from sigill_sdk._agent_types import (
     AttestedEvaluationRequest,
     ControlEvaluationRequest,
     EvaluationReference,
+    ModelCall,
     PolicyEvaluationRequest,
     PreparedEvaluation,
     QualifiedArtifacts,
@@ -68,7 +69,7 @@ from sigill_sdk._sign_objects import SignedObjectDigest
 
 _RESERVED_STEP_FIELDS = frozenset({
     "type", "eventTime", "consequential", "timestamp", "finalSeq", "finalPrevSignatureSha256", "runDisposition",
-    "delegation",
+    "delegation", "model", "vendorRefs", "usage",
 })
 _DISPOSITIONS = ("completed", "failed", "aborted")
 
@@ -218,7 +219,7 @@ class AgentRun:
               start_objects: Optional[Sequence[AgentRunObject]] = None, retain_payloads: bool = False,
               qualified: bool = False, on_artifact_sealed: Optional[Callable[[AgentRunArtifact], None]] = None,
               delegating: bool = False, qualified_for: QualifiedArtifacts = QualifiedArtifacts.NONE,
-              disclose_policy: bool = False, _clock: Optional[Callable[[], datetime]] = None,
+              disclose_policy: bool = False, records_model_calls: bool = False, _clock: Optional[Callable[[], datetime]] = None,
               _parent: Optional[AgentDelegation] = None) -> "AgentRun":
         """Opens a run: seals the Control Artifact (always timestamped), then
         ``run_start`` binding it.
@@ -242,7 +243,11 @@ class AgentRun:
             itself stays usable.
         :param delegating: the run may start sub-agent runs (``spec/agent-delegation-v1.md``). Its events
             are sealed as ``AgentExecutionEvidence`` ``schemaVersion "2"``, which a run must use throughout
-            once it delegates. Child runs (:meth:`start_child`) always use version 2.
+            once it delegates. Child runs (:meth:`start_child`) use version 2 (or 3 with ``records_model_calls``).
+        :param records_model_calls: the run records model calls with the provider's own identifiers
+            (:meth:`record_model_call`, ``spec/agent-model-calls-v1.md``). Every event is sealed as
+            ``schemaVersion "3"`` — v3 contains v2, so such a run can also delegate. Decided at start: one run
+            uses one version.
         :param qualified_for: request qualified timestamps for these artifacts only, in addition to
             ``qualified``: the Control Artifact and ``run_end`` are the ones a declared policy rests on.
         :param disclose_policy: **preview** — share the declared policy with your Sigill organisation's evidence index:
@@ -272,7 +277,7 @@ class AgentRun:
         run = cls(_client=client, _agent=agent, _certificate_id=str(certificate_id), _activity=activity,
                   _policy=policy, _correlation_id=correlation,
                   _retain=retain_payloads, _qualified=qualified, _on_sealed=on_artifact_sealed, _clock=clock,
-                  _schema_version="2" if delegating or _parent is not None else "1", _parent=_parent,
+                  _schema_version="3" if records_model_calls else "2" if delegating or _parent is not None else "1", _parent=_parent,
                   _qualified_for=QualifiedArtifacts(qualified_for))
 
         now = _truncate(clock())
@@ -409,6 +414,11 @@ class AgentRun:
         reserved = sorted(_RESERVED_STEP_FIELDS.intersection(fields or {}))
         if reserved:
             raise ValueError(f"fields uses reserved step member(s): {', '.join(reserved)}")
+        return self._record_internal(step_type, objects, fields, consequential, require_timestamp)
+
+    def _record_internal(self, step_type: str, objects: Optional[Sequence[AgentRunObject]], fields: Optional[dict],
+                         consequential: bool, require_timestamp: bool = False) -> AgentRunArtifact:
+        """Seals one event whose step members are already checked (reserved members only from this class)."""
         with self._lock:
             self._ensure_open()
             # Keep the last slot for run_end, and one per open delegation for its result (delegation §4 rule 6),
@@ -481,6 +491,47 @@ class AgentRun:
         return self.record("model_output", [AgentRunObject("model-output", output, content_type)],
                            consequential=consequential)
 
+    def record_model_call(self, call: ModelCall, request: Optional[bytes] = None, response: Optional[bytes] = None,
+                          request_content_type: str = "application/json",
+                          response_content_type: str = "application/json", *,
+                          consequential: bool = False) -> AgentRunArtifact:
+        """One model call with the provider's own identifiers (``spec/agent-model-calls-v1.md``): a
+        ``model_output`` step carrying ``model``, ``vendorRefs`` and ``usage``, with the request and response as
+        digest-only objects (their content never leaves the producer). Requires ``records_model_calls=True``.
+
+        :raises RuntimeError: the run was not started with ``records_model_calls=True``.
+        :raises ValueError: a value does not fit the schema; nothing was sealed and the run stays usable.
+        """
+        if call is None:
+            raise ValueError("call is required.")
+        if self._schema_version != "3":
+            raise RuntimeError("This run was not started with records_model_calls=True; model calls use "
+                               "schemaVersion 3 throughout.")
+        step: dict = {}
+        m = call.model
+        if m is not None:
+            model: dict = {"provider": m.provider, "served": m.served}
+            for key, value in (("requested", m.requested), ("deployment", m.deployment), ("region", m.region)):
+                if value is not None:
+                    model[key] = value
+            step["model"] = model
+        if call.vendor_refs:
+            step["vendorRefs"] = [{"provider": r.provider, "kind": r.kind, "id": r.id} for r in call.vendor_refs]
+        u = call.usage
+        if u is not None:
+            usage = {k: v for k, v in (("inputTokens", u.input_tokens), ("outputTokens", u.output_tokens),
+                                       ("cacheReadTokens", u.cache_read_tokens),
+                                       ("cacheWriteTokens", u.cache_write_tokens), ("stopReason", u.stop_reason))
+                     if v is not None}
+            if usage:
+                step["usage"] = usage
+        objects = []
+        if request is not None:
+            objects.append(AgentRunObject("model-input", request, request_content_type))
+        if response is not None:
+            objects.append(AgentRunObject("model-output", response, response_content_type))
+        return self._record_internal("model_output", objects, step, consequential)
+
     def checkpoint(self, detail: Optional[str] = None) -> AgentRunArtifact:
         """Anchors the chain head with a timestamped ``checkpoint`` — e.g. from
         a timer while a long run is idle, so the head does not wait for
@@ -530,9 +581,9 @@ class AgentRun:
         """
         if not child_agent_id:
             raise ValueError("child_agent_id is required.")
-        if self._schema_version != "2":
+        if self._schema_version not in ("2", "3"):
             raise RuntimeError("This run was not started with delegating=True; a run that delegates uses "
-                               "schemaVersion 2 throughout.")
+                               "schemaVersion 2 (or 3) throughout.")
         child = child_correlation_id if child_correlation_id is not None else f"urn:uuid:{uuid.uuid4()}"
         if not child or child == self.correlation_id:
             raise ValueError("A run cannot delegate to itself.")

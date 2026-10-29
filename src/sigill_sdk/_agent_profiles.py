@@ -34,6 +34,9 @@ EXECUTION_EVIDENCE_SCHEMA_V2 = "AgentExecutionEvidence/2"
 """The schema key of ``AgentExecutionEvidence`` ``schemaVersion "2"``: v1 plus sub-agent delegation
 (``spec/agent-delegation-v1.md``). The envelope's ``schemaName`` stays :data:`EXECUTION_EVIDENCE_SCHEMA`;
 only the version differs."""
+EXECUTION_EVIDENCE_SCHEMA_V3 = "AgentExecutionEvidence/3"
+"""The schema key of ``AgentExecutionEvidence`` ``schemaVersion "3"``: v2 plus model-call members on
+``model_output`` steps (``spec/agent-model-calls-v1.md``)."""
 CONTROL_EVALUATION_SCHEMA_V2 = "ControlEvaluation/2"
 """The schema key of Control Evaluation v2 (``spec/control-evaluation-v2.md``): state, policy or attested."""
 
@@ -155,8 +158,10 @@ def _reject_constant(name: str) -> Any:
 
 
 def _execution_schema_for(envelope: Any) -> str:
-    """The execution schema to validate against: v2 when the envelope says ``schemaVersion "2"``, else v1."""
+    """The execution schema to validate against, by the envelope's ``schemaVersion`` ("3", "2", else v1)."""
     version = envelope.get("schemaVersion") if isinstance(envelope, dict) else None
+    if version == "3":
+        return EXECUTION_EVIDENCE_SCHEMA_V3
     return EXECUTION_EVIDENCE_SCHEMA_V2 if version == "2" else EXECUTION_EVIDENCE_SCHEMA
 
 
