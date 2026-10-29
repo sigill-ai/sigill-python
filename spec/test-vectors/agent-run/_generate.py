@@ -395,21 +395,21 @@ EVAL_OK = {"subjectBound": True, "controlSetDigestMatches": True, "baselineDiges
 
 
 def scenario(name, description, b, verdict, checks, *, binding="bound", missing=None, findings=None,
-             evaluations=None, ascii_only=False, warnings=None) -> None:
-    """warnings: substrings, and their exact number."""
+             evaluations=None, ascii_only=False, warnings=None, model_calls=None) -> None:
+    """warnings: substrings, and their exact number. model_calls: (modelCalls, modelCallsWithVendorRefs), pinned when given."""
     before, plausible = seal_time(b)
     exp = dict(ALL_OK)
     exp.update(checks)
-    write(f"runs/{name}.json", {
-        "description": description, "bundle": b,
-        "expected": {
-            "verdict": verdict, "checks": exp, "binding": binding, "missingSeqs": missing or [],
-            "fingerprint": fingerprint(b), "findingsContain": findings or [],
-            "warningsContain": warnings or [], "warningCount": len(warnings or []),
-            "controlSealedBeforeRun": before, "eventTimesPlausible": plausible,
-            "evaluations": evaluations if evaluations is not None else [EVAL_OK] * len(b.get("evaluations", [])),
-        },
-    }, ascii_only=ascii_only)
+    expected = {
+        "verdict": verdict, "checks": exp, "binding": binding, "missingSeqs": missing or [],
+        "fingerprint": fingerprint(b), "findingsContain": findings or [],
+        "warningsContain": warnings or [], "warningCount": len(warnings or []),
+        "controlSealedBeforeRun": before, "eventTimesPlausible": plausible,
+        "evaluations": evaluations if evaluations is not None else [EVAL_OK] * len(b.get("evaluations", [])),
+    }
+    if model_calls is not None:
+        expected["modelCalls"], expected["modelCallsWithVendorRefs"] = model_calls
+    write(f"runs/{name}.json", {"description": description, "bundle": b, "expected": expected}, ascii_only=ascii_only)
 
 
 def standard(*, policy=POLICY, steps=STEPS, **kw):
@@ -1274,6 +1274,51 @@ def main() -> None:
     scenario("98-qualified-where-beyond-any-run", "where names a seq no run can reach (beyond 64-bit): outside the "
              "evaluated prefix — not valid, never an exception.", bundle(control, arts, [ev], p), "run_finalized", {},
              evaluations=[dict(V2_OK, valid=False, sealedFor="urn:sigill:role:policy-evaluator", qualifiedRequired=True, qualifiedMet=False)])
+
+    # ── Agent Model Calls v1 (spec/agent-model-calls-v1.md): schemaVersion 3 ──
+    model_call = {
+        "model": {"provider": "anthropic", "served": "claude-sonnet-5-20261015", "requested": "claude-sonnet-5"},
+        "vendorRefs": [{"provider": "anthropic", "kind": "message", "id": "msg_01XyZ8kq3VcR2mWd9TfLpA7e"},
+                       {"provider": "anthropic", "kind": "request", "id": "req_011CabcQx7Nn4Tz2Pf8Rk1Ws"}],
+        "usage": {"inputTokens": 2960, "outputTokens": 488, "stopReason": "end_turn"},
+    }
+
+    def v3(extra=None, version="3", on_type="model_output", skip_version_seq=None):
+        def tweak(seq, e):
+            if seq != skip_version_seq:
+                e["schemaVersion"] = version
+            if e["step"]["type"] == on_type:
+                e["step"].update(copy.deepcopy(extra if extra is not None else model_call))
+        return tweak
+
+    p, control, arts = standard(tweak=v3())
+    scenario("99-model-calls", "Version 3: a model call carrying the model that served it, the provider's own message and "
+             "request ids, and usage. Valid; one model call, one with vendor ids.", bundle(control, arts),
+             "run_finalized", {"objects": "warn"}, model_calls=(1, 1))
+
+    p, control, arts = standard(tweak=v3(version="1"))
+    scenario("100-model-call-member-in-v1", "A version 1 event carries model-call members, which only version 3 allows.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "envelope": "bad"}, findings=["vendorRefs"])
+
+    p, control, arts = standard(tweak=v3(skip_version_seq=1))
+    scenario("101-model-call-versions-mixed", "One event of a version 3 run says version 1: one run uses one version.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "envelope": "bad"}, findings=["mix schemaVersion"])
+
+    bad_id = copy.deepcopy(model_call)
+    bad_id["vendorRefs"][0]["id"] = "msg 01 with spaces"
+    p, control, arts = standard(tweak=v3(bad_id))
+    scenario("102-model-call-id-not-printable", "A vendor id with spaces: ids are printable ASCII, exactly as the provider returned them.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "envelope": "bad"}, findings=["vendorRefs"])
+
+    bad_kind = copy.deepcopy(model_call)
+    bad_kind["vendorRefs"][0]["kind"] = "invoice"
+    p, control, arts = standard(tweak=v3(bad_kind))
+    scenario("103-model-call-unknown-kind", "A vendor reference of an unknown kind.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "envelope": "bad"}, findings=["kind"])
+
+    p, control, arts = standard(tweak=v3({"vendorRefs": model_call["vendorRefs"]}, on_type="tool_call"))
+    scenario("104-model-call-members-on-tool-call", "Model-call members on a tool_call: they belong to model_output only.",
+             bundle(control, arts), "run_invalid", {"objects": "warn", "envelope": "bad"}, findings=["step"])
 
     p, control, arts = standard()
     text = json.dumps(bundle(control, arts), separators=(",", ":"))
