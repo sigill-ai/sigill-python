@@ -1,6 +1,6 @@
-# Agent Model Calls v1 — Specification (DRAFT)
+# Agent Model Calls v1 — Specification
 
-**Status:** draft for review — field names may still change before the first release.
+**Status:** v1, released with the 0.13.0 SDKs. Changes are additive; a breaking change is a new version.
 **Extends:** [AgentExecutionEvidence](./agent-execution-evidence-v1.md) (`schemaVersion "3"`)
 **Common rules:** [`agent-profiles-common-v1.md`](./agent-profiles-common-v1.md)
 
