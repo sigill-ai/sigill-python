@@ -90,7 +90,7 @@ per `tool_call` (schema rules).
 | Member | Rule |
 |---|---|
 | `rules` | Optional array of 0–256 rule ids (`^[A-Za-z0-9._-]{1,64}$`), unique. |
-| `enforcer.engine` | The Cedar core the guard used, `cedar-policy@<x.y.z>`. |
+| `enforcer.engine` | The Cedar core the guard used, `cedar-policy@<x.y.z>`. On a record with reason `unavailable` sealed because the Cedar core could not be loaded, the core version the guard is built for. |
 | `enforcer.factsVersion` | `"2"`. |
 | `enforcer.reason` | `rule`, `rule_error`, `unknown_tool`, `tool_changed`, `unavailable` or `configuration_locked` (Control Set v2 §7.2–§7.5). |
 
@@ -168,10 +168,16 @@ events (Control Set v2 §7.3).
 3. The guard's events are part of the run's chain like any other: same signer, same
    `seq` rules, same timestamp policy. A sealing failure stops the run (common rules §6
    rule 3); nothing is sealed late.
-4. **Event budget.** In enforce mode a producer keeps room for one enforcement record and
-   the `run_end` of a halt within the bundle limit (common rules §7), next to the
-   delegation reserve (agent-delegation-v1.md §4 rule 6), and refuses a new event that
-   would use it.
+4. **Event budget.** In an enforced run a producer keeps room in the bundle limit (common
+   rules §7) so that after any event it records the guard can still seal its enforcement
+   record and a halting `run_end`: a `tool_call` needs room for two more events, every
+   other producer event for one more. The second slot after a `tool_call` is for the record
+   of a halt that a later `delegation_result` may trigger, because a denial does not end the
+   run; on any other event the guard's only action is a halt, which ends the run. This is
+   in addition to the existing reservations for `run_end` and for open delegation results
+   (agent-delegation-v1.md §4 rule 6); a `delegation_result` is sealed without a budget
+   check, so a denial may not use up the room a later halt needs. A producer refuses a new
+   event that would leave less room.
 5. Never put arguments, prompts, results or approver names in `rules`, `enforcer`,
    `covers` or `detail`. `covers` carries a digest, a tool alias and optionally a `useId`.
 

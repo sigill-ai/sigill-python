@@ -203,9 +203,12 @@ applies:
    the Control Artifact, or whose object digest differs;
 2. `unavailable` — the Cedar core cannot be loaded (§7.5).
 
-A refused start is: the Control Artifact, `run_start`, one enforcement record without
-`tool`, and `run_end` with `runDisposition: "halted"`. The agent takes no action. Otherwise
-`run_start` is decided like any other non-tool event (§7.3).
+Otherwise `run_start` is decided like any other non-tool event (§7.3). Any halt decided at
+`run_start` — a locked configuration, an engine that cannot evaluate, or a `halt` rule
+matching the `run_start` event — is a **refused start**: the Control Artifact, `run_start`,
+one enforcement record without `tool` (reason `configuration_locked`, `unavailable` or
+`rule` respectively), and `run_end` with `runDisposition: "halted"`. The agent takes no
+action.
 
 ### 7.5 Engine failure and sealing failure
 
