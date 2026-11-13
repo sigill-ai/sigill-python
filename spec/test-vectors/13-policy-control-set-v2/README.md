@@ -33,6 +33,13 @@ the SHA-256 of the UTF-8 bytes `tool-manifest v1`.
 | `duplicate-member`, `integer-beyond-2^53`, `lone-surrogate` | I-JSON (§2) |
 | `nested-deeper-than-64` | nesting: 65 levels, the outermost object being level 1; the valid document has 16 (§2) |
 | `utf8-byte-order-mark`, `utf16le` | UTF-8 without a byte-order mark (§2); `documentBase64` |
+| `integral-float-beyond-2^53`, `integral-exponent-beyond-2^53` | I-JSON (§2): `read-loop-limit`'s literal written `9007199254740993.0` and `9.007199254740993e15` — integral values beyond 2^53 − 1, however written; `documentBase64`, since any JSON round-trip loses the spelling |
+
+The converse is valid: the same literal written `3.0` or `3e0` (or `20.0`, `2e1` anywhere a
+number may stand) is accepted and denotes the integer. Its `approvalScopeDigest` and
+`cedarDigest` equal this document's, because JCS writes the number as the integer. An
+implementation that hands the policies to the Cedar core hands it that integer, not the
+written spelling.
 
 Regenerate from the repository root (Docker, no host Node):
 

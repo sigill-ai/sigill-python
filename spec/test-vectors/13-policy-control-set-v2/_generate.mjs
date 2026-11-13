@@ -132,6 +132,11 @@ cases.push(
   { name: 'utf8-byte-order-mark', documentBase64: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(compact, 'utf8')]).toString('base64'), error: 'UTF-8' },
   { name: 'utf16le', documentBase64: Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(compact, 'utf16le')]).toString('base64'), error: 'UTF-8' },
 )
+// An integral value beyond 2^53 − 1 written with a fraction or an exponent, in read-loop-limit's literal. The spelling
+// is lost by any JSON round-trip, so the exact bytes go as base64.
+assert.equal(compact.split('{"Value":3}').length, 2)
+for (const [name, literal] of [['integral-float-beyond-2^53', '9007199254740993.0'], ['integral-exponent-beyond-2^53', '9.007199254740993e15']])
+  cases.push({ name, documentBase64: Buffer.from(compact.replace('{"Value":3}', `{"Value":${literal}}`), 'utf8').toString('base64'), error: 'I-JSON' })
 const depth = v => v && typeof v === 'object' ? 1 + Math.max(0, ...Object.values(v).map(depth)) : 0
 assert.equal(depth(JSON.parse(cases.find(c => c.name === 'nested-deeper-than-64').document)), 65)
 assert.ok(depth(doc) <= 64)

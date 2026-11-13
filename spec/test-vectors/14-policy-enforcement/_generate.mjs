@@ -220,10 +220,16 @@ function strictParse(bytes) {
     if (c === '"') return str()
     const lit = tok(/true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y)
     if (lit === 'true' || lit === 'false' || lit === 'null') return JSON.parse(lit)
+    // Every number whose exact decimal value is integral, however written, lies within ±(2^53 − 1) (Control Set v2 §2).
+    const [, , int, frac = '', exp = '0'] = /^(-?)([0-9]+)(?:\.([0-9]+))?(?:[eE]([+-]?[0-9]+))?$/.exec(lit)
+    let digits = (int + frac).replace(/^0+/, ''), scale = Number(exp) - frac.length
+    if (digits === '') return 0
+    const zeros = digits.length - digits.replace(/0+$/, '').length
+    digits = digits.slice(0, digits.length - zeros); scale += zeros
+    if (scale >= 0 && (digits.length + scale > 16 || BigInt(digits) * 10n ** BigInt(scale) > BigInt(Number.MAX_SAFE_INTEGER)))
+      throw new Error('integral number beyond 2^53 - 1')
     const n = Number(lit)
-    if (!Number.isFinite(n) || (Number.isInteger(n) && Math.abs(n) > Number.MAX_SAFE_INTEGER)
-      || (/^-?[0-9]+$/.test(lit) && BigInt(lit) > BigInt(Number.MAX_SAFE_INTEGER)) || (/^-?[0-9]+$/.test(lit) && -BigInt(lit) > BigInt(Number.MAX_SAFE_INTEGER)))
-      throw new Error('number outside I-JSON')
+    if (!Number.isFinite(n)) throw new Error('number outside I-JSON')
     return n
   }
   const v = value(1); ws()
@@ -242,7 +248,14 @@ strictParse(bytesOf[13]); strictParse(bytesOf[11])
 for (const bad of ['{"a":1,"a":1}', '{"a":9007199254740992}', '{"a":"\\ud800"}', '[' .repeat(65) + ']'.repeat(65), '﻿{}', '{} x'])
   assert.throws(() => strictParse(Buffer.from(bad, 'utf8')), bad.slice(0, 20))
 strictParse(Buffer.from('['.repeat(64) + ']'.repeat(64)))
+for (const bad of ['[9007199254740993.0]', '[9.007199254740993e15]', '[-9007199254740992]', '[90071992547409930e-1]', '[1e16]'])
+  assert.throws(() => strictParse(Buffer.from(bad)), bad)
+assert.deepEqual(strictParse(Buffer.from('[20.0,2e1,9007199254740991.0,-9007199254740991,1.5,9007199254740991.5,0e999,0.0]')),
+  [20, 20, 9007199254740991, -9007199254740991, 1.5, 9007199254740991.5, 0, 0])
 assert.throws(() => strictParse(bytesOf['13-duplicate-member']))
+// Every byte-level invalid case of vector 13 fails the strict parse.
+for (const c of read('../13-policy-control-set-v2/invalid.json').cases.filter(c => ['I-JSON', 'UTF-8', 'depth'].includes(c.error)))
+  assert.throws(() => strictParse(c.documentBase64 ? Buffer.from(c.documentBase64, 'base64') : Buffer.from(c.document, 'utf8')), c.name)
 
 // ---- the guard (Control Set v2 §7) -------------------------------------------------------------------------
 function runCase(c, idx) {

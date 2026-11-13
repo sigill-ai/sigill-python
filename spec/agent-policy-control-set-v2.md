@@ -23,7 +23,11 @@ A run whose Control Artifact carries a v2 control set MUST use Execution Evidenc
 
 A JSON object in UTF-8 without a byte-order mark, I-JSON (RFC 7493): no repeated member
 names, no integers beyond ±(2^53 − 1), no lone surrogates; and nested at most 64 levels
-deep (the outermost object is level 1). Bytes that break any of these are invalid. Members:
+deep (the outermost object is level 1). Bytes that break any of these are invalid. The
+integer limit applies to every number whose value is integral, however it is written:
+`9007199254740993.0` and `9.007199254740993e15` are invalid; a number written with a
+fraction or exponent whose value is an integer within the range (`20.0`, `2e1`) is valid
+and denotes that integer. Members:
 
 | Member | Required | Meaning |
 |---|---|---|
