@@ -52,7 +52,8 @@ jobs:
 
   test-before-publish:
     name: Run test suite
-    runs-on: ubuntu-latest
+    # ubuntu-24.04, not ubuntu-latest: the newer runner image has no Python 3.9 build (same as ci.yml).
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         python: ["3.9", "3.12", "3.13"]
