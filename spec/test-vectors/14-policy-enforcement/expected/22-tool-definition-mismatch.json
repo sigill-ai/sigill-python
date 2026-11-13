@@ -2,6 +2,7 @@
  "case": "22-tool-definition-mismatch",
  "covers": "a tool-definition with another digest is denied tool_changed",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "8905e7fdba09488848357cbf252a5614610c6a5bab87ef7a78034986a993c137",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

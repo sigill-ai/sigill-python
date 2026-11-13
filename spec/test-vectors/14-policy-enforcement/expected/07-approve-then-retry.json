@@ -2,6 +2,7 @@
  "case": "07-approve-then-retry",
  "covers": "a call denied for lack of approval is approved by tool and arguments (no useId) and retried under a new useId, which is bound",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "017138e0b5845e1b84d8bdc1c7c0ea35c4814129fb69ac854f1413145bf6a862",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

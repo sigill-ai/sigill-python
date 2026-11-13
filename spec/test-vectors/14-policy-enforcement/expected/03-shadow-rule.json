@@ -2,6 +2,7 @@
  "case": "03-shadow-rule",
  "covers": "an observe rule matches the second call and does not deny it",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "a5fffd16ed1f35943d8293cb3ac223575516aacdc67d02183380080fc7036ea0",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

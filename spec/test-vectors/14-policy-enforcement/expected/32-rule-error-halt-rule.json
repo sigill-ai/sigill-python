@@ -2,6 +2,7 @@
  "case": "32-rule-error-halt-rule",
  "covers": "rule_error lists only the erroring deny rule; a different, non-erroring halt rule matching the call halts the run",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "68d92e201ba9ef6a1984079c7e814c24184e060c1aec3c9d03a4880c39635ab3",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

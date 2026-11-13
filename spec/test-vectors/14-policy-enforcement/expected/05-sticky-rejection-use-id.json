@@ -2,6 +2,7 @@
  "case": "05-sticky-rejection-use-id",
  "covers": "a rejection naming the useId wins over a later approval of the same call",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "3985212f6e659be0f2b5722b3abfa064408474cb362dcb349931caad3d587e62",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

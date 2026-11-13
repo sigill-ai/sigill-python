@@ -2,6 +2,7 @@
  "case": "17-start-configuration-locked",
  "covers": "a tool manifest other than the locked one refuses the start",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "4557cb24564bcdebba42ed95a445e77bcfd19a35ce6399f43f3949bfc89c323c",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

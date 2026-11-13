@@ -2,6 +2,7 @@
  "case": "29-engine-failure-non-tool",
  "covers": "the Cedar core fails for a model_output: one record unavailable without tool, then halted",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "c350351eee298d44a9e24e72a7edeec3cee86ce845bf56b89666b2c4880b68a2",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

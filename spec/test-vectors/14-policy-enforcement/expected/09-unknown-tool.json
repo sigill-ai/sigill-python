@@ -2,6 +2,7 @@
  "case": "09-unknown-tool",
  "covers": "a tool without a Tool entity is denied under unknownTools: deny",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "05ad965067d8c926ff982bea4bdb7356446112316e6eaca77ac6debb533198ee",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

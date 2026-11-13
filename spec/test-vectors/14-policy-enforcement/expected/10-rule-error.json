@@ -2,6 +2,7 @@
  "case": "10-rule-error",
  "covers": "a deny rule that overflows Cedar's Long is a rule error and denies under onRuleError: deny",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "3927553efe992798e83313779b775dceb7ae66b5fbc9762a5a0dfea065c5294c",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

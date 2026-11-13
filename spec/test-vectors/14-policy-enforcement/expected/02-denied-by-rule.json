@@ -2,6 +2,7 @@
  "case": "02-denied-by-rule",
  "covers": "a deny rule scoped to an agent group denies the call; its result is never recorded",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "636d9213da9bf0eeddfbc28c7b38de54335e1e0ad719c8ae6f3598d36d30d67e",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

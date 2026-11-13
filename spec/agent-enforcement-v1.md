@@ -48,7 +48,9 @@ The guard's behaviour is Control Set v2 §7. This document defines the evidence.
 ### 3.2 `step.tool.useId`
 
 REQUIRED on `tool_call` and `tool_result` (v3: optional), 1–255 characters; in v4
-`step.tool.name` is also at most 255 characters. The `useId` is opaque, compared exactly, and MUST be unique per `tool_call` in the run (finding
+`step.tool.name` is also at most 255 characters. Every length cap in this document is
+counted in Unicode code points, as JSON Schema `maxLength` counts. The `useId` is opaque,
+compared exactly, and MUST be unique per `tool_call` in the run (finding
 `duplicate_use_id`). A `tool_result` carries the `useId` of the call it answers and the same
 `tool.name`.
 
@@ -173,8 +175,11 @@ events (Control Set v2 §7.3).
 
 ## 5. Verification
 
-v4 artifacts are validated against the v4 schema; all common-rules checks apply. For a v4
-run a verifier adds the check `enforcement`, `bad` when any of these findings is present.
+v4 artifacts are validated against the v4 schema; all common-rules checks apply. A verifier
+adds the check `enforcement` for a v4 run, and for a run of any version when it is given
+the control-set bytes and they are a v2 policy control set; on a run that is not v4 only
+`evidence_version_mismatch` can occur. The check is `bad` when any of these findings is
+present.
 "Previous" and "next" mean seq − 1 and seq + 1.
 
 | Finding | When |

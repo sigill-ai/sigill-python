@@ -2,6 +2,7 @@
  "case": "04-approval-laundering",
  "covers": "an approval bound to call A does not cover call B with other arguments",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "81c1c05e8199ecf0824bf0dac5878fbb0c85acfaf6316a03f0cd9e541d2ff25a",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

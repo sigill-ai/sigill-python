@@ -2,6 +2,7 @@
  "case": "06-sticky-rejection-arguments",
  "covers": "a rejection matches the same tool and arguments under a new useId, even when that useId is approved",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "fd63cc7f5b111db83cda5044c15647fad1b21b99c21d78626d6ad2b5a31a9468",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

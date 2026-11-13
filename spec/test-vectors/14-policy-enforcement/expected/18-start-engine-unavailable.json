@@ -2,6 +2,7 @@
  "case": "18-start-engine-unavailable",
  "covers": "the Cedar core cannot be loaded at start: the start is refused with unavailable",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "62aec02c718df3ea93c182b9a6c662c32fb7aa1d2978c93324252df65b05dae9",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

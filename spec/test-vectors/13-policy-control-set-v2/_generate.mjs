@@ -115,6 +115,7 @@ const cases = [
   variant('too-many-entities', 'entities', d => { while (d.cedar.entities.length < 1025) d.cedar.entities.push(ent('Tool', `bulk.tool-${d.cedar.entities.length}`)) }),
   variant('too-many-policies', 'policies', d => { const p = pol(d)['no-web-search']
     for (let i = 0; Object.keys(pol(d)).length < 257; i++) pol(d)[`bulk-${i}`] = { ...p, annotations: { ...p.annotations, id: `bulk-${i}` } } }),
+  variant('cedar-unknown-member', 'cedar', d => { d.cedar.templates = {} }),
   variant('schema-v1-digest', 'schemaSha256', d => { d.cedar.schemaSha256 = sha256(jcs(schemaV1)) }),
   variant('schema-version-1', 'schemaVersion', d => { d.schemaVersion = '1' }),
   variant('v1-document-with-enforcement', 'enforcement', d => { delete d.schemaVersion }),

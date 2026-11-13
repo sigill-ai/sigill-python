@@ -2,6 +2,7 @@
  "case": "01-allowed-call",
  "covers": "a known, unrestricted call is allowed and its result recorded",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "5a33f8a49e89826d052b25ab69679fdc122add01306e639082c871b5295887d1",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

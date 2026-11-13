@@ -27,6 +27,7 @@ the SHA-256 of the UTF-8 bytes `tool-manifest v1`.
 | `too-many-policies` | at most 256 policies (§4 rule 8) |
 | `entity-of-another-type`, `entity-duplicate-uid`, `entity-id-too-long`, `tool-unknown-attribute`, `group-with-attribute`, `too-many-entities` | entities (§5) |
 | `parent-of-wrong-type`, `parent-not-declared`, `parent-cycle` | parents (§5) |
+| `cedar-unknown-member` | `cedar` has only `policies`, `schemaSha256` and `entities` (§2) |
 | `schema-v1-digest` | `schemaSha256` must be schema v2's (§4) |
 | `schema-version-1`, `v1-document-with-enforcement` | recognition (§1): v1 has no `enforcement` member |
 

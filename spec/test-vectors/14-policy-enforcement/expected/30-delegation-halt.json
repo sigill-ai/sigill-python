@@ -2,6 +2,7 @@
  "case": "30-delegation-halt",
  "covers": "a halt rule on Action::\"delegation\": the guard halts right after the delegation; no child is started",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "47f8b5abfc05720a574b0816fb9cd37b0d9f9533f0ca69cfc056400640f9b768",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

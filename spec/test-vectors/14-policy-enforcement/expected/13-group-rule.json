@@ -2,6 +2,7 @@
  "case": "13-group-rule",
  "covers": "a rule on resource in ToolGroup::\"restricted\" applies through a nested group",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "8029d643cb43ac3ca2478e0c555e4464952410065dd1001d0117e489db7950c3",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

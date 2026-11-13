@@ -265,8 +265,14 @@ function runCase(c, idx) {
   const overall = controls.reduce((o, x) => rank[x.result] > rank[o] ? x.result : o, 'PASS')
 
   write(`runs/${c.name}.json`, { agentId: AGENT, correlationId: run.correlationId, enforcement, configuration, events: run.events })
+  // The facts document (Control Set v2 §8): Control Evaluation v2 §4.5's shape, factsVersion "2", plus entities.
+  // Every run here is complete and gap-free, so the prefix is the whole run and the run-level request is present.
+  const facts = { factsVersion: '2', throughSeq: run.events.length - 1, missingSeqs: [], runLevel: true, entities: base.cedar.entities ?? [],
+    requests: [...out.map(o => ({ seq: o.seq, ...o.request })), { seq: 'run', ...rl.request }] }
+  const factsBytes = jcs(facts)
+  writeFileSync(join(here, `expected/${c.name}.facts.json`), factsBytes)
   const sealedActions = out.filter(o => o.sealedBy === 'producer').length - 1
-  write(`expected/${c.name}.json`, { case: c.name, covers: c.covers, approvalScopeDigest, engine: ENGINE, events: out, runLevel: rl,
+  write(`expected/${c.name}.json`, { case: c.name, covers: c.covers, approvalScopeDigest, factsSha256: sha256(factsBytes), engine: ENGINE, events: out, runLevel: rl,
     notExecuted, discarded: c.actions.length - sealedActions - notExecuted.length, controls, overall })
   return { name: c.name, outcomes: out.map(o => o.outcome ? `${o.seq}:${o.outcome}${o.reason ? '/' + o.reason : ''}` : `${o.seq}:${o.type}`).join(' ') }
 }

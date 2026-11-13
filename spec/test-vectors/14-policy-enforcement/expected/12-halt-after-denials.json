@@ -2,6 +2,7 @@
  "case": "12-halt-after-denials",
  "covers": "haltAfterDenials: 2: the second denial is one record, then halted",
  "approvalScopeDigest": "d2a35f16e40e28b06c174714216691c831346d7c38c234680da71ca75bf6e668",
+ "factsSha256": "7109c1cce63e3bddbb0df1473c5a4f09c7c4d11aef21098444ef1e3661b91881",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

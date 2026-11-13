@@ -2,6 +2,7 @@
  "case": "23-tool-definition-missing",
  "covers": "a call of a bound tool without a tool-definition object is denied tool_changed",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "334e00ada56414e1c9a70c75c50e038579f488f3353582466300179ee0fe4838",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

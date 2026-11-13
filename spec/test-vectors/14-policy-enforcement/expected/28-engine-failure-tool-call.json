@@ -2,6 +2,7 @@
  "case": "28-engine-failure-tool-call",
  "covers": "the Cedar core fails for a tool_call: one record unavailable with tool, then halted",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "01c6420b9a9c6837581815ec266f0002b5028c23e1d4bdabfd6066ea55b207f8",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

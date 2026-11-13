@@ -30,7 +30,8 @@ A UTF-8 JSON object, I-JSON (RFC 7493). Members:
 | `cedar` | no | `{ "policies", "schemaSha256", "entities"? }` (§4, §5). |
 | `enforcement` | no | What the guard does with the rules (§6). Absent: observe, the v1 behaviour. |
 
-No other top-level member is allowed.
+No other top-level member is allowed. `cedar` has exactly the members `policies` and
+`schemaSha256`, and optionally `entities`; any other member is invalid.
 
 ## 3. Digests
 
@@ -83,7 +84,7 @@ input of every request (§8).
 | Rule | |
 |---|---|
 | Size | At most 1024 entities. |
-| Members | Each entity has exactly `uid`, `attrs` and `parents` (no `tags`). `uid` is exactly `{ "type", "id" }`, both strings, `id` 1–255 characters. |
+| Members | Each entity has exactly `uid`, `attrs` and `parents` (no `tags`). `uid` is exactly `{ "type", "id" }`, both strings, `id` 1–255 characters (counted in Unicode code points, as JSON Schema `maxLength` counts). |
 | Types | `Tool`, `ToolGroup`, `Agent`, `AgentGroup`. Any other type is invalid. |
 | Unique | No two entities share a `uid`. |
 | Attributes | `Tool` may carry `consequential` (boolean) and `definitionSha256` (64 lowercase hex); nothing else. Every other type has `attrs: {}`. |
@@ -226,6 +227,13 @@ request.
 
 The request's `entities` are `cedar.entities` of the control set (none when absent). Denied
 calls are `tool_call` events and count in `toolCallsSoFar` and `callsOfThisTool`.
+
+**Facts document.** The facts are handed on as the facts document of Control Evaluation v2
+§4.5 — the v1 shape: `factsVersion`, `throughSeq`, `missingSeqs`, `runLevel` and `requests`,
+each request with its `seq` (`"run"` for the run-level request), `principal`, `action`,
+`resource` and `context` — with `factsVersion` `"2"`, the requests of this section, and one
+more top-level member, `entities`, always present: `cedar.entities` of the control set, or
+`[]` when absent. Its digest is the lowercase hex SHA-256 of its JCS form.
 
 ### 8.1 `approval` on a `tool_call`
 

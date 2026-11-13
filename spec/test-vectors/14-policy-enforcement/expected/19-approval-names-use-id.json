@@ -2,6 +2,7 @@
  "case": "19-approval-names-use-id",
  "covers": "an approval naming a useId binds only that call: the same tool and arguments under another useId are not bound",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "3e5b32ecee702c08bffb86662b7cba79b64fb18b60e62312aad6dea2bbc06d6e",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

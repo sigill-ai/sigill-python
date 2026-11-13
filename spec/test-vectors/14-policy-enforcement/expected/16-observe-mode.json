@@ -2,6 +2,7 @@
  "case": "16-observe-mode",
  "covers": "mode: observe never denies or halts and seals no record; the rules still match",
  "approvalScopeDigest": "0750f8dc91eef6bb33911fd03e10cba69e9c8c584876b8cdaff95a75e825ac9e",
+ "factsSha256": "f3c05ed2eaf2cff9e847f0773ee3a13473f14eb50c4962424b3b11212ae5a088",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

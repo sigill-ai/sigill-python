@@ -2,6 +2,7 @@
  "case": "31-unknown-tool-halt-rule",
  "covers": "an unknown tool is denied unknown_tool (no rules) and a matching halt rule still halts the run",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "4706f48623c7b7f2891d760a8fe57216019992c7c395d97b5bb55b061cdb91c5",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

@@ -2,6 +2,7 @@
  "case": "14-loop-limit",
  "covers": "callsOfThisTool denies the fourth call of the same tool; the second and third match only the shadow rule",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "b314d70f791a9e6dbe3d0f94f9e7a69f55c404db48f59e9b6e7709a229d4fad8",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

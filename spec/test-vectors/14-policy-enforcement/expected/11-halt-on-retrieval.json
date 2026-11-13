@@ -2,6 +2,7 @@
  "case": "11-halt-on-retrieval",
  "covers": "a halt rule fires on a non-tool event: one record without tool, then halted; later actions never happen",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "8792b72664c024f0c6f8462ce789adf1ac6b9a1f6cc659694d28cc0fcf3e31bd",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

@@ -2,6 +2,7 @@
  "case": "08-approval-expired",
  "covers": "an approval whose expiresAt has passed is not bound",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "f4252555170bc809e07466916fd3827de2b7a610a5aef6c38230216a62fdd27a",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

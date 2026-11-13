@@ -2,6 +2,7 @@
  "case": "21-tool-definition-match",
  "covers": "the call's tool-definition digest equals the entity's definitionSha256",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "d53c733d78bb1afdd0a39d562a1d9c5a11f2c2e41b41ff5f333b454f587223ec",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

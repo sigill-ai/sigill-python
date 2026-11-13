@@ -2,6 +2,7 @@
  "case": "25-erroring-observe-rule",
  "covers": "an observe rule that errors does not deny (onRuleError: deny counts only deny and halt rules)",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "6321c39d2703c3f3434f2a65af9bafbe48be908a05715215e8e1d1fa2785f782",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {

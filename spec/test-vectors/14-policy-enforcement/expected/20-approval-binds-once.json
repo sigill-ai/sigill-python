@@ -2,6 +2,7 @@
  "case": "20-approval-binds-once",
  "covers": "one approval binds one call: a second identical call is not bound",
  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "79030a418ac0b0dc39725254c883ad20c228e9f3f23da03e3335576c33683d88",
  "engine": "cedar-policy@4.14.0",
  "events": [
   {
