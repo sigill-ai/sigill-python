@@ -151,18 +151,21 @@ def _engine_messages(answer: dict) -> str:
                      if isinstance(e, dict)) or "no message"
 
 
-def _diagnostics(answer: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+def _diagnostics(answer: Any, policies: Iterable[str]) -> tuple[tuple[str, ...], tuple[str, ...]]:
     """(matching rules without the baseline permit, erroring rules), each sorted and unique, from the one answer shape
     accepted: ``type`` "success", ``response.diagnostics.reason`` a list of strings, ``response.diagnostics.errors`` a
     list of objects each with a string ``policyId``, and ``response.decision`` "deny" exactly when ``reason`` without
     the baseline permit is non-empty, else "allow" (with the baseline permit in every call, the core gives nothing
-    else). Anything else raises :class:`PolicyEngineError` — the guard and the evaluator fail closed on it."""
+    else). Every id in ``reason`` and ``errors`` names one of ``policies``, the policies of the call (the control
+    set's rules and the baseline permit). Anything else raises :class:`PolicyEngineError` — the guard and the
+    evaluator fail closed on it (Control Set v2 §7.5)."""
     response = answer.get("response") if isinstance(answer, dict) and answer.get("type") == "success" else None
     d = response.get("diagnostics") if isinstance(response, dict) else None
     reason, errors = (d.get("reason"), d.get("errors")) if isinstance(d, dict) else (None, None)
     if not isinstance(reason, list) or not all(isinstance(x, str) for x in reason) or not isinstance(errors, list) \
             or not all(isinstance(e, dict) and isinstance(e.get("policyId"), str) for e in errors) \
-            or response.get("decision") != ("deny" if set(reason) - {BASELINE_PERMIT} else "allow"):
+            or response.get("decision") != ("deny" if set(reason) - {BASELINE_PERMIT} else "allow") \
+            or not set(reason).union(e["policyId"] for e in errors).issubset(policies):
         raise PolicyEngineError("The policy engine's answer is not an isAuthorized answer.")
     return tuple(sorted(set(reason) - {BASELINE_PERMIT})), tuple(sorted({e["policyId"] for e in errors}))
 
@@ -718,7 +721,7 @@ class AgentPolicy:
         a v1 ``schemaSha256`` names schema v1, and v2 ``cedar.entities`` conform to schema v2 (§5). An empty list
         means valid.
 
-        :raises PolicyEngineError: the engine failed."""
+        :raises PolicyEngineError: the engine failed, or its answer is not a validate (or isAuthorized) answer."""
         errors = AgentPolicy.validate(document)
         doc = _parse(document)
         cedar = _obj(doc.get("cedar")) if doc is not None else None
@@ -732,15 +735,19 @@ class AgentPolicy:
         if isinstance(cedar.get("policies"), dict):
             answer = engine.validate({"validationSettings": {"mode": "strict"}, "schema": schema,
                                       "policies": cedar["policies"]})
-            if answer.get("type") != "success":
+            found = answer.get("validationErrors") if isinstance(answer, dict) else None
+            if not isinstance(answer, dict) or answer.get("type") not in ("success", "failure") \
+                    or answer["type"] == "success" and not (isinstance(found, list) and all(
+                        isinstance(e, dict) and isinstance(e.get("policyId"), str) and isinstance(e.get("error"), dict)
+                        and isinstance(e["error"].get("message"), str) for e in found)):
+                raise PolicyEngineError("The policy engine's answer is not a validate answer.")
+            if answer["type"] == "failure":
                 errors.append(f"cedar.policies cannot be validated against Cedar schema v{version}: "
                               f"{_engine_messages(answer)}")
             else:
-                found = answer.get("validationErrors")
-                found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
                 errors.extend(sorted(  # the core's order depends on its hash seed
-                    f"policy '{_str(e.get('policyId'))}' does not validate against Cedar schema v{version} in strict "
-                    f"mode: {_str((_obj(e.get('error')) or {}).get('message'))}" for e in found))
+                    f"policy '{e['policyId']}' does not validate against Cedar schema v{version} in strict "
+                    f"mode: {e['error']['message']}" for e in found))
         if version == 2 and isinstance(cedar.get("entities", []), list):
             # The core checks entities against the schema when it reads them for a request; any valid request will do.
             context = dict.fromkeys(("stepsSoFar", "totalSteps", "consequentialCount", "unpairedConsequential",
@@ -750,7 +757,16 @@ class AgentPolicy:
                 "principal": {"type": "Agent", "id": "strict-validation"}, "action": {"type": "Action", "id": "run_start"},
                 "resource": {"type": "Step", "id": "0"}, "context": context, "schema": schema, "validateRequest": True,
                 "policies": {"staticPolicies": {}}, "entities": cedar.get("entities", [])})
-            if answer.get("type") != "success":
+            response = answer.get("response") if isinstance(answer, dict) else None
+            d = response.get("diagnostics") if isinstance(response, dict) else None
+            # The probe has no policies: a well-formed success names none, in reason or in errors (§7.5).
+            if not isinstance(answer, dict) or answer.get("type") not in ("success", "failure") \
+                    or answer["type"] == "success" and not (
+                        response.get("decision") in ("allow", "deny") if isinstance(response, dict) else False) \
+                    or answer["type"] == "success" and not (
+                        isinstance(d, dict) and d.get("reason") == [] and d.get("errors") == []):
+                raise PolicyEngineError("The policy engine's answer is not an isAuthorized answer.")
+            if answer["type"] == "failure":
                 errors.append(f"cedar.entities do not conform to Cedar schema v2: {_engine_messages(answer)}")
         return errors
 
@@ -799,7 +815,7 @@ class AgentPolicy:
             if isinstance(answer, dict) and answer.get("type") != "success":
                 raise PolicyEngineError(f"The policy engine refused request {seq}: {_engine_messages(answer)}",
                                         refused=True)
-            reason, errs = _diagnostics(answer)
+            reason, errs = _diagnostics(answer, base["policies"]["staticPolicies"])
             out.append(PolicyRequestResult(seq, reason, errs))
             for rid, result in [(rid, "INDETERMINATE") for rid in errs] + [(rid, "FAIL") for rid in reason]:
                 if rid in results:

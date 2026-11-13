@@ -603,7 +603,9 @@ The guard evaluates every event after it is sealed. What the caller sees:
   recording call raises `RunHalted` (or `PolicyDenied` with `halted`), `run.halted` is true,
   every later recording call raises `RunHalted` repeating the halt's `reason`, `rules`, `seq`
   and `record`, and a child of the halted run is not started.
-  The model-call transport raises it too, and sends no further model calls.
+  The model-call transport raises it too, and sends no further model calls. In an enforced
+  run it also raises a failure to record a model call (after `on_error`) and sends nothing for
+  a broken or finished run.
 - **A refused start.** A `lockedConfiguration` digest that differs from the Control
   Artifact's, an engine that cannot load or cannot validate the control set, or a `halt` rule
   on `run_start`: `start_agent_run` raises `StartRefused`, whose
@@ -617,7 +619,9 @@ The guard evaluates every event after it is sealed. What the caller sees:
   arguments, results or definitions.
 
 The decision, its record and the halt are sealed under the run's lock, with no other event
-in between, also when several threads record on one run. A sealing failure breaks the run as
+in between, also when several threads record on one run. The run's state is checked once more after the
+call's callbacks have run and, in `invoke_tool`, immediately before the function is called; a
+halt sealed by another thread after that check does not stop the function. A sealing failure breaks the run as
 before, and the tool does not run. In enforce mode the event budget keeps room for one
 enforcement record and the halting `run_end`. With `mode: "observe"`, a v1 control set or
 another control set, nothing is denied or sealed; an engine passed anyway reports matching
@@ -644,6 +648,9 @@ What enforcement does and does not show:
 - Anyone with the control set and the signed events can recompute every decision, except a
   record with reason `unavailable`: whether the engine in fact failed cannot be recomputed.
 - An engine that does not answer holds the run: there is no timeout on a decision.
+- Model calls the SDK cannot recognise or parse are not recorded, so no rule sees them.
+- A tool that is already executing when another event halts the run is not stopped by the SDK;
+  its result is not sealed.
 - A child run is refused after its parent halted only when it is started from the delegation
   object the parent returned in the same process.
 

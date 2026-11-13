@@ -894,6 +894,9 @@ def _enforcement_findings(envs: list[dict], control_set: Optional[tuple[Optional
     def use_id(e: dict) -> Optional[str]:
         return _str((tool(e) or {}).get("useId"))
 
+    def name(e: dict) -> Optional[str]:
+        return _str((tool(e) or {}).get("name"))
+
     def seq(e: dict) -> int:
         return _int((_obj(e.get("chain")) or {}).get("seq"))
 
@@ -915,7 +918,8 @@ def _enforcement_findings(envs: list[dict], control_set: Optional[tuple[Optional
     records = [e for e in envs if is_record(e)]
     out: list[EnforcementFinding] = []
     for r in of_type["tool_result"]:
-        if not any(seq(c) < seq(r) and same(use_id(c), use_id(r)) for c in of_type["tool_call"]):
+        if not any(seq(c) < seq(r) and same(use_id(c), use_id(r)) and same(name(c), name(r))
+                   for c in of_type["tool_call"]):
             out.append(EnforcementFinding("orphan_result", [seq(r)]))
     first: dict = {}
     for r in of_type["tool_result"]:
@@ -962,7 +966,7 @@ def _enforcement_findings(envs: list[dict], control_set: Optional[tuple[Optional
 
 
 _ENFORCEMENT_TEXT = {
-    "orphan_result": "a tool_result whose useId no earlier tool_call used",
+    "orphan_result": "a tool_result with no earlier tool_call of the same useId and tool name",
     "conflicting_result": "a second tool_result for the same useId",
     "executed_after_denial": "a tool_result for a call an enforcement record denied",
     "duplicate_use_id": "tool_calls share a useId",

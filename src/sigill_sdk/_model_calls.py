@@ -14,8 +14,9 @@ pass through unrecorded. The request and
 response bodies are sealed as digests only; their content never leaves the process. A streamed response
 (server-sent events) is recorded with the identifiers in its headers only. The run must be started with
 ``records_model_calls=True``. A failure to record never fails the model call: it is reported to ``on_error``. The
-one exception is the run's guard: a halt on the recorded call raises :class:`RunHalted`, and a halted run makes no
-further model calls through the transport.
+exception is the run's guard: a halt on the recorded call raises :class:`RunHalted`, and a halted run makes no
+further model calls through the transport. In an enforced run (Control Set v2 §7.5) a failure to record is also
+raised to the caller after ``on_error``, and nothing is sent for a broken or finished run either.
 
 Mirrors the .NET SDK's ``ModelCallHandler`` / ``ModelCallParser``.
 """
@@ -189,9 +190,32 @@ def _deployment_of(path: str) -> Optional[str]:
     return _fit(parts[i + 1], 255) if 0 <= i < len(parts) - 1 else None
 
 
-def _refuse_if_halted(run: Any) -> None:
-    if getattr(run, "halted", False) is True:
+def _enforced(run: Any) -> bool:
+    return getattr(run, "_enforcing", False) is True
+
+
+def _refuse_if_stopped(run: Any) -> None:
+    """Nothing is sent for a halted run; in an enforced run, nor for a broken or finished one (Control Set v2 §7.5)."""
+    if _enforced(run):
+        run._ensure_not_stopped()
+    elif getattr(run, "halted", False) is True:
         raise run._halted_error()
+
+
+def _recording_failed(run: Any, on_error: Optional[Callable[[Exception], None]], ex: Exception,
+                      recording: bool) -> None:
+    """Reports a failure to ``on_error``; a failure to record (not to parse) in an enforced run is then raised
+    (Control Set v2 §7.5), and a failing ``on_error`` does not hide it."""
+    if not (recording and _enforced(run)):
+        if on_error is not None:
+            on_error(ex)
+        return
+    try:
+        if on_error is not None:
+            on_error(ex)
+    except Exception:  # noqa: BLE001 — the recording failure is what the caller must see
+        pass
+    raise ex
 
 
 def _replay(response: httpx.Response, raw: bytes, request: httpx.Request) -> httpx.Response:
@@ -222,7 +246,7 @@ class ModelCallTransport(httpx.BaseTransport):
         api = _classify(request)
         if api is None:
             return self._inner.handle_request(request)
-        _refuse_if_halted(self._run)
+        _refuse_if_stopped(self._run)
         request_body = request.read() or None  # read() also makes the body replayable for the inner transport
         response = self._inner.handle_request(request)
         response_body = None
@@ -233,15 +257,16 @@ class ModelCallTransport(httpx.BaseTransport):
             finally:
                 response.close()
             response, response_body = _replay(response, raw, request), _decoded(response, raw)
+        parsed = False
         try:
             call = _parse(api, request, request_body, response, response_body)
+            parsed = True  # a parse failure stays best-effort in every run
             if call is not None:
                 self._run.record_model_call(call, request_body, response_body)
         except RunHalted:  # the guard stopped the run: the agent must not go on
             raise
-        except Exception as ex:  # noqa: BLE001 — recording never fails the model call
-            if self._on_error is not None:
-                self._on_error(ex)
+        except Exception as ex:  # noqa: BLE001 — recording never fails the model call, except in an enforced run
+            _recording_failed(self._run, self._on_error, ex, parsed)
         return response
 
     def close(self) -> None:
@@ -266,7 +291,7 @@ class AsyncModelCallTransport(httpx.AsyncBaseTransport):
         api = _classify(request)
         if api is None:
             return await self._inner.handle_async_request(request)
-        _refuse_if_halted(self._run)
+        _refuse_if_stopped(self._run)
         request_body = (await request.aread()) or None
         response = await self._inner.handle_async_request(request)
         response_body = None
@@ -276,15 +301,16 @@ class AsyncModelCallTransport(httpx.AsyncBaseTransport):
             finally:
                 await response.aclose()
             response, response_body = _replay(response, raw, request), _decoded(response, raw)
+        parsed = False
         try:
             call = _parse(api, request, request_body, response, response_body)
+            parsed = True  # a parse failure stays best-effort in every run
             if call is not None:
                 await asyncio.to_thread(self._run.record_model_call, call, request_body, response_body)
         except RunHalted:  # the guard stopped the run: the agent must not go on
             raise
-        except Exception as ex:  # noqa: BLE001 — recording never fails the model call
-            if self._on_error is not None:
-                self._on_error(ex)
+        except Exception as ex:  # noqa: BLE001 — recording never fails the model call, except in an enforced run
+            _recording_failed(self._run, self._on_error, ex, parsed)
         return response
 
     async def aclose(self) -> None:

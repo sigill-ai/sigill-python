@@ -16,6 +16,7 @@ import httpx
 import pytest
 
 from sigill_sdk import (
+    POLICY_CONTROL_SET_CONTENT_TYPE,
     AgentConfiguration,
     AgentControlSet,
     AgentDefinition,
@@ -28,6 +29,7 @@ from sigill_sdk import (
     PolicyDenied,
     PolicyEngineError,
     RunHalted,
+    SigillError,
     StartRefused,
     verify_agent_run,
 )
@@ -656,6 +658,11 @@ MALFORMED = {
     "decision permit": _answer("permit", reason=["no-web-search"], errors=[]),
     "decision deny with an empty reason": _answer("deny", reason=[], errors=[]),
     "decision allow with a rule in reason": _answer("allow", reason=["no-web-search"], errors=[]),
+    "reason names an unknown policy, decision deny": _answer("deny", reason=["nonexistent-rule"], errors=[]),
+    "reason names an unknown policy, decision allow": _answer(
+        "allow", reason=["nonexistent-rule", "sigill:baseline-permit"], errors=[]),
+    "errors name an unknown policy": _answer(reason=[], errors=[{"policyId": "nonexistent-rule",
+                                                                 "error": {"message": "x"}}]),
 }
 
 
@@ -669,13 +676,17 @@ def test_h1_any_malformed_engine_answer_is_unavailable_and_halts(shape: str) -> 
     assert verify_agent_run(run.finish(), stub_verify).checks["enforcement"] == "ok"
 
 
-def test_h1_evaluate_uses_the_same_answer_check() -> None:
+@pytest.mark.parametrize("shape", list(MALFORMED))
+def test_h1_evaluate_uses_the_same_answer_check(shape: str) -> None:
     facts = AgentPolicy.build_facts_v2(AGENT_ID, "urn:uuid:r", _enforced(StubSealer()).to_bundle().artifacts, DOC)
 
     class Malformed(StubEngine):
         def authorize(self, call: dict) -> dict:
-            return _answer(reason="no-web-search", errors=[])
-    with pytest.raises(PolicyEngineError, match="^The policy engine's answer is not an isAuthorized answer.$"):
+            return copy.deepcopy(MALFORMED[shape])
+    answer = MALFORMED[shape]
+    refused = isinstance(answer, dict) and answer.get("type") != "success"  # phase 2: a refused request
+    with pytest.raises(PolicyEngineError, match="^The policy engine refused request 0" if refused else
+                       "^The policy engine's answer is not an isAuthorized answer.$"):
         AgentPolicy.evaluate(DOC, facts, Malformed())
 
 
@@ -805,6 +816,206 @@ def test_halted_run_every_entry_point_raises_run_halted() -> None:
     with pytest.raises(ValueError):
         run.finish("halted")
     assert _types(run)[-1] == "run_end" and len(run.artifacts) == 4
+
+
+def _delegate_from_a_callback(run_box: list, when: object):  # noqa: ANN202
+    """A callback that halts the run (no-delegation) while a tool_call that was allowed is being delivered."""
+    def callback(x: object) -> None:
+        if when(x) and not run_box[0].halted:
+            with pytest.raises(RunHalted):
+                run_box[0].delegate("urn:example:agent:child")
+    return callback
+
+
+class _PreviewObserved(StubEngine):
+    """ledger.preview (known, no definition) is allowed; preview-weight (an observe rule) matches it."""
+
+    def authorize(self, call: dict) -> dict:
+        if call["action"]["id"] == "tool_call" and call["resource"]["id"] == "ledger.preview":
+            return _answer(reason=["preview-weight"], errors=[])
+        return super().authorize(call)
+
+
+@pytest.mark.parametrize("entry", ["invoke_tool", "begin_tool_call", "record_tool_call"])
+@pytest.mark.parametrize("via", ["on_artifact_sealed", "on_event"])
+def test_r2_no_tool_starts_after_a_callback_halted_the_run(entry: str, via: str) -> None:
+    box: list = [None]
+    cb = _delegate_from_a_callback(box, (lambda a: getattr(a, "step_type", None) == "tool_call")
+                                   if via == "on_artifact_sealed" else (lambda e: e.kind == "observed"))
+    run = box[0] = AgentRun.start(
+        _client(StubSealer()), _agent(), certificate_id=CERT, activity="a",
+        control_set=AgentPolicy.control_set_from_document(DOC), _clock=_clock(),
+        enforcement=Enforcement(_PreviewObserved(), cb if via == "on_event" else None),
+        on_artifact_sealed=cb if via == "on_artifact_sealed" else None)
+    ran, returned = [], []
+    with pytest.raises(RunHalted) as e:
+        if entry == "invoke_tool":
+            run.invoke_tool("ledger.preview", b"{}", lambda: ran.append(1) or b"{}", use_id="r9")
+        elif entry == "begin_tool_call":
+            returned.append(run.begin_tool_call("ledger.preview", b"{}", use_id="r9"))
+        else:
+            returned.append(run.record_tool_call("ledger.preview", b"{}", use_id="r9"))
+    assert ran == [] and returned == []
+    with pytest.raises(RunHalted) as again:
+        run.record_tool_result("ledger.preview", b"{}", use_id="r9")
+    assert (e.value.reason, e.value.rules, e.value.seq, e.value.record.envelope) == \
+        (again.value.reason, again.value.rules, again.value.seq, again.value.record.envelope)
+    assert e.value.rules == ("no-delegation",)
+    assert _types(run)[-4:] == ["tool_call", "delegation", "authorization", "run_end"]
+    result = verify_agent_run(run.finish(), stub_verify)
+    assert result.verdict == "run_finalized" and result.checks["enforcement"] == "ok"
+    assert result.enforcement_findings == [] and result.findings == []
+
+
+def test_r2_a_call_held_in_its_callback_while_another_thread_halts_the_run() -> None:
+    held, outcome = threading.Event(), {}
+    box: list = [None]
+
+    def on_sealed(a: object) -> None:
+        if getattr(a, "step_type", None) == "tool_call" and threading.current_thread().name == "A":
+            held.set()
+            for _ in range(500):  # until thread B has sealed the halt
+                if box[0].halted:
+                    return
+                threading.Event().wait(0.01)
+    run = box[0] = AgentRun.start(
+        _client(StubSealer()), _agent(), certificate_id=CERT, activity="a",
+        control_set=AgentPolicy.control_set_from_document(DOC), _clock=_clock(),
+        enforcement=Enforcement(StubEngine()), on_artifact_sealed=on_sealed)
+
+    def a() -> None:
+        try:
+            outcome["a"] = run.begin_tool_call("crm.read_customer", b"{}", definition=b"crm.read_customer definition")
+        except RunHalted as e:
+            outcome["a"] = e
+
+    def b() -> None:
+        held.wait(5)
+        try:
+            run.delegate("urn:example:agent:child")
+        except RunHalted as e:
+            outcome["b"] = e
+    threads = [threading.Thread(target=a, name="A"), threading.Thread(target=b, name="B")]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join(10)
+    assert isinstance(outcome["a"], RunHalted) and isinstance(outcome["b"], RunHalted)
+    assert outcome["a"].seq == outcome["b"].seq == 2
+    assert _types(run) == ["run_start", "tool_call", "delegation", "authorization", "run_end"]
+    result = verify_agent_run(run.finish(), stub_verify)
+    assert result.verdict == "run_finalized" and result.enforcement_findings == []
+
+
+_PROBE_OK = {"type": "success", "response": {"decision": "deny", "diagnostics": {"reason": [], "errors": []}}}
+STRICT_MALFORMED = {
+    "validate: validationErrors missing": ("validate", {"type": "success"}),
+    "validate: validationErrors a string": ("validate", {"type": "success", "validationErrors": "not-an-array"}),
+    "validate: validationErrors with a string": ("validate", {"type": "success", "validationErrors": ["x"]}),
+    "validate: an entry without policyId": ("validate", {"type": "success", "validationErrors": [
+        {"error": {"message": "m"}}]}),
+    "validate: an entry whose error is a string": ("validate", {"type": "success", "validationErrors": [
+        {"policyId": "no-web-search", "error": "m"}]}),
+    "validate: type ok": ("validate", {"type": "ok", "validationErrors": []}),
+    "validate: a list": ("validate", []),
+    "probe: no response": ("probe", {"type": "success"}),
+    "probe: reason a string": ("probe", {"type": "success", "response": {"decision": "deny", "diagnostics": {
+        "reason": "no-web-search", "errors": []}}}),
+    "probe: a non-empty reason": ("probe", {"type": "success", "response": {"decision": "deny", "diagnostics": {
+        "reason": ["no-web-search"], "errors": []}}}),
+}
+
+
+class _StrictShaped(StubEngine):
+    def __init__(self, case: str) -> None:
+        super().__init__()
+        self.where, self.answer = STRICT_MALFORMED[case]
+
+    def validate(self, call: dict) -> dict:
+        return copy.deepcopy(self.answer) if self.where == "validate" else super().validate(call)
+
+    def authorize(self, call: dict) -> dict:
+        if call["principal"]["id"] == "strict-validation":
+            return copy.deepcopy(self.answer if self.where == "probe" else _PROBE_OK)
+        return super().authorize(call)
+
+
+@pytest.mark.parametrize("case", list(STRICT_MALFORMED))
+def test_r4_strict_validation_fails_closed_on_a_malformed_answer(case: str) -> None:
+    text = "The policy engine's answer is not " + ("a validate answer." if case.startswith("validate")
+                                                   else "an isAuthorized answer.")
+    with pytest.raises(PolicyEngineError) as e:
+        AgentPolicy.validate_strict(DOC, _StrictShaped(case))
+    assert str(e.value) == text
+    sealer = StubSealer()
+    with pytest.raises(StartRefused) as refused:
+        _enforced(sealer, engine=_StrictShaped(case))
+    assert refused.value.reason == "unavailable"
+    assert _types(refused.value.run) == ["run_start", "authorization", "run_end"] and len(sealer.requests) == 4
+    with pytest.raises(PolicyEngineError, match="^" + text.replace(".", "\\.") + "$"):  # not enforced: the error
+        _enforced(StubSealer(), _doc(mode="observe"), engine=_StrictShaped(case))
+
+
+@pytest.mark.parametrize("swap", ["observe to enforce", "enforce to observe"])
+def test_r5_a_control_set_buffer_changed_during_validation_is_one_document(swap: str) -> None:
+    first, second = (_doc(mode="observe"), DOC) if swap == "observe to enforce" else (DOC, _doc(mode="observe"))
+    buffer = bytearray(first)
+
+    class Swapping(StubEngine):
+        def validate(self, call: dict) -> dict:
+            buffer[:] = second  # the caller's buffer changes while the engine validates
+            return super().validate(call)
+    control_set = AgentControlSet("acme-support-agent-controls", "4", buffer, POLICY_CONTROL_SET_CONTENT_TYPE)
+    run = AgentRun.start(_client(StubSealer()), _agent(), certificate_id=CERT, activity="a", control_set=control_set,
+                         enforcement=Enforcement(Swapping()), _clock=_clock())
+    sealed = next(run.control_artifact.object_digests[o["uri"]] for o in run.control_artifact.envelope["objects"]
+                  if o["role"] == "control-set")
+    assert sealed == hash_bytes(first)
+    assert run._guard.settings == AgentPolicy.enforcement(first)  # the guard's settings came from those bytes
+    if swap == "observe to enforce":
+        run.invoke_tool("search.web", b"{}", lambda: b"{}")
+    else:
+        with pytest.raises(PolicyDenied):
+            run.invoke_tool("search.web", b"{}", lambda: b"{}")
+    assert verify_agent_run(run.finish(), stub_verify).verdict == "run_finalized"
+
+
+@pytest.mark.parametrize("failing", ["the record after the model call", "the model call's own event"])
+@pytest.mark.parametrize("mode", ["enforce", "observe", "no guard"])
+def test_r6_the_model_call_transport_lets_no_enforced_agent_go_on_after_a_failure(failing: str, mode: str) -> None:
+    stub, sealer, sent, errors = StubEngine(), StubSealer(), [], []
+
+    def provider(request: httpx.Request) -> httpx.Response:
+        sent.append(request)
+        return httpx.Response(200, json={"id": "msg_1", "model": "claude-x", "usage": {"input_tokens": 1}})
+    if mode == "no guard":
+        run = AgentRun.start(_client(sealer), _agent(), certificate_id=CERT, activity="a", _clock=_clock(),
+                             control_set=AgentControlSet("plain", "1", b'{"controls":[]}'), records_model_calls=True)
+    else:
+        run = _enforced(sealer, DOC if mode == "enforce" else _doc(mode="observe"), engine=stub,
+                        records_model_calls=True)
+    http = httpx.Client(transport=ModelCallTransport(run, httpx.MockTransport(provider), errors.append))
+    post = lambda: http.post("https://api.anthropic.com/v1/messages", json={"model": "claude-x"})  # noqa: E731
+    if failing == "the record after the model call":
+        stub.fail, sealer.fail_on_call = True, len(sealer.requests) + 1  # unavailable, then its record fails
+    else:
+        sealer.fail_on_call = len(sealer.requests)
+    if mode == "enforce":
+        with pytest.raises(SigillError) as e:
+            post()
+        assert errors == [e.value] and run.is_broken and not run.halted
+        with pytest.raises(RuntimeError, match="broken"):
+            post()
+        assert len(sent) == 1, "nothing is sent for a broken enforced run"
+    else:  # today's behaviour: the response is returned, the failure goes to on_error, the next request is sent
+        assert post().status_code == 200
+        assert len(errors) == (1 if failing == "the model call's own event" else 0)
+        assert post().status_code == 200 and len(sent) == 2
+
+
+def test_vector_14_is_complete() -> None:
+    from test_agent_enforcement import FINDINGS, RUNS
+    assert (len(RUNS), len(FINDINGS)) == (35, 15) and set(RUNS) == set(CASES)
 
 
 def test_t1_a_halt_rule_on_the_producers_run_end_has_no_effect() -> None:

@@ -235,7 +235,8 @@ class _Guard:
         """(matching rules, erroring rules), each sorted; None when the engine fails or refuses the request."""
         try:  # a fresh copy each time: an engine that changes its input cannot change a later decision
             return _diagnostics(self.engine.authorize(copy.deepcopy(
-                {**{k: request[k] for k in ("principal", "action", "resource", "context")}, **self.call})))
+                {**{k: request[k] for k in ("principal", "action", "resource", "context")}, **self.call})),
+                self.call["policies"]["staticPolicies"])
         except Exception:  # noqa: BLE001 — a raising, trapping or malformed answer is an unavailable engine
             return None
 

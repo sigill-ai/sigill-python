@@ -298,6 +298,9 @@ class AgentRun:
         """
         if control_set is None:
             raise ValueError("control_set is required.")
+        if isinstance(control_set.content, (bytearray, memoryview)):
+            # One private copy, read from here on: the document validated, enforced and sealed is the same one.
+            control_set = replace(control_set, content=bytes(control_set.content))
         policy = timestamp_policy or AgentTimestampPolicy()
         _validate_policy(policy)
         _validate_control_set(control_set, disclose_policy)
@@ -338,8 +341,9 @@ class AgentRun:
                 ("control-set", control_set.content, control_set.content_type),
                 ("authority", authority, authority_content_type),
                 ("baseline-state", baseline_state, baseline_state_content_type)):
-            if data is not None:
-                objects.append(AgentRunObject(role, data, ctype))
+            if data is not None:  # a private copy: the digests sealed and the payloads kept are of the same bytes
+                objects.append(AgentRunObject(role, bytes(data) if isinstance(data, (bytearray, memoryview)) else data,
+                                              ctype))
 
         actor = control_actor or AgentRunActor("agent", agent.agent_id, agent.agent_version)
         actor_json: dict = {"type": actor.type, "id": actor.id}
@@ -522,6 +526,8 @@ class AgentRun:
             if call is not None:
                 call._result = artifact
         self._notify_all(artifact)
+        if step_type == "tool_call" and self._guard is not None:  # enforcement §4 rule 2: a callback may have
+            self._ensure_not_stopped()                            # halted the run meanwhile
         return artifact
 
     def record_retrieval(self, context: bytes, content_type: str = "text/plain", *,
@@ -537,7 +543,10 @@ class AgentRun:
         (e.g. ``read``, ``update``); mark write-class calls ``consequential``.
         ``use_id`` correlates the call with its result. In a ``schemaVersion "4"`` run (a v2 policy control set)
         every call has one, unique in the run: it is generated when not given. :meth:`begin_tool_call` pairs
-        the result for you. In an enforced run a denied call raises :class:`PolicyDenied` after it is sealed."""
+        the result for you. In an enforced run a denied call raises :class:`PolicyDenied` after it is sealed.
+        The run's state is checked once more after the call's callbacks have run and, in :meth:`invoke_tool`,
+        immediately before the function is called; a halt sealed by another thread after that check does not stop
+        the function."""
         if use_id is None and self._schema_version == "4":
             use_id = str(uuid.uuid4())
         return self.record("tool_call", [AgentRunObject("tool-arguments", arguments, content_type)],
@@ -571,7 +580,9 @@ class AgentRun:
             stays usable.
         :raises PolicyDenied: the guard denied the call (after sealing it and its enforcement record): do not
             execute the tool.
-        :raises RunHalted: the run is halted."""
+        :raises RunHalted: the run is halted. The run's state is checked once more after the call's callbacks have run
+            and, in :meth:`invoke_tool`, immediately before the function is called; a halt sealed by another thread
+            after that check does not stop the function."""
         if definition is not None and self._schema_version != "4":
             raise RuntimeError("A tool-definition object needs a v2 policy control set (schemaVersion 4).")
         use_id = use_id if use_id is not None else str(uuid.uuid4())
@@ -587,9 +598,12 @@ class AgentRun:
                     definition: Optional[bytes] = None) -> bytes:
         """Begins the call (:meth:`begin_tool_call`), runs ``func()`` only if it is allowed, seals what it returns as
         the call's result and returns it. A denied call raises :class:`PolicyDenied` and ``func`` never runs; an
-        exception from ``func`` seals no result."""
+        exception from ``func`` seals no result. The run's state is checked once more after the call's callbacks
+        have run and, in ``invoke_tool``, immediately before the function is called; a halt sealed by another thread
+        after that check does not stop the function."""
         call = self.begin_tool_call(tool, arguments, operation=operation, consequential=consequential,
                                     content_type=content_type, use_id=use_id, definition=definition)
+        self._ensure_not_stopped()  # the run may have been halted since the call was allowed (enforcement §4 rule 2)
         result = func()
         call.complete(result)
         return result
@@ -934,6 +948,15 @@ class AgentRun:
     @property
     def _enforcing(self) -> bool:
         return self._guard is not None and self._guard.enforcing
+
+    def _ensure_not_stopped(self) -> None:
+        """No tool starts on a stopped run: raises :class:`RunHalted` when it is halted, else the broken-chain or the
+        finished error that a later recording call raises."""
+        with self._lock:
+            if self._halt is not None:
+                raise self._halted_error()
+            if self._broken or self._finished:
+                self._ensure_open()
 
     def _halted_error(self) -> RunHalted:
         return RunHalted(*self._halt)  # type: ignore[misc]
