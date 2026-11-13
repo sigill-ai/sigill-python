@@ -177,11 +177,10 @@ events (Control Set v2 §7.3).
 
 ## 5. Verification
 
-v4 artifacts are validated against the v4 schema; all common-rules checks apply. A verifier
-adds the check `enforcement` for a v4 run, and for a run of any version when it is given
-the bytes of a `control-set` object with the policy content type; on a run that is not v4
-only `evidence_version_mismatch` can occur. The check is `bad` when any of these findings
-is present.
+v4 artifacts are validated against the v4 schema; all common-rules checks apply. A v4 run
+always has the check `enforcement`; a run that is not v4 has it only when
+`evidence_version_mismatch` is reported (the check is then `bad`), and otherwise a v1–v3
+run's set of checks is unchanged. The check is `bad` when any of these findings is present.
 "Previous" and "next" mean seq − 1 and seq + 1.
 
 | Finding | When |
