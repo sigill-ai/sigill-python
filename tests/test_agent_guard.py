@@ -38,7 +38,7 @@ from sigill_sdk._canonical import canonicalize, hash_bytes
 from test_agent_enforcement import DOC, V14, _run, _with_enforcement
 from test_agent_policy import DOC as V11_DOC
 from test_agent_policy import _client
-from test_agent_run import CERT, REPO, StubSealer, _clock, stub_verify
+from test_agent_run import CERT, REPO, StubSealer, _clock, _start, stub_verify
 
 sys.path.insert(0, str(REPO / "examples"))
 
@@ -1011,6 +1011,56 @@ def test_r6_the_model_call_transport_lets_no_enforced_agent_go_on_after_a_failur
         assert post().status_code == 200
         assert len(errors) == (1 if failing == "the model call's own event" else 0)
         assert post().status_code == 200 and len(sent) == 2
+
+
+@pytest.mark.parametrize("where", ["the returned artifact", "on_artifact_sealed"])
+def test_r7_editing_an_approval_artifact_changes_no_decision(where: str, engine: CedarEngine) -> None:
+    one, thousand = b'{"amount":1}', b'{"amount":1000}'
+
+    def edit(a: object) -> None:
+        if where == "on_artifact_sealed" and getattr(a, "step_type", None) == "human_approval":
+            a.envelope["step"]["covers"]["argumentsSha256"] = hash_bytes(thousand)
+    run = AgentRun.start(_client(StubSealer()), _agent(), certificate_id=CERT, activity="a",
+                         control_set=AgentPolicy.control_set_from_document(DOC), _clock=_clock(),
+                         enforcement=Enforcement(engine), on_artifact_sealed=edit)
+    approval = run.record_human_approval("approved", approver="urn:example:approver:1",
+                                         covers=ApprovalCovers.for_arguments("payments.refund", one))
+    if where == "the returned artifact":
+        approval.envelope["step"]["covers"]["argumentsSha256"] = hash_bytes(thousand)
+    ran = []
+    with pytest.raises(PolicyDenied) as e:
+        run.invoke_tool("payments.refund", thousand, lambda: ran.append(1) or b"{}", consequential=True)
+    assert (e.value.reason, e.value.rules, ran) == ("rule", ("restricted-needs-bound-approval",), [])
+    approval.envelope["step"]["covers"]["argumentsSha256"] = hash_bytes(one)  # restored: still what was sealed
+    assert run.invoke_tool("payments.refund", one, lambda: b'{"ok":true}', consequential=True) == b'{"ok":true}'
+
+
+def test_r7_a_parent_records_the_childs_sealed_run_end_not_an_edited_artifact() -> None:
+    sealer = StubSealer()
+    parent = _start(_client(sealer), delegating=True)
+    child = AgentRun.start_child(_client(sealer), AgentDefinition("urn:example:agent:child", "1"),
+                                 parent.delegate("urn:example:agent:child"), certificate_id=CERT, activity="a",
+                                 control_set=AgentControlSet("plain", "1", b'{"controls":[]}'), _clock=_clock())
+    end = child.finish("completed").artifacts[-1]
+    signature = end.signature_sha256
+    end.envelope["step"]["runDisposition"] = "failed"
+    end.signature["signatures"][0]["signature"] = "edited"
+    result = parent.complete_delegation(child).envelope["step"]["delegation"]
+    assert (result["childDisposition"], result["childRunEndSignatureSha256"]) == ("completed", signature)
+
+
+def test_r7_the_guard_decides_on_its_own_copy_of_the_event() -> None:
+    box: list = [None]
+
+    class Reaching(StubEngine):  # caller code that runs while the event is decided, on the deciding thread
+        def authorize(self, call: dict) -> dict:
+            if call["action"]["id"] == "tool_call" and box[0] is not None:
+                event = box[0].artifacts[-1].envelope
+                event["objects"] = [o for o in event["objects"] if o["role"] != "tool-definition"]
+            return super().authorize(call)
+    run = box[0] = _enforced(StubSealer(), engine=Reaching())
+    run.invoke_tool("crm.read_customer", b"{}", lambda: b"{}", definition=b"crm.read_customer definition")
+    assert "authorization" not in _types(run), "allowed, not denied tool_changed"
 
 
 def test_vector_14_is_complete() -> None:

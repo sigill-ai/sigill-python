@@ -512,7 +512,7 @@ class _Facts:
             if _is_record(_step(e)):
                 self.denials += 1
         if type_ == "human_approval":
-            self.approvals.append((seq, _step(e)))
+            self.approvals.append((seq, copy.deepcopy(_step(e))))  # its own copy: the caller can edit the event
         return {
             "seq": seq,
             "principal": {"type": "Agent", "id": self.agent_id},

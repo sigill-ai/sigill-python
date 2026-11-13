@@ -232,6 +232,7 @@ class AgentRun:
         self._decisions: dict[int, _Delivery] = {}
         self._halted = threading.Event()
         self._halt: Optional[tuple] = None  # (reason, rules, seq, record) of the halt, for every later RunHalted
+        self._run_end: Optional[tuple[str, str]] = None  # (signatureSha256, runDisposition) of the sealed run_end
         self.correlation_id = _correlation_id
         """The run identifier (``activity.correlationId``)."""
         self.control_artifact: AgentRunArtifact = None  # type: ignore[assignment]
@@ -798,9 +799,7 @@ class AgentRun:
                 raise ValueError("Pass either a child run or its values, not both.")
             if not child.is_finished:
                 raise RuntimeError("The child run is not finished: seal its run_end first (§4 rule 3).")
-            end = child.artifacts[-1]
-            disposition = _str((end.envelope.get("step") or {}).get("runDisposition"))
-            return self.complete_delegation(child.correlation_id, end.signature_sha256, disposition)
+            return self.complete_delegation(child.correlation_id, *child._run_end)
         if child is None:
             raise ValueError("child is required.")
         # Enforcement §3.6: only a v4 parent can record a child its guard halted.
@@ -890,6 +889,8 @@ class AgentRun:
             self._artifacts.append(artifact)
             if step_type == "run_end":
                 self._finished = True  # committed with the append, before any caller code runs
+                # What a parent's delegation_result records, kept apart from the artifact the caller can edit.
+                self._run_end = (link, step["runDisposition"])
             if self._retain:
                 self._payloads.update({o.uri: o.data for o in objects})
         except BaseException:
@@ -909,6 +910,9 @@ class AgentRun:
             return
         seq = artifact.seq
         delivery = _Delivery()
+        # Decide on a private copy, taken before any caller code runs: the engine is caller code and runs under this
+        # thread's (reentrant) lock, so it could reach the sealed artifact through run.artifacts and edit it.
+        artifact = AgentRunArtifact(copy.deepcopy(artifact.envelope), artifact.signature, dict(artifact.object_digests))
         try:
             outcome = self._guard.after(artifact, True, self.control_artifact)
             if outcome is None:
