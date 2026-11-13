@@ -330,6 +330,41 @@
         { "type": "tool_result", "tool": "ledger.export", "useId": "call-1" },
         { "type": "run_end" }
       ]
+    },
+    {
+      "name": "33-rejection-by-use-id-only",
+      "covers": "a rejection naming the call's useId rejects it although its arguments digest differs from the call's",
+      "actions": [
+        { "type": "human_approval", "decision": "rejected", "covers": { "useId": "call-1", "tool": "payments.refund", "args": "B" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "34-approval-expires-at-event-time",
+      "covers": "expiresAt equal to the call's eventTime: not bound (the call must be strictly earlier)",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A", "expiresAt": "2026-11-02T10:00:02.000Z" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "35-two-approvals-two-calls",
+      "covers": "two matching approvals bind two identical calls in seq order (boundBy 1, then 2); a third identical call is not bound",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A" } },
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-2" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-3", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-3" },
+        { "type": "run_end" }
+      ]
     }
   ],
   "findings": [

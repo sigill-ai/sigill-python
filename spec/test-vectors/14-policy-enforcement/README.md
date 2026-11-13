@@ -67,6 +67,9 @@ reports every rule error in this vector as `integer overflow`.
 | 30-delegation-halt | a `halt` rule on `Action::"delegation"` | record without `tool`, halted; no child started |
 | 31-unknown-tool-halt-rule | unknown tool `fs.wipe` that a `halt` rule matches | denied `unknown_tool` (no `rules`), halted |
 | 32-rule-error-halt-rule | `export-weight` errors, `halt-consequential-export` matches | denied `rule_error` (`rules` = `export-weight` only), halted |
+| 33-rejection-by-use-id-only | rejection names `call-1` with another arguments digest | denied (`rejected`) |
+| 34-approval-expires-at-event-time | `expiresAt` equals the call's `eventTime` | denied (`unbound`) |
+| 35-two-approvals-two-calls | two matching approvals, three identical calls | `boundBy` 1, then 2; the third is `unbound` and, as the third refund, also trips `halt-refund-loop`: denied, halted |
 
 | Findings run | Expected |
 |---|---|
