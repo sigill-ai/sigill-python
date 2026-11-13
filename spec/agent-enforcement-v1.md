@@ -43,6 +43,8 @@ The guard's behaviour is Control Set v2 §7. This document defines the evidence.
   Other runs MAY use `"4"`.
 - Verifiers dispatch the execution schema on `schemaVersion` and accept 1–4. A v4 member
   in a v1–v3 artifact is a schema violation. The v1–v3 schemas are not changed.
+- The v4 schema enforces the `step.eventTime` format the common rules already require (§4
+  there): RFC 3339, UTC `Z`, at most three fraction digits.
 - `AgentControlArtifact` and `ControlEvaluation` are unchanged.
 
 ### 3.2 `step.tool.useId`
@@ -177,9 +179,9 @@ events (Control Set v2 §7.3).
 
 v4 artifacts are validated against the v4 schema; all common-rules checks apply. A verifier
 adds the check `enforcement` for a v4 run, and for a run of any version when it is given
-the control-set bytes and they are a v2 policy control set; on a run that is not v4 only
-`evidence_version_mismatch` can occur. The check is `bad` when any of these findings is
-present.
+the bytes of a `control-set` object with the policy content type; on a run that is not v4
+only `evidence_version_mismatch` can occur. The check is `bad` when any of these findings
+is present.
 "Previous" and "next" mean seq − 1 and seq + 1.
 
 | Finding | When |
@@ -191,7 +193,7 @@ present.
 | `misplaced_decision` | An enforcement record whose previous event is itself an enforcement record; an enforcement record with `tool` whose previous event is not a `tool_call` with the same `tool.name` and `useId`; or an enforcement record without `tool` whose previous event is a `tool_call`. |
 | `unrecorded_halt` | A `run_end` with `runDisposition: "halted"` whose previous event is not an enforcement record. |
 | `continued_after_halt` | An enforcement record with reason `unavailable`, or without `tool` (every record without `tool` is a halt), whose next event is not a `run_end` with `runDisposition: "halted"`. |
-| `evidence_version_mismatch` | Only when the verifier is given the control-set bytes: the run's `control-set` object is a policy control set (Control Set v1 §1 content type) with `schemaVersion` `"2"`, and the run's events are not v4. |
+| `evidence_version_mismatch` | Only when the verifier is given the control-set bytes, the run's `control-set` object has the policy content type (Control Set v1 §1, compared exactly), and the run's events are not all v4: reported **unless** the bytes parse under the strict rules of Control Set v2 §2 (UTF-8 without a byte-order mark, I-JSON, at most 64 levels) as a JSON object without a `schemaVersion` member (a v1 control set). Bytes that do not parse strictly, or are not an object, are a mismatch: the check fails closed. |
 
 Each finding lists the seqs involved. A `bad` `enforcement` check makes the run
 `run_invalid` (common rules §8): the record contradicts itself.
@@ -213,6 +215,10 @@ definition's content.
 What this cannot show:
 
 - that a guard did not skip a due denial or halt, unless someone recomputes (§5);
+- anything about a run whose `control-set` object does not carry the policy content type:
+  it is not a policy control set, so no enforcement is expected of the run and the version
+  check does not apply. What a run declares as its control set is part of the signed
+  Control Artifact and visible to whoever reads the evidence;
 - that a human approved: `bound` shows only that the producer recorded an approval linked
   to the call;
 - whether the engine in fact failed when a record says `unavailable`;

@@ -179,12 +179,70 @@ function findings(envs, controlSet) {
     const next = at(r.chain.seq + 1)
     if (!(next?.step.type === 'run_end' && next.step.runDisposition === 'halted')) f.push({ code: 'continued_after_halt', seqs: [r.chain.seq] })
   }
-  // controlSet: the run's control-set object, { contentType, document }, when the verifier is given its bytes.
+  // controlSet: the run's control-set object, { contentType, bytes }, when the verifier is given its bytes. Fails closed:
+  // only bytes that parse strictly as an object without schemaVersion (a v1 control set) are no mismatch.
   const notV4 = envs.filter(e => e.schemaVersion !== '4').map(e => e.chain.seq)
-  if (controlSet?.contentType === 'application/vnd.sigill.control-set+json' && controlSet.document.schemaVersion === '2' && notV4.length)
-    f.push({ code: 'evidence_version_mismatch', seqs: notV4 })
+  if (controlSet?.contentType === 'application/vnd.sigill.control-set+json' && notV4.length) {
+    let v1 = false
+    try { const d = strictParse(controlSet.bytes); v1 = d !== null && typeof d === 'object' && !Array.isArray(d) && !Object.hasOwn(d, 'schemaVersion') } catch { }
+    if (!v1) f.push({ code: 'evidence_version_mismatch', seqs: notV4 })
+  }
   return f
 }
+
+// Control Set v2 §2 strict bytes: UTF-8 without a byte-order mark, I-JSON (no repeated member names, integers within
+// ±(2^53 − 1), no lone surrogates), at most 64 levels of nesting (the outermost value is level 1). Throws otherwise.
+function strictParse(bytes) {
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) throw new Error('byte-order mark')
+  const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  let i = 0
+  const tok = re => { re.lastIndex = i; const m = re.exec(text); if (!m) throw new Error(`invalid JSON at ${i}`); i = re.lastIndex; return m[0] }
+  const ws = () => { tok(/[ \t\n\r]*/y) }
+  const str = () => { const s = JSON.parse(tok(/"(?:[^"\\\u0000-\u001f]|\\["\\/bfnrt]|\\u[0-9a-fA-F]{4})*"/y)); if (!s.isWellFormed()) throw new Error('lone surrogate'); return s }
+  function value(level) {
+    ws()
+    const c = text[i]
+    if (c === '{' || c === '[') {
+      if (level > 64) throw new Error('nested deeper than 64')
+      i++; ws()
+      const close = c === '{' ? '}' : ']', out = c === '{' ? {} : []
+      if (text[i] === close) { i++; return out }
+      for (;;) {
+        if (c === '{') {
+          ws(); const k = str()
+          if (Object.hasOwn(out, k)) throw new Error(`repeated member ${k}`)
+          ws(); tok(/:/y); out[k] = value(level + 1)
+        } else out.push(value(level + 1))
+        ws()
+        if (tok(/[,}\]]/y) === close) return out
+      }
+    }
+    if (c === '"') return str()
+    const lit = tok(/true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?/y)
+    if (lit === 'true' || lit === 'false' || lit === 'null') return JSON.parse(lit)
+    const n = Number(lit)
+    if (!Number.isFinite(n) || (Number.isInteger(n) && Math.abs(n) > Number.MAX_SAFE_INTEGER)
+      || (/^-?[0-9]+$/.test(lit) && BigInt(lit) > BigInt(Number.MAX_SAFE_INTEGER)) || (/^-?[0-9]+$/.test(lit) && -BigInt(lit) > BigInt(Number.MAX_SAFE_INTEGER)))
+      throw new Error('number outside I-JSON')
+    return n
+  }
+  const v = value(1); ws()
+  if (i !== text.length) throw new Error('trailing data')
+  return v
+}
+const policyType = 'application/vnd.sigill.control-set+json'
+const bytesOf = {
+  13: readFileSync(join(here, '../13-policy-control-set-v2/control-set.json')),
+  11: readFileSync(join(here, '../11-policy-control-set/control-set.json')),
+  '13-duplicate-member': Buffer.from(readFileSync(join(here, '../13-policy-control-set-v2/control-set.json'), 'utf8')
+    .replace('"schemaVersion": "2",', '"schemaVersion": "2",\n  "schemaVersion": "2",'), 'utf8'),
+}
+// Self-checks of the strict parser.
+strictParse(bytesOf[13]); strictParse(bytesOf[11])
+for (const bad of ['{"a":1,"a":1}', '{"a":9007199254740992}', '{"a":"\\ud800"}', '[' .repeat(65) + ']'.repeat(65), '﻿{}', '{} x'])
+  assert.throws(() => strictParse(Buffer.from(bad, 'utf8')), bad.slice(0, 20))
+strictParse(Buffer.from('['.repeat(64) + ']'.repeat(64)))
+assert.throws(() => strictParse(bytesOf['13-duplicate-member']))
 
 // ---- the guard (Control Set v2 §7) -------------------------------------------------------------------------
 function runCase(c, idx) {
@@ -250,7 +308,7 @@ function runCase(c, idx) {
   }
   const rl = { request: runLevel(run.events, run.correlationId) }
   rl.diagnostics = evaluate(rl.request)
-  assert.deepEqual(findings(run.events.map(x => x.envelope), { contentType: 'application/vnd.sigill.control-set+json', document: base }), [],
+  assert.deepEqual(findings(run.events.map(x => x.envelope), { contentType: policyType, bytes: bytesOf[13] }), [],
     `${c.name}: a guard run has no findings`)
 
   // Per-rule results over every request, as Control Set v1 §6.
@@ -283,11 +341,12 @@ src.findings.forEach((c, k) => {
   const run = builder(100 + k, c.schemaVersion)
   run.add({ type: 'run_start' }, 'producer')
   for (const a of c.events) run.add(a, 'producer')
-  // controlSetContentType: the verifier is given vector 13's control-set bytes under this object content type.
-  const controlSet = c.controlSetContentType ? { contentType: c.controlSetContentType, document: base } : undefined
+  // controlSetContentType + controlSetBytes: the verifier is given these control-set bytes under this object content type.
+  const controlSet = c.controlSetContentType ? { contentType: c.controlSetContentType, bytes: bytesOf[c.controlSetBytes ?? 13] } : undefined
   assert.deepEqual(findings(run.events.map(x => x.envelope), controlSet), c.findings, c.name)
   write(`findings/${c.name}.json`, { agentId: AGENT, correlationId: run.correlationId,
-    ...(c.controlSetContentType ? { controlSetContentType: c.controlSetContentType } : {}), events: run.events, findings: c.findings })
+    ...(controlSet ? { controlSetContentType: controlSet.contentType, controlSetBase64: controlSet.bytes.toString('base64') } : {}),
+    events: run.events, findings: c.findings })
 })
 
 // ---- envelopes the v4 schema accepts and rejects -----------------------------------------------------------
@@ -320,6 +379,8 @@ write('envelopes.json', {
     m('tool-call-without-use-id', 'tool_call', (e, s) => { delete s.tool.useId }),
     m('tool-call-use-id-too-long', 'tool_call', (e, s) => { s.tool.useId = 'u'.repeat(256) }),
     m('tool-call-name-too-long', 'tool_call', (e, s) => { s.tool.name = 't'.repeat(256) }),
+    m('event-time-with-offset', 'tool_call', (e, s) => { s.eventTime = '2026-11-02T11:00:01.000+01:00' }),
+    m('event-time-microseconds', 'tool_call', (e, s) => { s.eventTime = '2026-11-02T10:00:01.000001Z' }),
     m('tool-result-without-tool', 'tool_result', (e, s) => { delete s.tool }),
     m('tool-result-without-use-id', 'tool_result', (e, s) => { delete s.tool.useId }),
     m('tool-result-status-not-in-v4', 'tool_result', (e, s) => { s.status = 'ok' }),

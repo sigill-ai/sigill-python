@@ -1,5 +1,5 @@
 {
-  "description": "Source of vector 14. Each case lists what the producer attempts, in order; _generate.mjs runs the guard (agent-policy-control-set-v2.md §7) over it and writes the sealed run and the expectations. `enforcement` (when given) is merged over vector 13's enforcement member; `configuration` overrides the Control Artifact's object bytes. `args` names an entry of `arguments`: the exact bytes of the call's tool-arguments object. A call of a tool whose entity declares definitionSha256 carries a tool-definition object with the bytes `<tool> definition` (which match) unless `definition` gives other bytes, or null for none. `engineFails: true` on an action models the Cedar core failing for that event's request; `engineFailsAtStart: true` models it failing to load at start. In a findings run, `controlSetContentType` means the verifier is given vector 13's control-set bytes as the run's control-set object with that content type.",
+  "description": "Source of vector 14. Each case lists what the producer attempts, in order; _generate.mjs runs the guard (agent-policy-control-set-v2.md §7) over it and writes the sealed run and the expectations. `enforcement` (when given) is merged over vector 13's enforcement member; `configuration` overrides the Control Artifact's object bytes. `args` names an entry of `arguments`: the exact bytes of the call's tool-arguments object. A call of a tool whose entity declares definitionSha256 carries a tool-definition object with the bytes `<tool> definition` (which match) unless `definition` gives other bytes, or null for none. `engineFails: true` on an action models the Cedar core failing for that event's request; `engineFailsAtStart: true` models it failing to load at start. In a findings run, `controlSetContentType` means the verifier is given control-set bytes as the run's control-set object with that content type: vector 13's control-set.json, or per `controlSetBytes` vector 11's (`11`) or vector 13's with a repeated `schemaVersion` member (`13-duplicate-member`); the findings file carries them as `controlSetBase64`.",
   "arguments": {
     "A": "{\"amount\":120,\"order\":\"o-1\"}",
     "B": "{\"amount\":9000,\"order\":\"o-2\"}",
@@ -486,6 +486,30 @@
         { "type": "run_end", "runDisposition": "halted" }
       ],
       "findings": [ { "code": "misplaced_decision", "seqs": [3] } ]
+    },
+    {
+      "name": "f13-version-mismatch-control-set-not-strict",
+      "schemaVersion": "3",
+      "controlSetContentType": "application/vnd.sigill.control-set+json",
+      "controlSetBytes": "13-duplicate-member",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "evidence_version_mismatch", "seqs": [0, 1, 2, 3] } ]
+    },
+    {
+      "name": "f14-v1-policy-control-set-with-v3-events",
+      "schemaVersion": "3",
+      "controlSetContentType": "application/vnd.sigill.control-set+json",
+      "controlSetBytes": "11",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": []
     }
   ]
 }

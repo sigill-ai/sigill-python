@@ -9,7 +9,7 @@ the rules in `rules.cedar`.
 | `rules.cedar` | The rules in Cedar's text form: the source. |
 | `control-set.json` | The document, Cedar JSON policies keyed by `@id`. |
 | `expected.json` | `objectSha256` (the file's bytes), `cedarDigest`, `approvalScopeDigest`, `schemaSha256` (of `agent-policy-cedar-schema-v2.json`), the rule ids and each rule's effective effect. |
-| `invalid.json` | Documents every implementation must reject. `error` is a word the validation error must mention: the member or rule that is wrong. |
+| `invalid.json` | Documents every implementation must reject. `error` is a word the validation error must mention: the member or rule that is wrong. `document` is the exact UTF-8 text; the two cases whose bytes are not UTF-8 text without a byte-order mark carry `documentBase64` instead. |
 
 The rules validate against schema v2 in Cedar's strict mode and the entities validate against
 it in the Cedar core; the generator fails otherwise. The rule without an `effect` annotation
@@ -30,6 +30,9 @@ the SHA-256 of the UTF-8 bytes `tool-manifest v1`.
 | `cedar-unknown-member` | `cedar` has only `policies`, `schemaSha256` and `entities` (§2) |
 | `schema-v1-digest` | `schemaSha256` must be schema v2's (§4) |
 | `schema-version-1`, `v1-document-with-enforcement` | recognition (§1): v1 has no `enforcement` member |
+| `duplicate-member`, `integer-beyond-2^53`, `lone-surrogate` | I-JSON (§2) |
+| `nested-deeper-than-64` | nesting: 65 levels, the outermost object being level 1; the valid document has 16 (§2) |
+| `utf8-byte-order-mark`, `utf16le` | UTF-8 without a byte-order mark (§2); `documentBase64` |
 
 Regenerate from the repository root (Docker, no host Node):
 

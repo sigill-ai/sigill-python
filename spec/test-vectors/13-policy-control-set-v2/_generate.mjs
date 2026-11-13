@@ -119,11 +119,26 @@ const cases = [
   variant('schema-v1-digest', 'schemaSha256', d => { d.cedar.schemaSha256 = sha256(jcs(schemaV1)) }),
   variant('schema-version-1', 'schemaVersion', d => { d.schemaVersion = '1' }),
   variant('v1-document-with-enforcement', 'enforcement', d => { delete d.schemaVersion }),
+  // Strict bytes (§2): I-JSON and at most 64 levels of nesting (the outermost object is level 1).
+  variant('lone-surrogate', 'I-JSON', d => { d.coverage.scope = 'all calls \ud800' }),
+  variant('nested-deeper-than-64', 'depth', d => { let v = 'x'; for (let k = 0; k < 62; k++) v = [v]; d.controls = [{ id: 'deep', value: v }] }),
 ]
+const compact = JSON.stringify(doc)
+assert.ok(compact.startsWith('{"schemaVersion":"2",') && compact.includes('"idleSeconds":1800'))
+cases.push(
+  { name: 'duplicate-member', document: compact.replace('{"schemaVersion":"2",', '{"schemaVersion":"2","schemaVersion":"2",'), error: 'I-JSON' },
+  { name: 'integer-beyond-2^53', document: compact.replace('"idleSeconds":1800', '"idleSeconds":9007199254740993'), error: 'I-JSON' },
+  // Not UTF-8 without a byte-order mark: the exact bytes as base64.
+  { name: 'utf8-byte-order-mark', documentBase64: Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(compact, 'utf8')]).toString('base64'), error: 'UTF-8' },
+  { name: 'utf16le', documentBase64: Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(compact, 'utf16le')]).toString('base64'), error: 'UTF-8' },
+)
+const depth = v => v && typeof v === 'object' ? 1 + Math.max(0, ...Object.values(v).map(depth)) : 0
+assert.equal(depth(JSON.parse(cases.find(c => c.name === 'nested-deeper-than-64').document)), 65)
+assert.ok(depth(doc) <= 64)
 assert.equal(JSON.parse(cases.find(c => c.name === 'too-many-entities').document).cedar.entities.length, 1025)
 assert.equal(Object.keys(JSON.parse(cases.find(c => c.name === 'too-many-policies').document).cedar.policies.staticPolicies).length, 257)
 writeFileSync(join(here, 'invalid.json'), JSON.stringify({
-  description: 'Documents every implementation must reject (Validate returns at least one error mentioning `error`; nothing throws). `document` is the exact UTF-8 text.',
+  description: 'Documents every implementation must reject (Validate returns at least one error mentioning `error`; nothing throws). `document` is the exact UTF-8 text; `documentBase64` the exact bytes where they are not UTF-8 text without a byte-order mark.',
   cases,
 }, null, 2) + '\n')
 console.log('control set', sha256(text), 'scope', sha256(jcs(scope)), 'schema', doc.cedar.schemaSha256, 'invalid cases', cases.length)

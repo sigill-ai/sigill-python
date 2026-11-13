@@ -21,7 +21,9 @@ A run whose Control Artifact carries a v2 control set MUST use Execution Evidenc
 
 ## 2. Document
 
-A UTF-8 JSON object, I-JSON (RFC 7493). Members:
+A JSON object in UTF-8 without a byte-order mark, I-JSON (RFC 7493): no repeated member
+names, no integers beyond ±(2^53 − 1), no lone surrogates; and nested at most 64 levels
+deep (the outermost object is level 1). Bytes that break any of these are invalid. Members:
 
 | Member | Required | Meaning |
 |---|---|---|

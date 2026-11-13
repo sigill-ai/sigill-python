@@ -909,6 +909,80 @@
    }
   },
   {
+   "name": "event-time-with-offset",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T11:00:01.000+01:00",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "event-time-microseconds",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:01.000001Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
    "name": "tool-result-without-tool",
    "envelope": {
     "schemaName": "AgentExecutionEvidence",
