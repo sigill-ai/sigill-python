@@ -13,17 +13,19 @@ from __future__ import annotations
 
 import json
 import math
+from decimal import Decimal
 import re
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
 from types import MappingProxyType
-from typing import Any, Iterable, Mapping, Optional, Sequence
+from typing import Any, Iterable, Mapping, Optional, Sequence, Union
 
 from sigill_sdk._agent_profiles import MAX_DEPTH, _int, _obj, _reject_constant, _reject_duplicates, _str
-from sigill_sdk._agent_types import AgentControlSet, AgentRunArtifact
+from sigill_sdk._agent_types import AgentControlSet, AgentRunArtifact, PolicyRuleResult
 from sigill_sdk._canonical import canonicalize, hash_bytes
-from sigill_sdk._schema import parse_date_time
+from sigill_sdk._policy_engine import PolicyEngine, PolicyEngineError
+from sigill_sdk._schema import _json_equal, parse_date_time
 
 POLICY_CONTROL_SET_CONTENT_TYPE = "application/vnd.sigill.control-set+json"
 FACTS_VERSION = "1"
@@ -97,11 +99,55 @@ class PolicyEnforcement:
     ``enforce``)."""
 
 
+@dataclass(frozen=True)
+class PolicyRequestResult:
+    """What the engine answered for one request of a facts document."""
+
+    seq: str
+    """The request's seq as a decimal string, or ``run``."""
+    reason: tuple[str, ...]
+    """The rules that matched (Cedar's ``diagnostics.reason`` without the baseline permit), sorted."""
+    errors: tuple[str, ...]
+    """The rules that failed to evaluate (Cedar's ``diagnostics.errors``), sorted."""
+
+
+@dataclass(frozen=True)
+class PolicyEvaluationResult:
+    """The results of a control set's Cedar rules over a facts document (Control Set v1 §6, v2 §9)."""
+
+    engine: str
+    """``cedar-policy@<version>``."""
+    rules: tuple[PolicyRuleResult, ...]
+    """One result per rule, in the document's order, with ``where`` in request order for FAIL and INDETERMINATE."""
+    overall: str
+    """PASS, INDETERMINATE or FAIL: the worst rule result."""
+    requests: tuple[PolicyRequestResult, ...]
+    """Per request, in the facts' order."""
+
+
+BASELINE_PERMIT = "sigill:baseline-permit"
+_BASELINE = {"effect": "permit", "principal": {"op": "All"}, "action": {"op": "All"}, "resource": {"op": "All"},
+             "conditions": []}
+_RANK = {"PASS": 0, "INDETERMINATE": 1, "FAIL": 2}
+
+
+@lru_cache(maxsize=None)
+def _cedar_schema(version: int) -> dict:
+    """``agent-policy-cedar-schema-v<version>.json``, from the byte-exact copy shipped with the SDK. Never mutate."""
+    raw = resources.files("sigill_sdk").joinpath(f"_schemas/agent-policy-cedar-schema-v{version}.json").read_bytes()
+    return json.loads(raw)
+
+
 @lru_cache(maxsize=None)
 def _cedar_schema_v2_sha256() -> str:
     """SHA-256 of JCS(``agent-policy-cedar-schema-v2.json``), from the byte-exact copy shipped with the SDK."""
-    raw = resources.files("sigill_sdk").joinpath("_schemas/agent-policy-cedar-schema-v2.json").read_bytes()
-    return hash_bytes(canonicalize(json.loads(raw)))
+    return hash_bytes(canonicalize(_cedar_schema(2)))
+
+
+def _engine_messages(answer: dict) -> str:
+    errors = answer.get("errors")
+    return "; ".join(str(e.get("message")) for e in (errors if isinstance(errors, list) else [])
+                     if isinstance(e, dict)) or "no message"
 
 
 def _is_v2(document: bytes) -> bool:
@@ -134,6 +180,16 @@ def _i_json_values(v: Any) -> bool:
         else:
             return False
     return True
+
+
+def _float(token: str) -> float:
+    """A number written with a fraction or exponent. Decided exactly on its decimal text, before any rounding: an
+    integral value beyond ±(2^53 − 1) is refused however it is spelled (``9007199254740993.0`` would reach the Cedar
+    core as 9007199254740992); ``20.0`` and ``2e1`` stay valid."""
+    d = Decimal(token)
+    if d == d.to_integral_value() and d.copy_abs() > _MAX_SAFE_INTEGER:
+        raise ValueError(_NOT_I_JSON)
+    return float(token)
 
 
 def _too_deep(text: str) -> bool:
@@ -173,7 +229,8 @@ def _strict_json(document: Any) -> Any:
     if _too_deep(text):  # before any parse: a deep document never reaches the recursive reader
         raise ValueError(_TOO_DEEP)
     try:
-        value = json.loads(text, object_pairs_hook=_reject_duplicates, parse_constant=_reject_constant)
+        value = json.loads(text, object_pairs_hook=_reject_duplicates, parse_constant=_reject_constant,
+                           parse_float=_float)
     except (ValueError, RecursionError):  # malformed JSON, a repeated name, NaN or Infinity
         raise ValueError(_NOT_I_JSON) from None
     if not _i_json_values(value):
@@ -624,6 +681,110 @@ class AgentPolicy:
         if v2 and "enforcement" in doc:
             _validate_enforcement(doc["enforcement"], errors)
         return errors
+
+    @staticmethod
+    def validate_strict(document: bytes, engine: PolicyEngine) -> list[str]:
+        """Everything :meth:`validate` checks, plus, with the Cedar core: the policies validate in Cedar's strict
+        mode (no validation errors; warnings are not problems) against the Cedar schema of the document's version (v1 §4 rule 5, v2 §4),
+        a v1 ``schemaSha256`` names schema v1, and v2 ``cedar.entities`` conform to schema v2 (§5). An empty list
+        means valid.
+
+        :raises PolicyEngineError: the engine failed."""
+        errors = AgentPolicy.validate(document)
+        doc = _parse(document)
+        cedar = _obj(doc.get("cedar")) if doc is not None else None
+        if cedar is None:
+            return errors
+        version = 2 if "schemaVersion" in doc else 1
+        schema = _cedar_schema(version)
+        sha = cedar.get("schemaSha256")
+        if version == 1 and isinstance(sha, str) and _HEX64.match(sha) and sha != hash_bytes(canonicalize(schema)):
+            errors.append("cedar.schemaSha256 must be the SHA-256 of JCS(agent-policy-cedar-schema-v1.json)")
+        if isinstance(cedar.get("policies"), dict):
+            answer = engine.validate({"validationSettings": {"mode": "strict"}, "schema": schema,
+                                      "policies": cedar["policies"]})
+            if answer.get("type") != "success":
+                errors.append(f"cedar.policies cannot be validated against Cedar schema v{version}: "
+                              f"{_engine_messages(answer)}")
+            else:
+                found = answer.get("validationErrors")
+                found = [e for e in (found if isinstance(found, list) else []) if isinstance(e, dict)]
+                errors.extend(sorted(  # the core's order depends on its hash seed
+                    f"policy '{_str(e.get('policyId'))}' does not validate against Cedar schema v{version} in strict "
+                    f"mode: {_str((_obj(e.get('error')) or {}).get('message'))}" for e in found))
+        if version == 2 and isinstance(cedar.get("entities", []), list):
+            # The core checks entities against the schema when it reads them for a request; any valid request will do.
+            context = dict.fromkeys(("stepsSoFar", "totalSteps", "consequentialCount", "unpairedConsequential",
+                                     "toolCallsSoFar", "callsOfThisTool", "denialsSoFar"), 0)
+            context.update(consequential=False, operation="", approval="none", isChildRun=False)
+            answer = engine.authorize({
+                "principal": {"type": "Agent", "id": "strict-validation"}, "action": {"type": "Action", "id": "run_start"},
+                "resource": {"type": "Step", "id": "0"}, "context": context, "schema": schema, "validateRequest": True,
+                "policies": {"staticPolicies": {}}, "entities": cedar.get("entities", [])})
+            if answer.get("type") != "success":
+                errors.append(f"cedar.entities do not conform to Cedar schema v2: {_engine_messages(answer)}")
+        return errors
+
+    @staticmethod
+    def evaluate(document: bytes, facts: Union[PolicyFacts, bytes], engine: PolicyEngine) -> PolicyEvaluationResult:
+        """Runs every request of a facts document through the engine with the baseline permit and derives the
+        per-rule results (Control Set v1 §6, v2 §9): a rule in ``reason`` is FAIL, in ``errors`` INDETERMINATE,
+        otherwise PASS; FAIL > INDETERMINATE > PASS.
+
+        :param document: the policy control set, exact bytes. Its version picks the Cedar schema.
+        :param facts: :class:`PolicyFacts` or a facts document's bytes: factsVersion 1 for a v1 control set, 2 (with
+            its ``entities``) for a v2 one.
+        :raises ValueError: the control set is invalid or has no Cedar rules, or the facts do not fit it.
+        :raises PolicyEngineError: the engine failed, or refused a request (``type: failure``): then there are no
+            results, as with the reference evaluator."""
+        errors = AgentPolicy.validate(document)
+        if errors:
+            raise ValueError("Invalid policy control set: " + "; ".join(errors))
+        doc = _parse(document)
+        if not isinstance(doc.get("cedar"), dict):
+            raise ValueError("The control set carries no Cedar rules.")
+        version = 2 if "schemaVersion" in doc else 1
+        not_facts = ValueError(f"The facts are not a factsVersion {version} document (a v{version} control set).")
+        try:
+            f = json.loads(facts.data if isinstance(facts, PolicyFacts) else facts)
+        except RecursionError:
+            raise not_facts from None
+        requests = f.get("requests") if isinstance(f, dict) else None
+        if not isinstance(requests, list) or f.get("factsVersion") != str(version) \
+                or not all(isinstance(r, dict) and (r.get("seq") == "run" or (
+                    isinstance(r.get("seq"), int) and not isinstance(r.get("seq"), bool))) for r in requests):
+            raise not_facts
+        entities = doc["cedar"].get("entities", []) if version == 2 else []
+        if version == 2 and not _json_equal(f.get("entities"), entities):  # v2 §8: the control set's entities
+            raise ValueError("The facts carry other entities than the control set.")
+        rules = doc["cedar"]["policies"]["staticPolicies"]
+        base = {"schema": _cedar_schema(version), "validateRequest": True,
+                "policies": {"staticPolicies": {**rules, BASELINE_PERMIT: _BASELINE}}, "entities": entities}
+        results = {rid: ["PASS", []] for rid in rules}
+        out = []
+        for r in requests:
+            seq = str(r.get("seq"))
+            answer = engine.authorize({**{k: r.get(k) for k in ("principal", "action", "resource", "context")}, **base})
+            if answer.get("type") != "success":
+                raise PolicyEngineError(f"The policy engine refused request {seq}: {_engine_messages(answer)}",
+                                        refused=True)
+            try:
+                d = answer["response"]["diagnostics"]
+                reason = tuple(sorted(x for x in d["reason"] if x != BASELINE_PERMIT))
+                errs = tuple(sorted(e["policyId"] for e in d["errors"]))
+            except (KeyError, TypeError) as e:
+                raise PolicyEngineError("The policy engine's answer is not an isAuthorized answer.") from e
+            out.append(PolicyRequestResult(seq, reason, errs))
+            for rid, result in [(rid, "INDETERMINATE") for rid in errs] + [(rid, "FAIL") for rid in reason]:
+                if rid in results:
+                    x = results[rid]
+                    if _RANK[result] > _RANK[x[0]]:
+                        x[0] = result
+                    x[1].append(seq)
+        rule_results = tuple(PolicyRuleResult(rid, res, tuple(where) if where else None)
+                             for rid, (res, where) in results.items())
+        overall = max((c.result for c in rule_results), key=_RANK.__getitem__, default="PASS")
+        return PolicyEvaluationResult(f"cedar-policy@{engine.version}", rule_results, overall, tuple(out))
 
     @staticmethod
     def compute_digests(document: bytes) -> PolicyDigests:

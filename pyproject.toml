@@ -44,7 +44,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The policy engine host (CedarEngine). Pinned to the Wasmtime major the bundled Cedar module was checked with
+# (50.0.1): another major is another runtime, not yet checked against the module.
+policy = ["wasmtime>=50,<51"]
 dev = [
+    "sigill-sdk[policy]",
     "pytest>=8.0",
     "pytest-cov>=5.0",
     "cryptography>=42.0",  # only used by tests/_tsr_factory.py for offline TSR fixtures

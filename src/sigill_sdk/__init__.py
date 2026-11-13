@@ -120,8 +120,11 @@ from sigill_sdk._agent_policy import (
     AgentPolicy,
     PolicyDigests,
     PolicyEnforcement,
+    PolicyEvaluationResult,
     PolicyFacts,
+    PolicyRequestResult,
 )
+from sigill_sdk._policy_engine import CedarEngine, PolicyEngine, PolicyEngineError
 from sigill_sdk._agent_run import (
     AgentRun,
     AgentRunCallbackError,
@@ -238,6 +241,7 @@ __all__ = [
     "ApprovalCovers",
     "AttestedEvaluationRequest",
     "BlindObjectsVerdict",
+    "CedarEngine",
     "ControlEvaluation",
     "ControlEvaluationRequest",
     "ControlResult",
@@ -247,8 +251,12 @@ __all__ = [
     "POLICY_CONTROL_SET_CONTENT_TYPE",
     "PolicyDigests",
     "PolicyEnforcement",
+    "PolicyEngine",
+    "PolicyEngineError",
+    "PolicyEvaluationResult",
     "PolicyEvaluationRequest",
     "PolicyFacts",
+    "PolicyRequestResult",
     "PolicyRuleResult",
     "PreparedEvaluation",
     "QualifiedArtifacts",

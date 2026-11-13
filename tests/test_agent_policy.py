@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import base64
 import json
+import time
 from dataclasses import replace
 
 import httpx
@@ -100,6 +101,27 @@ def test_validate_refuses_integers_javascript_cannot_read() -> None:
     doc = _mutate(lambda d: _policy(d).update(conditions=[{"kind": "when", "body": {">": {
         "left": {".": {"left": {"Var": "context"}, "attr": "stepsSoFar"}}, "right": {"Value": 9007199254740993}}}}]))
     errors = AgentPolicy.validate(doc)
+    assert len(errors) == 1 and "2^53-1" in errors[0]
+
+
+@pytest.mark.parametrize("literal,valid", [
+    ("9007199254740993.0", False), ("9.007199254740993e15", False), ("-9007199254740992.0", False),
+    ("1e16", False), ("1e400", False), ("90071992547409930e-1", False), ("-9007199254740992", False),
+    ("9007199254740991.0", True), ("20.0", True), ("2e1", True), ("1e2", True),
+    ("0e999", True), ("0.0e20", True), ("-0e400", True), ("0.000000000000000001e20", True),  # 0, 0, 0, 100
+    ("9007199254740991.5", True), ("1e-400", True), ("1.5", True)])  # not integral: not this rule's business
+def test_an_integral_number_beyond_2_53_is_refused_however_it_is_written(literal: str, valid: bool) -> None:
+    text = DOC.decode()
+    assert '"Value": 20' in text
+    errors = AgentPolicy.validate(text.replace('"Value": 20', f'"Value": {literal}', 1).encode())
+    assert errors == ([] if valid else [errors[0]]) and (valid or "2^53-1" in errors[0]), errors
+
+
+def test_a_huge_exponent_is_refused_without_materialising_its_digits() -> None:
+    doc = DOC.decode().replace('"Value": 20', '"Value": 1e999999999', 1).encode()
+    started = time.perf_counter()
+    errors = AgentPolicy.validate(doc)
+    assert time.perf_counter() - started < 0.5
     assert len(errors) == 1 and "2^53-1" in errors[0]
 
 

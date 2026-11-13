@@ -482,8 +482,8 @@ What to know:
   each timestamp's TSA trust; until it reports `trusted_chain` or `qualified`,
   the result carries a "TSA trust not established" warning.
 - **Evaluations never change the run verdict.** They are reported on their
-  own, and the SDK never evaluates controls: `overall` is the named
-  verifier's claim. Read it only when `valid` is true — the evaluation is then
+  own: `overall` is the named verifier's claim (given a policy engine, the
+  verifier recomputes a policy evaluation's results — see "Policy engine"). Read it only when `valid` is true — the evaluation is then
   signed over its own envelope, timestamped, intact, and bound to this run's
   `run_end`, Control Artifact and pre-sealed control set.
 - **Persist as you go.** `on_artifact_sealed` runs after each artifact is
@@ -535,6 +535,42 @@ run.begin_tool_call("payments.refund", args_json, consequential=True).complete(r
 `verify_agent_run` adds the `enforcement` check for a v4 run (and fails an older run
 whose supplied policy control set is not a strict v1 document): its findings, such as a result
 without a call or a tool executed after a denial, are in `result.enforcement_findings`.
+
+### Policy engine
+
+The SDK bundles the official [Cedar](https://github.com/cedar-policy/cedar) core
+(`cedar-policy` 4.14.0) as one WebAssembly module, `sigill_sdk/_policy/sigill_cedar.wasm`
+(sha256 `a0cd395067e77a157116f6b25bcdb612d34c61d1a4446918d75da1a07c80d1f3`), and runs it
+in-process with [Wasmtime](https://wasmtime.dev). Install the host with the `policy` extra:
+
+```bash
+pip install "sigill-sdk[policy]"
+```
+
+`CedarEngine` checks the module's sha256 and version before it runs it, gives it no
+filesystem, network, clock, environment or stdio and at most 256 MiB of memory, and can
+be shared between threads. Any object with `version`, `authorize(call)` and
+`validate(call)` (the `PolicyEngine` protocol) can stand in for it.
+
+```python
+from sigill_sdk import AgentPolicy, CedarEngine, verify_agent_run
+
+engine = CedarEngine()
+problems = AgentPolicy.validate_strict(document, engine)   # + Cedar strict mode, schema and entities
+facts = AgentPolicy.build_facts(agent_id, correlation_id, [a.envelope for a in bundle.artifacts])
+evaluation = AgentPolicy.evaluate(document, facts, engine)  # per rule PASS / FAIL / INDETERMINATE
+# evaluation.rules feed PolicyEvaluationRequest.rules; evaluation.engine its engine
+
+result = verify_agent_run(bundle, verifier, engine=engine)
+# result.evaluations[i].results_recomputed: a policy evaluation's results, recomputed and equal
+```
+
+With an engine, the verifier recomputes the results of a policy evaluation of a v1 control
+set from its sealed facts; results that differ make that evaluation invalid, naming the first
+rule that differs, and so does a request the engine refuses. An evaluation made with another
+Cedar version, an engine failure, or a verification past its recomputation budget
+(a fixed number of control-set bytes × facts requests) is not recomputed (a note says so). Without an engine nothing changes: the results are the evaluator's.
+**The SDK still does not enforce:** nothing here denies a call or halts a run.
 
 ### Sub-agents: run trees
 

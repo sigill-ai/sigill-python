@@ -47,6 +47,7 @@ from sigill_sdk._agent_types import (
 )
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
+from sigill_sdk._policy_engine import PolicyEngine, PolicyEngineError
 from sigill_sdk._schema import _json_equal, parse_date_time, validate_profile
 from sigill_sdk._references import LEGACY_DIAGNOSTIC, LEGACY_REFERENCE, digest_key_for, is_reserved, strict_envelope_reference
 
@@ -241,7 +242,8 @@ class AgentControlVerdict:
 class AgentEvaluationVerdict:
     """One Control Evaluation, reported on its own and never merged into the
     run verdict (common rules §8). ``overall`` and ``controls`` are the
-    verifier's claims, unchanged: the SDK never evaluates controls."""
+    verifier's claims, unchanged: the SDK evaluates controls only to recompute a policy evaluation's results, with
+    the engine given to :func:`verify_agent_run`."""
 
     evidence_id: Optional[str] = None
     verifier_id: Optional[str] = None
@@ -281,8 +283,11 @@ class AgentEvaluationVerdict:
     policy_digests_match: Optional[bool] = None
     """policy: approvalScopeDigest and cedarDigest recompute from the sealed control set; None when not checked."""
     results_recomputed: bool = False
-    """policy: the per-rule results were recomputed with a Cedar engine (§4.6). This SDK has no Cedar engine, so
-    it is always False: the facts are checked, the results are the evaluator's."""
+    """policy: the per-rule results were recomputed with the Cedar engine given to :func:`verify_agent_run` and
+    equal the evaluation's (§4.6). False without an engine; for a non-conforming envelope or controls that are not
+    exactly the rule ids; for another engine version, an engine failure or a used-up :data:`RECOMPUTE_BUDGET` (a
+    note says so); and for a v2 control set: the facts are checked, the results are then the evaluator's. A request
+    the named engine refuses makes the evaluation invalid."""
     sealed_for: Optional[str] = None
     """The role in the seal's ``srAts.claimed`` "sealed for" attribute (§8), e.g.
     ``urn:sigill:role:policy-evaluator``. Meaningful only together with the signer: a shared service
@@ -348,8 +353,9 @@ class AgentRunVerificationResult:
     """How many of them carry the provider's own identifiers (``step.vendorRefs``). Shape only: that an identifier
     is genuine is confirmed by the provider, never by the verifier."""
     notes: list[str] = field(default_factory=list)
-    """Informational notes — currently the legacy envelope reference diagnostic (AiEvidenceEnvelopeV2 §5.4). Never a
-    warning: notes do not affect ``verdict``, ``checks`` or ``warnings``."""
+    """Informational notes — the legacy envelope reference diagnostic (AiEvidenceEnvelopeV2 §5.4), and a policy
+    evaluation whose results were not recomputed although an engine was given. Never a warning: notes do not affect
+    ``verdict``, ``checks`` or ``warnings``."""
     enforcement_findings: list[EnforcementFinding] = field(default_factory=list)
     """The ``enforcement`` check's findings, in the order of Agent Enforcement v1 §5 (each also in :attr:`findings`).
     A verifier does not evaluate the policy: a guard that skipped a due denial or halt is not found here."""
@@ -605,6 +611,8 @@ class _EvaluationV2Check:
     qualified_met: Optional[bool] = None
     policy_status: Optional[str] = None
     state: Optional[str] = None
+    results_recomputed: bool = False
+    notes: list[str] = field(default_factory=list)
 
 
 def _ids_of(arr: Any) -> list[str]:
@@ -617,7 +625,8 @@ def _ids_of(arr: Any) -> list[str]:
 
 
 def _check_evaluation_v2(sa: _Signed, c: _ArtifactCheck, payloads: Mapping[str, bytes], ctl: Optional[_Signed],
-                         events: list[_Signed], label: str) -> _EvaluationV2Check:
+                         events: list[_Signed], label: str, engine: Optional[PolicyEngine] = None,
+                         budget: Optional[list[int]] = None) -> _EvaluationV2Check:
     """The kind-specific rules of ``spec/control-evaluation-v2.md`` §2–§5. Schema conformance is checked elsewhere."""
     r = _EvaluationV2Check()
 
@@ -679,7 +688,8 @@ def _check_evaluation_v2(sa: _Signed, c: _ArtifactCheck, payloads: Mapping[str, 
     elif kind == "policy":
         facts_bytes = signed_bytes("evaluation-facts")
         approval_bytes = signed_bytes("policy-approval")
-        _check_policy(env, cs_bytes, cs, facts_bytes, approval_bytes, sa, ctl, events, r, bad, same_ids)
+        _check_policy(env, cs_bytes, cs, facts_bytes, approval_bytes, sa, ctl, events, r, bad, same_ids, engine,
+                      lambda m: r.notes.append(f"{label}: {m}."), budget)
     return r
 
 
@@ -695,7 +705,8 @@ def _json_doc(b: Optional[bytes]) -> Optional[dict]:
 def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], facts_bytes: Optional[bytes],
                   approval_bytes: Optional[bytes], sa: _Signed, ctl: Optional[_Signed], events: list[_Signed],
                   r: _EvaluationV2Check, bad: Callable[[str], None],
-                  same_ids: Callable[[list[str], str], None]) -> None:
+                  same_ids: Callable[[list[str], str], None], engine: Optional[PolicyEngine] = None,
+                  note: Callable[[str], None] = lambda m: None, budget: Optional[list[int]] = None) -> None:
     policy = _obj(env.get("policy")) or {}
     r.policy_status = _str(policy.get("policyStatus"))
     r.state = _str(policy.get("state"))
@@ -772,6 +783,10 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
             for w in dict.fromkeys(wheres):
                 if w not in seqs:
                     bad(f"where names request '{w}', which is not in its facts")
+            if engine is not None:
+                rule_ids = list(_obj((_obj(cedar.get("policies")) or {}).get("staticPolicies")) or {})
+                cost = len(cs_bytes) * (len(requests) if isinstance(requests, list) else 0)
+                _recompute(env, cs_bytes, facts_bytes, rule_ids, cost, engine, budget, r, bad, note)
 
     # Approval (§4.4) and required qualified time (§4.7).
     timestamps = _obj(policy.get("timestamps"))
@@ -812,6 +827,56 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
         bad("the approval record approves another approval scope")
     if _str(approval.get("agentId")) != agent_id:
         bad("the approval record is for another agent")
+
+
+RECOMPUTE_BUDGET = 536_870_912
+"""What one run verification may spend on recomputing policy evaluations, in control-set bytes × facts requests
+(an evaluation's cost grows with both): a crafted bundle cannot keep a verifier busy for hours."""
+
+
+def _recompute(env: dict, cs_bytes: bytes, facts_bytes: bytes, rule_ids: list[str], cost: int, engine: PolicyEngine,
+               budget: Optional[list[int]], r: _EvaluationV2Check, bad: Callable[[str], None],
+               note: Callable[[str], None]) -> None:
+    """§4.6: the results again with the engine, compared with the evaluation's controls and overall. ``budget``: what
+    is left of this verification's :data:`RECOMPUTE_BUDGET` (one mutable item)."""
+    controls = [x for x in env.get("controls") or [] if isinstance(x, dict)]
+    claimed_ids = [_str(x.get("id")) for x in controls]
+    # Exactly the rule ids, none repeated: otherwise the evaluation is already invalid and a repeated id could hide
+    # a false result behind a true one.
+    if len(set(claimed_ids)) != len(claimed_ids) or set(claimed_ids) != set(rule_ids):
+        return
+    try:
+        mine = f"cedar-policy@{engine.version}"
+        named = _str((_obj((_obj(env.get("policy")) or {}).get("evaluator")) or {}).get("engine"))
+        if named != mine:
+            note(f"its results were not recomputed: it names the engine {_n(named)}, the verifier has {mine}")
+            return
+        if budget is not None:
+            if cost > budget[0]:
+                note("its results were not recomputed: the recomputation budget of this verification is used up")
+                return
+            budget[0] -= cost
+        ev = AgentPolicy.evaluate(cs_bytes, facts_bytes, engine)
+    except Exception as e:  # noqa: BLE001 — the verifier never raises because of an engine
+        message = str(e).rstrip(".")  # the finding or note adds the full stop
+        if isinstance(e, PolicyEngineError) and e.refused:
+            bad(f"its results cannot be recomputed: {message}")
+        else:
+            note(f"its results were not recomputed: {message}")
+        return
+    claimed = {x.get("id"): x for x in controls}
+    for c in ev.rules:
+        x = claimed[c.id]
+        where = x.get("where") if isinstance(x.get("where"), list) else []
+        if _str(x.get("result")) != c.result or list(where) != list(c.where or []):
+            got = c.result + (f" at {', '.join(c.where)}" if c.where else "")
+            bad(f"its results do not recompute: rule '{c.id}' is {got} with {mine}, not "
+                f"{_n(_str(x.get('result')))}{' at ' + ', '.join(map(str, where)) if where else ''}")
+            return
+    if _str(env.get("overall")) != ev.overall:
+        bad(f"its results do not recompute: overall is {ev.overall} with {mine}, not {_n(_str(env.get('overall')))}")
+        return
+    r.results_recomputed = True
 
 
 # ── Agent Enforcement v1 §5 ─────────────────────────────────────────────────
@@ -913,13 +978,17 @@ _ENFORCEMENT_TEXT = {
 
 def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                      expected_signers: Optional[Sequence[str]] = None,
-                     expected_evaluation_signers: Optional[Sequence[str]] = None) -> AgentRunVerificationResult:
+                     expected_evaluation_signers: Optional[Sequence[str]] = None,
+                     engine: Optional[PolicyEngine] = None) -> AgentRunVerificationResult:
     """Verifies a run bundle (common rules §8). Never raises for malformed
     evidence: that is an invalid verdict.
 
     :param expected_signers: ``x5t#S256`` thumbprints of the certificates the
         producer seals with (§3); when given, a run signed by anyone else fails.
     :param expected_evaluation_signers: the same for Control Evaluations.
+    :param engine: a Cedar engine (e.g. :class:`CedarEngine`) to recompute the results of policy evaluations of a v1
+        control set whose facts and control set are supplied (Control Evaluation v2 §4.6); results that differ make
+        the evaluation invalid. Without one, the results are the evaluator's, as before.
     """
     if bundle is None:
         raise ValueError("bundle is required")
@@ -1351,6 +1420,8 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     # ── evaluations: reported on their own, never merged into the run verdict
     evaluations: list[AgentEvaluationVerdict] = []
     evaluation_checks: list[tuple[str, _ArtifactCheck]] = []
+    eval_notes: list[str] = []
+    budget = [RECOMPUTE_BUDGET]  # one per verification, spent in bundle order
     run_end_sig = signature_sha256(end.jws) if end is not None else None
 
     def with_role(s: _Signed, role: str) -> list[_SignedObject]:
@@ -1425,9 +1496,12 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                             f"bundle: events may have been withheld.")
         if baseline_matches is False:
             ef.append(f"{label}: its baseline is not the one sealed in the Control Artifact.")
-        v2 = _check_evaluation_v2(sa, c, bundle.payloads, ctl, good, label) if is_v2 else None
+        # Only a conforming envelope is recomputed.
+        v2 = _check_evaluation_v2(sa, c, bundle.payloads, ctl, good, label, None if sa.conformance else engine,
+                                  budget) if is_v2 else None
         if v2 is not None:
             ef.extend(v2.findings)
+            eval_notes.extend(v2.notes)
 
         controls = [ControlResult(_str(x.get("id")) or "", _str(x.get("result")) or "", _str(x.get("detail")))
                     for x in (sa.env.get("controls") if isinstance(sa.env.get("controls"), list) else [])
@@ -1445,6 +1519,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             schema_version=_str(sa.env.get("schemaVersion")), kind=kind,
             policy_status=v2.policy_status if v2 else None, policy_state=v2.state if v2 else None,
             facts_match=v2.facts_match if v2 else None, policy_digests_match=v2.digests_match if v2 else None,
+            results_recomputed=v2.results_recomputed if v2 else False,
             sealed_for=_sealed_for_of(sa.jws),
             qualified_timestamps_required=v2.qualified_required if v2 else False,
             qualified_timestamps_met=v2.qualified_met if v2 else None,
@@ -1490,7 +1565,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     all_signatures = ([bundle.control_artifact.signature] if bundle.control_artifact is not None else []) + \
         [a.signature for a in bundle.artifacts] + [e.signature for e in bundle.evaluations]
     legacy = sum(1 for j in all_signatures if strict_envelope_reference(j) == LEGACY_REFERENCE)
-    notes = [f"{legacy} of {len(all_signatures)} artifact(s): {LEGACY_DIAGNOSTIC}."] if legacy else []
+    notes = ([f"{legacy} of {len(all_signatures)} artifact(s): {LEGACY_DIAGNOSTIC}."] if legacy else []) + eval_notes
     model_steps = [st for st in (_obj(g.env.get("step")) for g in good)
                    if st is not None and _str(st.get("type")) == "model_output"]
     return AgentRunVerificationResult(
