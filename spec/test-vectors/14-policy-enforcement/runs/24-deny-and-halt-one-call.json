@@ -1,0 +1,321 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018",
+ "enforcement": {
+  "mode": "enforce",
+  "defaultEffect": "deny",
+  "lockedConfiguration": {
+   "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11"
+  },
+  "unknownTools": "deny",
+  "onRuleError": "deny",
+  "haltAfterDenials": 0
+ },
+ "configuration": {
+  "instruction-set": "d500e43e3d8c29f6590507e9b19b5bff68c86e9e8e06151c3e05ce8f36ff6555",
+  "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11",
+  "execution-policy": "96fcd574f85a62bfb50d71ddc91156a191097d3464f204745675175b30fd6d51"
+ },
+ "events": [
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z"
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "ebeefe62dfdef24105f519b1e93f5de2f45bf02676fc2870a8a922c05de54e63"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "993ff87928bc934b942d464780e763b7b33e60429125867ae1bea2152f70136e"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b001800010",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b001800010": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+   }
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "ea6d34c35b682d03058516a0cd75ca5ecbb2188ede92b21501657e3252b780ad"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "22e71f86d79543353e00fe3986e57028fbaf12e48fdb785cea643e90bc4acf54"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b001800030",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b001800030": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+   }
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180004",
+    "createdAt": "2026-11-02T10:00:04Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 4,
+     "prevSignatureSha256": "94e4e056b1ae77e1ca0b8afbd167679961dac5b783fa7d4acefbfee34d383666"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:04.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2ef0ae6607247e01f2d80b58bf0dc3ae2ed3c41d0e1a7bddd53abbfe5c10987d"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-3"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b001800050",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b001800050": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+   }
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180006",
+    "createdAt": "2026-11-02T10:00:06Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 6,
+     "prevSignatureSha256": "1e21197c504bb04fbdcf835a75c58a448a7560fb67bac5fc8a9f66b4f033295b"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:06.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-3"
+     },
+     "decision": "denied",
+     "rules": [
+      "halt-refund-loop",
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000180007",
+    "createdAt": "2026-11-02T10:00:07Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000018"
+    },
+    "chain": {
+     "seq": 7,
+     "prevSignatureSha256": "75454937c1721e69f96bf6a0e118da807c55dc03cc36c6a0b30b17fcacc0e68d"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:07.000Z",
+     "finalSeq": 7,
+     "finalPrevSignatureSha256": "75454937c1721e69f96bf6a0e118da807c55dc03cc36c6a0b30b17fcacc0e68d",
+     "runDisposition": "halted"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  }
+ ]
+}

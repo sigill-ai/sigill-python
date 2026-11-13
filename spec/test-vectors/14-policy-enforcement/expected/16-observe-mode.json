@@ -1,0 +1,289 @@
+{
+ "case": "16-observe-mode",
+ "covers": "mode: observe never denies or halts and seals no record; the rules still match",
+ "approvalScopeDigest": "0750f8dc91eef6bb33911fd03e10cba69e9c8c584876b8cdaff95a75e825ac9e",
+ "factsSha256": "f3c05ed2eaf2cff9e847f0773ee3a13473f14eb50c4962424b3b11212ae5a088",
+ "engine": "cedar-policy@4.14.0",
+ "events": [
+  {
+   "seq": 0,
+   "sealedBy": "producer",
+   "type": "run_start",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_start"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "0"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 0,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 0,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 1,
+   "sealedBy": "producer",
+   "type": "tool_call",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "tool_call"
+    },
+    "resource": {
+     "type": "Tool",
+     "id": "search.web"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 1,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 1,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [
+     "no-web-search"
+    ],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 2,
+   "sealedBy": "producer",
+   "type": "tool_result",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "tool_result"
+    },
+    "resource": {
+     "type": "Tool",
+     "id": "search.web"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 2,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 1,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 3,
+   "sealedBy": "producer",
+   "type": "retrieval",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "retrieval"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "3"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 3,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 4,
+   "sealedBy": "producer",
+   "type": "run_end",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_end"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "4"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 4,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  }
+ ],
+ "runLevel": {
+  "request": {
+   "principal": {
+    "type": "Agent",
+    "id": "urn:example:agent:support"
+   },
+   "action": {
+    "type": "Action",
+    "id": "run"
+   },
+   "resource": {
+    "type": "Run",
+    "id": "urn:uuid:00000000-0000-4000-8000-140000000010"
+   },
+   "context": {
+    "consequential": false,
+    "operation": "",
+    "stepsSoFar": 4,
+    "approval": "none",
+    "isChildRun": false,
+    "totalSteps": 4,
+    "consequentialCount": 0,
+    "unpairedConsequential": 0,
+    "toolCallsSoFar": 1,
+    "callsOfThisTool": 0,
+    "denialsSoFar": 0
+   }
+  },
+  "diagnostics": {
+   "reason": [],
+   "errors": []
+  }
+ },
+ "notExecuted": [],
+ "discarded": 0,
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "FAIL",
+   "where": [
+    "1"
+   ]
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL"
+}

@@ -1,0 +1,37 @@
+{
+  "contentType": "application/vnd.sigill.control-set+json",
+  "objectSha256": "5c48d67dd644455dcd629c98b9207eaa56c29a73696b0fc297a39e51934fc2aa",
+  "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+  "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+  "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825",
+  "ruleIds": [
+    "export-weight",
+    "halt-consequential-export",
+    "halt-fs-wipe",
+    "halt-refund-loop",
+    "halt-retrieval-after-denial",
+    "no-delegation",
+    "no-unpaired-consequential",
+    "no-web-search",
+    "preview-weight",
+    "read-loop-limit",
+    "rejected-is-final",
+    "restricted-needs-bound-approval",
+    "shadow-repeat-read"
+  ],
+  "effects": {
+    "export-weight": "deny",
+    "halt-consequential-export": "halt",
+    "halt-fs-wipe": "halt",
+    "halt-refund-loop": "halt",
+    "halt-retrieval-after-denial": "halt",
+    "no-delegation": "halt",
+    "no-unpaired-consequential": "observe",
+    "no-web-search": "deny",
+    "preview-weight": "observe",
+    "read-loop-limit": "deny",
+    "rejected-is-final": "deny",
+    "restricted-needs-bound-approval": "deny",
+    "shadow-repeat-read": "observe"
+  }
+}

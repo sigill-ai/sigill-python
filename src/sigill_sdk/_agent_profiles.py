@@ -37,6 +37,9 @@ only the version differs."""
 EXECUTION_EVIDENCE_SCHEMA_V3 = "AgentExecutionEvidence/3"
 """The schema key of ``AgentExecutionEvidence`` ``schemaVersion "3"``: v2 plus model-call members on
 ``model_output`` steps (``spec/agent-model-calls-v1.md``)."""
+EXECUTION_EVIDENCE_SCHEMA_V4 = "AgentExecutionEvidence/4"
+"""The schema key of ``AgentExecutionEvidence`` ``schemaVersion "4"``: v3 plus policy enforcement
+(``spec/agent-enforcement-v1.md``). Every run under a v2 policy control set uses it."""
 CONTROL_EVALUATION_SCHEMA_V2 = "ControlEvaluation/2"
 """The schema key of Control Evaluation v2 (``spec/control-evaluation-v2.md``): state, policy or attested."""
 
@@ -158,8 +161,10 @@ def _reject_constant(name: str) -> Any:
 
 
 def _execution_schema_for(envelope: Any) -> str:
-    """The execution schema to validate against, by the envelope's ``schemaVersion`` ("3", "2", else v1)."""
+    """The execution schema to validate against, by the envelope's ``schemaVersion`` ("4", "3", "2", else v1)."""
     version = envelope.get("schemaVersion") if isinstance(envelope, dict) else None
+    if version == "4":
+        return EXECUTION_EVIDENCE_SCHEMA_V4
     if version == "3":
         return EXECUTION_EVIDENCE_SCHEMA_V3
     return EXECUTION_EVIDENCE_SCHEMA_V2 if version == "2" else EXECUTION_EVIDENCE_SCHEMA

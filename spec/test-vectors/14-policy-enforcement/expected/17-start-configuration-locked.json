@@ -1,0 +1,209 @@
+{
+ "case": "17-start-configuration-locked",
+ "covers": "a tool manifest other than the locked one refuses the start",
+ "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "4557cb24564bcdebba42ed95a445e77bcfd19a35ce6399f43f3949bfc89c323c",
+ "engine": "cedar-policy@4.14.0",
+ "events": [
+  {
+   "seq": 0,
+   "sealedBy": "producer",
+   "type": "run_start",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_start"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "0"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 0,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 0,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "halted",
+   "reason": "configuration_locked"
+  },
+  {
+   "seq": 1,
+   "sealedBy": "guard",
+   "type": "authorization",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "authorization"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "1"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 1,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 0,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   }
+  },
+  {
+   "seq": 2,
+   "sealedBy": "guard",
+   "type": "run_end",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_end"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "2"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 2,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 0,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 1
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   }
+  }
+ ],
+ "runLevel": {
+  "request": {
+   "principal": {
+    "type": "Agent",
+    "id": "urn:example:agent:support"
+   },
+   "action": {
+    "type": "Action",
+    "id": "run"
+   },
+   "resource": {
+    "type": "Run",
+    "id": "urn:uuid:00000000-0000-4000-8000-140000000011"
+   },
+   "context": {
+    "consequential": false,
+    "operation": "",
+    "stepsSoFar": 2,
+    "approval": "none",
+    "isChildRun": false,
+    "totalSteps": 2,
+    "consequentialCount": 0,
+    "unpairedConsequential": 0,
+    "toolCallsSoFar": 0,
+    "callsOfThisTool": 0,
+    "denialsSoFar": 1
+   }
+  },
+  "diagnostics": {
+   "reason": [],
+   "errors": []
+  }
+ },
+ "notExecuted": [],
+ "discarded": 2,
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "PASS"
+}

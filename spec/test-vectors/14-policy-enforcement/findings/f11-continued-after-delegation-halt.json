@@ -1,0 +1,180 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006e",
+ "events": [
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0006e0000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006e"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z"
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "1ca3c3c5068731451489bb8294d8cd82694415abf727cafef99213975f2da0d4"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0006e0001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006e"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "d2ff311de9a339576f52691418fea80a9a2fbffe30ea911b93646aee49871721"
+    },
+    "step": {
+     "type": "delegation",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "delegation": {
+      "childCorrelationId": "urn:uuid:00000000-0000-4000-8000-14d00000006e",
+      "childAgentId": "urn:example:agent:reviewer"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b006e00010",
+      "role": "delegation-input",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b006e00010": "b6bd7716590080313f39cf62b6867584109cd484ac4c78a48d8a4160ecac4785"
+   }
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0006e0002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006e"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "ab28c0977bc6102af742a8b874b552ccf8b291bd1ec4e7a7ee880f68c47b5cf1"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "decision": "denied",
+     "rules": [
+      "no-delegation"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0006e0003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006e"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "71fbd7bad10175fb7a6911226df173118c37ff2b4a9ba073f43b29b287932e77"
+    },
+    "step": {
+     "type": "delegation_result",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "delegation": {
+      "childCorrelationId": "urn:uuid:00000000-0000-4000-8000-14d00000006e",
+      "childRunEndSignatureSha256": "6029d849821938bc7dc67e957d47548733316199ff74bc25b29fac5dbdacef61",
+      "childDisposition": "completed"
+     }
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0006e0004",
+    "createdAt": "2026-11-02T10:00:04Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006e"
+    },
+    "chain": {
+     "seq": 4,
+     "prevSignatureSha256": "13f18a441cb45730807c7f884668e7a4771ee2dcdf8a6403f13e072d72e94cc7"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:04.000Z",
+     "finalSeq": 4,
+     "finalPrevSignatureSha256": "13f18a441cb45730807c7f884668e7a4771ee2dcdf8a6403f13e072d72e94cc7",
+     "runDisposition": "completed"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  }
+ ],
+ "findings": [
+  {
+   "code": "continued_after_halt",
+   "seqs": [
+    2
+   ]
+  }
+ ]
+}

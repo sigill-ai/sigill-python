@@ -1,0 +1,247 @@
+{
+ "case": "26-unknown-tools-allow",
+ "covers": "unknownTools: allow lets a call of an unknown tool through when no rule denies it",
+ "approvalScopeDigest": "8f505fbeb154b7126307b7376a185a6af931dfe594338d593e67383d87365202",
+ "factsSha256": "d69b34c561757abae5d24d745867f36425879b2b2b09faeec38172577b8c88aa",
+ "engine": "cedar-policy@4.14.0",
+ "events": [
+  {
+   "seq": 0,
+   "sealedBy": "producer",
+   "type": "run_start",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_start"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "0"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 0,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 0,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 1,
+   "sealedBy": "producer",
+   "type": "tool_call",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "tool_call"
+    },
+    "resource": {
+     "type": "Tool",
+     "id": "fs.delete"
+    },
+    "context": {
+     "consequential": true,
+     "operation": "",
+     "stepsSoFar": 1,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 1,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 1,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 2,
+   "sealedBy": "producer",
+   "type": "tool_result",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "tool_result"
+    },
+    "resource": {
+     "type": "Tool",
+     "id": "fs.delete"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 2,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 1,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 1,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 3,
+   "sealedBy": "producer",
+   "type": "run_end",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_end"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "3"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 3,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 1,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  }
+ ],
+ "runLevel": {
+  "request": {
+   "principal": {
+    "type": "Agent",
+    "id": "urn:example:agent:support"
+   },
+   "action": {
+    "type": "Action",
+    "id": "run"
+   },
+   "resource": {
+    "type": "Run",
+    "id": "urn:uuid:00000000-0000-4000-8000-14000000001a"
+   },
+   "context": {
+    "consequential": false,
+    "operation": "",
+    "stepsSoFar": 3,
+    "approval": "none",
+    "isChildRun": false,
+    "totalSteps": 3,
+    "consequentialCount": 1,
+    "unpairedConsequential": 0,
+    "toolCallsSoFar": 1,
+    "callsOfThisTool": 0,
+    "denialsSoFar": 0
+   }
+  },
+  "diagnostics": {
+   "reason": [],
+   "errors": []
+  }
+ },
+ "notExecuted": [],
+ "discarded": 0,
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "PASS"
+}

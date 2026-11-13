@@ -1,0 +1,118 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000068",
+ "events": [
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000680000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000068"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z"
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "a50334eece95dff1348035dfda92daac00209f5b1195c0c3c1c78dc6c25b619a"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000680001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000068"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "d90c016f9c933913abf473719fda4e7ec10e00f746cffc340108223e8642f5e3"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "tool": {
+      "name": "crm.read_customer",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b006800010",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b006800011",
+      "role": "tool-definition",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b006800010": "c37a868a4beb7f55fadc3b35dbe6b68e327e58cd2c8ec4baf48c6ef7c41d38a1",
+    "objects/00000000-0000-4000-8000-14b006800011": "6be860819fba785839dbda23b8fc3f202f736c26154dd9816ced3422ddaa8acf"
+   }
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000680002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000068"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "e84d2459dabdf8709b1b9e21ca1eb93203ca56bc23eb320e907d9abc8c650e79"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "finalSeq": 2,
+     "finalPrevSignatureSha256": "e84d2459dabdf8709b1b9e21ca1eb93203ca56bc23eb320e907d9abc8c650e79",
+     "runDisposition": "halted"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  }
+ ],
+ "findings": [
+  {
+   "code": "unrecorded_halt",
+   "seqs": [
+    2
+   ]
+  }
+ ]
+}

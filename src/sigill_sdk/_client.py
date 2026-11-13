@@ -30,6 +30,7 @@ from sigill_sdk._agent_types import (
     ControlEvaluationRequest,
 )
 from sigill_sdk._agent_verify import AgentRunVerificationResult, remote_verifier, verify_agent_run
+from sigill_sdk._policy_engine import PolicyEngine
 from sigill_sdk._canonical import canonicalize, compute_envelope_hash, hash_bytes
 from sigill_sdk._envelope import (
     AiEvidenceEnvelopeInput,
@@ -855,15 +856,16 @@ class SigillClient:
         return ControlEvaluation.seal(self, request)
 
     def verify_agent_run(self, bundle: AgentRunBundle, *, expected_signers: list[str] | None = None,
-                         expected_evaluation_signers: list[str] | None = None) -> AgentRunVerificationResult:
+                         expected_evaluation_signers: list[str] | None = None,
+                         engine: PolicyEngine | None = None) -> AgentRunVerificationResult:
         """Verifies an agent run bundle (common rules §8). The envelopes are
         read locally; each artifact's signature is checked through the blind
         ``POST /seal/verify-objects`` endpoint — digests only, never content.
         ``expected_signers`` pins the run to your sealing certificates'
         ``x5t#S256`` thumbprints (§3); ``expected_evaluation_signers`` does the
-        same for Control Evaluations."""
+        same for Control Evaluations; ``engine`` recomputes policy evaluations' results."""
         return verify_agent_run(bundle, remote_verifier(self), expected_signers=expected_signers,
-                                expected_evaluation_signers=expected_evaluation_signers)
+                                expected_evaluation_signers=expected_evaluation_signers, engine=engine)
 
     def start_child_agent_run(self, agent: AgentDefinition, delegation: AgentDelegation, *, certificate_id: str,
                               **options) -> AgentRun:

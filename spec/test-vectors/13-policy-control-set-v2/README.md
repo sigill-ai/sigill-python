@@ -1,0 +1,51 @@
+# Vector 13 — policy control set v2 (draft)
+
+A v2 policy control set (`agent-policy-control-set-v2.md`) with `enforcement` in `enforce` mode
+and `cedar.entities` (an agent in an agent group, six tools, nested tool groups), built from
+the rules in `rules.cedar`.
+
+| File | Content |
+|---|---|
+| `rules.cedar` | The rules in Cedar's text form: the source. |
+| `control-set.json` | The document, Cedar JSON policies keyed by `@id`. |
+| `expected.json` | `objectSha256` (the file's bytes), `cedarDigest`, `approvalScopeDigest`, `schemaSha256` (of `agent-policy-cedar-schema-v2.json`), the rule ids and each rule's effective effect. |
+| `invalid.json` | Documents every implementation must reject. `error` is a word the validation error must mention: the member or rule that is wrong. `document` is the exact UTF-8 text; the two cases whose bytes are not UTF-8 text without a byte-order mark carry `documentBase64` instead. |
+
+The rules validate against schema v2 in Cedar's strict mode and the entities validate against
+it in the Cedar core; the generator fails otherwise. The rule without an `effect` annotation
+(`restricted-needs-bound-approval`) takes `defaultEffect` (`deny`). `export-weight` (a `deny`
+rule) and `preview-weight` (an `observe` rule) overflow Cedar's Long on purpose, so that
+vector 14 has rule errors of both kinds. The `tool-manifest` digest in `lockedConfiguration` is
+the SHA-256 of the UTF-8 bytes `tool-manifest v1`.
+
+| Invalid case | Why |
+|---|---|
+| `enforcement-unknown-member`, `on-unavailable-removed`, `require-approval-not-in-v2` | no other member (§6) |
+| `enforcement-without-mode`, `default-effect-observe`, `unknown-tools-unknown-value`, `on-rule-error-unknown-value`, `halt-after-denials-negative`, `halt-after-denials-fraction` | member values (§6) |
+| `locked-configuration-unknown-role`, `locked-configuration-not-hex` | roles and digests of `lockedConfiguration` (§6) |
+| `annotation-unknown-key`, `effect-unknown-value` | annotations (§4 rules 6–7) |
+| `too-many-policies` | at most 256 policies (§4 rule 8) |
+| `entity-of-another-type`, `entity-duplicate-uid`, `entity-id-too-long`, `tool-unknown-attribute`, `group-with-attribute`, `too-many-entities` | entities (§5) |
+| `parent-of-wrong-type`, `parent-not-declared`, `parent-cycle` | parents (§5) |
+| `cedar-unknown-member` | `cedar` has only `policies`, `schemaSha256` and `entities` (§2) |
+| `schema-v1-digest` | `schemaSha256` must be schema v2's (§4) |
+| `schema-version-1`, `v1-document-with-enforcement` | recognition (§1): v1 has no `enforcement` member |
+| `duplicate-member`, `integer-beyond-2^53`, `lone-surrogate` | I-JSON (§2) |
+| `nested-deeper-than-64` | nesting: 65 levels, the outermost object being level 1; the valid document has 16 (§2) |
+| `utf8-byte-order-mark`, `utf16le` | UTF-8 without a byte-order mark (§2); `documentBase64` |
+| `integral-float-beyond-2^53`, `integral-exponent-beyond-2^53` | I-JSON (§2): `read-loop-limit`'s literal written `9007199254740993.0` and `9.007199254740993e15` — integral values beyond 2^53 − 1, however written; `documentBase64`, since any JSON round-trip loses the spelling |
+
+The converse is valid: the same literal written `3.0` or `3e0` (or `20.0`, `2e1` anywhere a
+number may stand) is accepted and denotes the integer. Its `approvalScopeDigest` and
+`cedarDigest` equal this document's, because JCS writes the number as the integer. An
+implementation that hands the policies to the Cedar core hands it that integer, not the
+written spelling.
+
+Regenerate from the repository root (Docker, no host Node):
+
+```bash
+docker run --rm -v "$PWD":/w -w /w/spec/test-vectors/13-policy-control-set-v2 node:22 \
+  sh -c 'npm i --no-save --prefix /tmp/c @cedar-policy/cedar-wasm@4.14.0 >/dev/null && NODE_PATH=/tmp/c/node_modules node _generate.mjs'
+```
+
+Regenerate vector 14 afterwards: it reads this vector's output.

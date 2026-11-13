@@ -1,0 +1,681 @@
+{
+  "schemaVersion": "2",
+  "id": "acme-support-agent-controls",
+  "version": "4",
+  "controls": [],
+  "cedar": {
+    "policies": {
+      "staticPolicies": {
+        "no-web-search": {
+          "effect": "forbid",
+          "principal": {
+            "op": "in",
+            "entity": {
+              "type": "AgentGroup",
+              "id": "tier1"
+            }
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "search.web"
+            }
+          },
+          "conditions": [],
+          "annotations": {
+            "effect": "deny",
+            "id": "no-web-search"
+          }
+        },
+        "restricted-needs-bound-approval": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "in",
+            "entity": {
+              "type": "ToolGroup",
+              "id": "restricted"
+            }
+          },
+          "conditions": [
+            {
+              "kind": "unless",
+              "body": {
+                "==": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "approval"
+                    }
+                  },
+                  "right": {
+                    "Value": "bound"
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "id": "restricted-needs-bound-approval"
+          }
+        },
+        "halt-consequential-export": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "ledger.export"
+            }
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ".": {
+                  "left": {
+                    "Var": "context"
+                  },
+                  "attr": "consequential"
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "halt",
+            "id": "halt-consequential-export"
+          }
+        },
+        "no-delegation": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "delegation"
+            }
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [],
+          "annotations": {
+            "effect": "halt",
+            "id": "no-delegation"
+          }
+        },
+        "no-unpaired-consequential": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "run"
+            }
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "unpairedConsequential"
+                    }
+                  },
+                  "right": {
+                    "Value": 0
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "observe",
+            "id": "no-unpaired-consequential"
+          }
+        },
+        "rejected-is-final": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                "==": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "approval"
+                    }
+                  },
+                  "right": {
+                    "Value": "rejected"
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "deny",
+            "id": "rejected-is-final"
+          }
+        },
+        "read-loop-limit": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "crm.read_customer"
+            }
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "callsOfThisTool"
+                    }
+                  },
+                  "right": {
+                    "Value": 3
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "deny",
+            "id": "read-loop-limit"
+          }
+        },
+        "shadow-repeat-read": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "crm.read_customer"
+            }
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "callsOfThisTool"
+                    }
+                  },
+                  "right": {
+                    "Value": 1
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "observe",
+            "id": "shadow-repeat-read"
+          }
+        },
+        "halt-retrieval-after-denial": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "retrieval"
+            }
+          },
+          "resource": {
+            "op": "All"
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "denialsSoFar"
+                    }
+                  },
+                  "right": {
+                    "Value": 0
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "halt",
+            "id": "halt-retrieval-after-denial"
+          }
+        },
+        "export-weight": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "ledger.export"
+            }
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    "*": {
+                      "left": {
+                        "*": {
+                          "left": {
+                            ".": {
+                              "left": {
+                                "Var": "context"
+                              },
+                              "attr": "toolCallsSoFar"
+                            }
+                          },
+                          "right": {
+                            "Value": 9007199254740991
+                          }
+                        }
+                      },
+                      "right": {
+                        "Value": 2048
+                      }
+                    }
+                  },
+                  "right": {
+                    "Value": 0
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "deny",
+            "id": "export-weight"
+          }
+        },
+        "preview-weight": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "ledger.preview"
+            }
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    "*": {
+                      "left": {
+                        "*": {
+                          "left": {
+                            ".": {
+                              "left": {
+                                "Var": "context"
+                              },
+                              "attr": "toolCallsSoFar"
+                            }
+                          },
+                          "right": {
+                            "Value": 9007199254740991
+                          }
+                        }
+                      },
+                      "right": {
+                        "Value": 2048
+                      }
+                    }
+                  },
+                  "right": {
+                    "Value": 0
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "observe",
+            "id": "preview-weight"
+          }
+        },
+        "halt-refund-loop": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "payments.refund"
+            }
+          },
+          "conditions": [
+            {
+              "kind": "when",
+              "body": {
+                ">": {
+                  "left": {
+                    ".": {
+                      "left": {
+                        "Var": "context"
+                      },
+                      "attr": "callsOfThisTool"
+                    }
+                  },
+                  "right": {
+                    "Value": 2
+                  }
+                }
+              }
+            }
+          ],
+          "annotations": {
+            "effect": "halt",
+            "id": "halt-refund-loop"
+          }
+        },
+        "halt-fs-wipe": {
+          "effect": "forbid",
+          "principal": {
+            "op": "All"
+          },
+          "action": {
+            "op": "==",
+            "entity": {
+              "type": "Action",
+              "id": "tool_call"
+            }
+          },
+          "resource": {
+            "op": "==",
+            "entity": {
+              "type": "Tool",
+              "id": "fs.wipe"
+            }
+          },
+          "conditions": [],
+          "annotations": {
+            "effect": "halt",
+            "id": "halt-fs-wipe"
+          }
+        }
+      }
+    },
+    "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825",
+    "entities": [
+      {
+        "uid": {
+          "type": "Agent",
+          "id": "urn:example:agent:support"
+        },
+        "attrs": {},
+        "parents": [
+          {
+            "type": "AgentGroup",
+            "id": "tier1"
+          }
+        ]
+      },
+      {
+        "uid": {
+          "type": "AgentGroup",
+          "id": "tier1"
+        },
+        "attrs": {},
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Tool",
+          "id": "crm.read_customer"
+        },
+        "attrs": {
+          "consequential": false,
+          "definitionSha256": "6be860819fba785839dbda23b8fc3f202f736c26154dd9816ced3422ddaa8acf"
+        },
+        "parents": [
+          {
+            "type": "ToolGroup",
+            "id": "crm"
+          }
+        ]
+      },
+      {
+        "uid": {
+          "type": "Tool",
+          "id": "crm.update_address"
+        },
+        "attrs": {
+          "consequential": true,
+          "definitionSha256": "aa36e6532ed79071858d21a10f52848b789abac6bf69b2032c9c5d09d5e12ab6"
+        },
+        "parents": [
+          {
+            "type": "ToolGroup",
+            "id": "crm"
+          }
+        ]
+      },
+      {
+        "uid": {
+          "type": "Tool",
+          "id": "payments.refund"
+        },
+        "attrs": {
+          "consequential": true
+        },
+        "parents": [
+          {
+            "type": "ToolGroup",
+            "id": "payments"
+          }
+        ]
+      },
+      {
+        "uid": {
+          "type": "Tool",
+          "id": "search.web"
+        },
+        "attrs": {
+          "consequential": false
+        },
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Tool",
+          "id": "ledger.export"
+        },
+        "attrs": {},
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "Tool",
+          "id": "ledger.preview"
+        },
+        "attrs": {},
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "ToolGroup",
+          "id": "crm"
+        },
+        "attrs": {},
+        "parents": []
+      },
+      {
+        "uid": {
+          "type": "ToolGroup",
+          "id": "payments"
+        },
+        "attrs": {},
+        "parents": [
+          {
+            "type": "ToolGroup",
+            "id": "restricted"
+          }
+        ]
+      },
+      {
+        "uid": {
+          "type": "ToolGroup",
+          "id": "restricted"
+        },
+        "attrs": {},
+        "parents": []
+      }
+    ]
+  },
+  "privateControls": [
+    {
+      "id": "no-card-numbers-in-replies"
+    }
+  ],
+  "coverage": {
+    "sourceProfile": "urn:sigill:recorder:producer-declared",
+    "scope": "all instrumented SDK tool calls",
+    "idleSeconds": 1800
+  },
+  "enforcement": {
+    "mode": "enforce",
+    "defaultEffect": "deny",
+    "lockedConfiguration": {
+      "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11"
+    },
+    "unknownTools": "deny",
+    "onRuleError": "deny",
+    "haltAfterDenials": 0
+  }
+}

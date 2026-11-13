@@ -1,0 +1,524 @@
+{
+  "description": "Source of vector 14. Each case lists what the producer attempts, in order; _generate.mjs runs the guard (agent-policy-control-set-v2.md §7) over it and writes the sealed run and the expectations. `enforcement` (when given) is merged over vector 13's enforcement member; `configuration` overrides the Control Artifact's object bytes. `args` names an entry of `arguments`: the exact bytes of the call's tool-arguments object. A call of a tool whose entity declares definitionSha256 carries a tool-definition object with the bytes `<tool> definition` (which match) unless `definition` gives other bytes, or null for none. `engineFails: true` on an action models the Cedar core failing for that event's request; `engineFailsAtStart: true` models it failing to load at start. In a findings run, `controlSetContentType` means the verifier is given control-set bytes as the run's control-set object with that content type: vector 13's control-set.json, or per `controlSetBytes` vector 11's (`11`) or vector 13's with a repeated `schemaVersion` member (`13-duplicate-member`); the findings file carries them as `controlSetBase64`.",
+  "arguments": {
+    "A": "{\"amount\":120,\"order\":\"o-1\"}",
+    "B": "{\"amount\":9000,\"order\":\"o-2\"}",
+    "C": "{\"customer\":\"c-1\"}",
+    "D": "{\"customer\":\"c-1\",\"street\":\"Storgata 1\"}",
+    "Q": "{\"q\":\"refund policy\"}",
+    "P": "{\"path\":\"/tmp/report\"}",
+    "L": "{\"period\":\"2026-10\"}"
+  },
+  "cases": [
+    {
+      "name": "01-allowed-call",
+      "covers": "a known, unrestricted call is allowed and its result recorded",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "02-denied-by-rule",
+      "covers": "a deny rule scoped to an agent group denies the call; its result is never recorded",
+      "actions": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "03-shadow-rule",
+      "covers": "an observe rule matches the second call and does not deny it",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-2", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-2" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "04-approval-laundering",
+      "covers": "an approval bound to call A does not cover call B with other arguments",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "useId": "call-1", "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "B", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-2" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "05-sticky-rejection-use-id",
+      "covers": "a rejection naming the useId wins over a later approval of the same call",
+      "actions": [
+        { "type": "human_approval", "decision": "rejected", "covers": { "useId": "call-1", "tool": "payments.refund", "args": "A" } },
+        { "type": "human_approval", "decision": "approved", "covers": { "useId": "call-1", "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "06-sticky-rejection-arguments",
+      "covers": "a rejection matches the same tool and arguments under a new useId, even when that useId is approved",
+      "actions": [
+        { "type": "human_approval", "decision": "rejected", "covers": { "useId": "call-1", "tool": "payments.refund", "args": "A" } },
+        { "type": "human_approval", "decision": "approved", "covers": { "useId": "call-2", "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-2" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "07-approve-then-retry",
+      "covers": "a call denied for lack of approval is approved by tool and arguments (no useId) and retried under a new useId, which is bound",
+      "actions": [
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-2" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "08-approval-expired",
+      "covers": "an approval whose expiresAt has passed is not bound",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "useId": "call-1", "tool": "payments.refund", "args": "A", "expiresAt": "2026-11-02T10:00:01.500Z" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "09-unknown-tool",
+      "covers": "a tool without a Tool entity is denied under unknownTools: deny",
+      "actions": [
+        { "type": "tool_call", "tool": "fs.delete", "useId": "call-1", "args": "P", "consequential": true },
+        { "type": "tool_result", "tool": "fs.delete", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "10-rule-error",
+      "covers": "a deny rule that overflows Cedar's Long is a rule error and denies under onRuleError: deny",
+      "actions": [
+        { "type": "tool_call", "tool": "ledger.export", "useId": "call-1", "args": "L" },
+        { "type": "tool_result", "tool": "ledger.export", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "11-halt-on-retrieval",
+      "covers": "a halt rule fires on a non-tool event: one record without tool, then halted; later actions never happen",
+      "actions": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "retrieval" },
+        { "type": "model_output" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "12-halt-after-denials",
+      "covers": "haltAfterDenials: 2: the second denial is one record, then halted",
+      "enforcement": { "haltAfterDenials": 2 },
+      "actions": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_call", "tool": "search.web", "useId": "call-2", "args": "Q" },
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-3", "args": "C" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "13-group-rule",
+      "covers": "a rule on resource in ToolGroup::\"restricted\" applies through a nested group",
+      "actions": [
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "14-loop-limit",
+      "covers": "callsOfThisTool denies the fourth call of the same tool; the second and third match only the shadow rule",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-2", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-2" },
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-3", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-3" },
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-4", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-4" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "15-denied-not-unpaired",
+      "covers": "a denied consequential call is not counted in unpairedConsequential at run level",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.update_address", "useId": "call-1", "args": "D", "consequential": true },
+        { "type": "tool_result", "tool": "crm.update_address", "useId": "call-1" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "16-observe-mode",
+      "covers": "mode: observe never denies or halts and seals no record; the rules still match",
+      "enforcement": { "mode": "observe" },
+      "actions": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "retrieval" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "17-start-configuration-locked",
+      "covers": "a tool manifest other than the locked one refuses the start",
+      "configuration": { "tool-manifest": "tool-manifest v2" },
+      "actions": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "18-start-engine-unavailable",
+      "covers": "the Cedar core cannot be loaded at start: the start is refused with unavailable",
+      "engineFailsAtStart": true,
+      "actions": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "19-approval-names-use-id",
+      "covers": "an approval naming a useId binds only that call: the same tool and arguments under another useId are not bound",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "useId": "call-2", "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-2" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "20-approval-binds-once",
+      "covers": "one approval binds one call: a second identical call is not bound",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-2" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "21-tool-definition-match",
+      "covers": "the call's tool-definition digest equals the entity's definitionSha256",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.update_address", "useId": "call-1", "args": "D", "consequential": true, "definition": "crm.update_address definition" },
+        { "type": "tool_result", "tool": "crm.update_address", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "22-tool-definition-mismatch",
+      "covers": "a tool-definition with another digest is denied tool_changed",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.update_address", "useId": "call-1", "args": "D", "consequential": true, "definition": "crm.update_address definition, edited" },
+        { "type": "tool_result", "tool": "crm.update_address", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "23-tool-definition-missing",
+      "covers": "a call of a bound tool without a tool-definition object is denied tool_changed",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.update_address", "useId": "call-1", "args": "D", "consequential": true, "definition": null },
+        { "type": "tool_result", "tool": "crm.update_address", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "24-deny-and-halt-one-call",
+      "covers": "a deny rule and a halt rule match one call: one record with both ids, then halted",
+      "actions": [
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-3", "args": "A", "consequential": true },
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-4", "args": "C" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "25-erroring-observe-rule",
+      "covers": "an observe rule that errors does not deny (onRuleError: deny counts only deny and halt rules)",
+      "actions": [
+        { "type": "tool_call", "tool": "ledger.preview", "useId": "call-1", "args": "L" },
+        { "type": "tool_result", "tool": "ledger.preview", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "26-unknown-tools-allow",
+      "covers": "unknownTools: allow lets a call of an unknown tool through when no rule denies it",
+      "enforcement": { "unknownTools": "allow" },
+      "actions": [
+        { "type": "tool_call", "tool": "fs.delete", "useId": "call-1", "args": "P", "consequential": true },
+        { "type": "tool_result", "tool": "fs.delete", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "27-on-rule-error-allow",
+      "covers": "onRuleError: allow lets a call through whose only matching deny rule errors",
+      "enforcement": { "onRuleError": "allow" },
+      "actions": [
+        { "type": "tool_call", "tool": "ledger.export", "useId": "call-1", "args": "L" },
+        { "type": "tool_result", "tool": "ledger.export", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "28-engine-failure-tool-call",
+      "covers": "the Cedar core fails for a tool_call: one record unavailable with tool, then halted",
+      "actions": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C", "engineFails": true },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "29-engine-failure-non-tool",
+      "covers": "the Cedar core fails for a model_output: one record unavailable without tool, then halted",
+      "actions": [
+        { "type": "model_output", "engineFails": true },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "30-delegation-halt",
+      "covers": "a halt rule on Action::\"delegation\": the guard halts right after the delegation; no child is started",
+      "actions": [
+        { "type": "delegation", "childAgentId": "urn:example:agent:reviewer" },
+        { "type": "delegation_result" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "31-unknown-tool-halt-rule",
+      "covers": "an unknown tool is denied unknown_tool (no rules) and a matching halt rule still halts the run",
+      "actions": [
+        { "type": "tool_call", "tool": "fs.wipe", "useId": "call-1", "args": "P", "consequential": true },
+        { "type": "tool_result", "tool": "fs.wipe", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "32-rule-error-halt-rule",
+      "covers": "rule_error lists only the erroring deny rule; a different, non-erroring halt rule matching the call halts the run",
+      "actions": [
+        { "type": "tool_call", "tool": "ledger.export", "useId": "call-1", "args": "L", "consequential": true },
+        { "type": "tool_result", "tool": "ledger.export", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "33-rejection-by-use-id-only",
+      "covers": "a rejection naming the call's useId rejects it although its arguments digest differs from the call's",
+      "actions": [
+        { "type": "human_approval", "decision": "rejected", "covers": { "useId": "call-1", "tool": "payments.refund", "args": "B" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "34-approval-expires-at-event-time",
+      "covers": "expiresAt equal to the call's eventTime: not bound (the call must be strictly earlier)",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A", "expiresAt": "2026-11-02T10:00:02.000Z" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "run_end" }
+      ]
+    },
+    {
+      "name": "35-two-approvals-two-calls",
+      "covers": "two matching approvals bind two identical calls in seq order (boundBy 1, then 2); a third identical call is not bound",
+      "actions": [
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A" } },
+        { "type": "human_approval", "decision": "approved", "covers": { "tool": "payments.refund", "args": "A" } },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-1", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-1" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-2" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-3", "args": "A", "consequential": true },
+        { "type": "tool_result", "tool": "payments.refund", "useId": "call-3" },
+        { "type": "run_end" }
+      ]
+    }
+  ],
+  "findings": [
+    {
+      "name": "f1-clean",
+      "events": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": []
+    },
+    {
+      "name": "f2-orphan-result",
+      "events": [
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-9" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "orphan_result", "seqs": [1] } ]
+    },
+    {
+      "name": "f3-conflicting-result",
+      "events": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "conflicting_result", "seqs": [2, 3] } ]
+    },
+    {
+      "name": "f4-executed-after-denial",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "authorization", "tool": "search.web", "useId": "call-1", "rules": ["no-web-search"], "reason": "rule" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "executed_after_denial", "seqs": [2, 3] } ]
+    },
+    {
+      "name": "f5-unrecorded-halt",
+      "events": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "run_end", "runDisposition": "halted" }
+      ],
+      "findings": [ { "code": "unrecorded_halt", "seqs": [2] } ]
+    },
+    {
+      "name": "f6-duplicate-use-id",
+      "events": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "crm.read_customer", "useId": "call-1" },
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "duplicate_use_id", "seqs": [1, 3] } ]
+    },
+    {
+      "name": "f7-misplaced-decision",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "model_output" },
+        { "type": "authorization", "tool": "search.web", "useId": "call-1", "rules": ["no-web-search"], "reason": "rule" },
+        { "type": "tool_call", "tool": "payments.refund", "useId": "call-2", "args": "A" },
+        { "type": "authorization", "rules": ["halt-refund-loop"], "reason": "rule" },
+        { "type": "run_end", "runDisposition": "halted" }
+      ],
+      "findings": [ { "code": "misplaced_decision", "seqs": [3] }, { "code": "misplaced_decision", "seqs": [5] } ]
+    },
+    {
+      "name": "f8-continued-after-halt",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "authorization", "tool": "search.web", "useId": "call-1", "reason": "unavailable" },
+        { "type": "model_output" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "continued_after_halt", "seqs": [2] } ]
+    },
+    {
+      "name": "f9-evidence-version-mismatch",
+      "schemaVersion": "3",
+      "controlSetContentType": "application/vnd.sigill.control-set+json",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "evidence_version_mismatch", "seqs": [0, 1, 2, 3] } ]
+    },
+    {
+      "name": "f10-version-mismatch-not-a-policy-control-set",
+      "schemaVersion": "3",
+      "controlSetContentType": "application/json",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": []
+    },
+    {
+      "name": "f11-continued-after-delegation-halt",
+      "events": [
+        { "type": "delegation", "childAgentId": "urn:example:agent:reviewer" },
+        { "type": "authorization", "rules": ["no-delegation"], "reason": "rule" },
+        { "type": "delegation_result" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "continued_after_halt", "seqs": [2] } ]
+    },
+    {
+      "name": "f12-record-after-record",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "authorization", "tool": "search.web", "useId": "call-1", "rules": ["no-web-search"], "reason": "rule" },
+        { "type": "authorization", "rules": ["halt-refund-loop"], "reason": "rule" },
+        { "type": "run_end", "runDisposition": "halted" }
+      ],
+      "findings": [ { "code": "misplaced_decision", "seqs": [3] } ]
+    },
+    {
+      "name": "f13-version-mismatch-control-set-not-strict",
+      "schemaVersion": "3",
+      "controlSetContentType": "application/vnd.sigill.control-set+json",
+      "controlSetBytes": "13-duplicate-member",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "evidence_version_mismatch", "seqs": [0, 1, 2, 3] } ]
+    },
+    {
+      "name": "f14-v1-policy-control-set-with-v3-events",
+      "schemaVersion": "3",
+      "controlSetContentType": "application/vnd.sigill.control-set+json",
+      "controlSetBytes": "11",
+      "events": [
+        { "type": "tool_call", "tool": "search.web", "useId": "call-1", "args": "Q" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": []
+    },
+    {
+      "name": "f15-result-names-another-tool",
+      "events": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "orphan_result", "seqs": [2] } ]
+    }
+  ]
+}

@@ -28,7 +28,7 @@ from sigill_sdk._agent_profiles import (
     _str,
     signature_sha256,
 )
-from sigill_sdk._canonical import canonicalize
+from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
 from sigill_sdk._references import new_object_uri
 from sigill_sdk._sign_objects import SignedObjectDigest
@@ -149,6 +149,30 @@ class AgentAuthorization:
 
 
 @dataclass(frozen=True)
+class ApprovalCovers:
+    """The call a human approval or rejection is for (``spec/agent-enforcement-v1.md`` §3.5): a tool and the digest of
+    its exact arguments, optionally restricted to one ``use_id``. An approval binds at most one call; a rejection is
+    sticky for the run. Build it from a call with :meth:`ToolCall.covers`, or before the call with
+    :meth:`for_arguments`. Requires a v2 policy control set (``schemaVersion "4"``)."""
+
+    tool: str
+    """The covered call's tool name."""
+    arguments_sha256: str
+    """Lowercase hex SHA-256 of the covered call's ``tool-arguments`` bytes."""
+    use_id: Optional[str] = None
+    """Restricts the approval or rejection to the call with this use id."""
+    expires_at: Optional[datetime] = None
+    """An approval does not bind a call at or after this instant (a rejection ignores it). Sealed at millisecond
+    precision, in UTC."""
+
+    @classmethod
+    def for_arguments(cls, tool: str, arguments: bytes, expires_at: Optional[datetime] = None) -> "ApprovalCovers":
+        """Covers a call of ``tool`` with exactly these argument bytes, whatever its use id: approve before the call
+        (or its retry) is made."""
+        return cls(tool, hash_bytes(arguments), None, expires_at)
+
+
+@dataclass(frozen=True)
 class AgentTimestampPolicy:
     """The signed timestamp policy (common rules §4), locked in the Control
     Artifact. The default seals every event B-B and timestamps only to wrap
@@ -241,6 +265,8 @@ class AgentDelegation:
     child_agent_id: str
     artifact: Optional[AgentRunArtifact] = None
     """The parent's sealed ``delegation`` event, when sealed in this process."""
+    _parent_run: Any = field(default=None, repr=False, compare=False)
+    # The parent run in this process: a child is not started once its guard halted the parent (enforcement §7.3).
 
 
 @dataclass(frozen=True)

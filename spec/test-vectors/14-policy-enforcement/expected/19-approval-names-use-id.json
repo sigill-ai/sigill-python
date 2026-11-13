@@ -1,0 +1,369 @@
+{
+ "case": "19-approval-names-use-id",
+ "covers": "an approval naming a useId binds only that call: the same tool and arguments under another useId are not bound",
+ "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "factsSha256": "3e5b32ecee702c08bffb86662b7cba79b64fb18b60e62312aad6dea2bbc06d6e",
+ "engine": "cedar-policy@4.14.0",
+ "events": [
+  {
+   "seq": 0,
+   "sealedBy": "producer",
+   "type": "run_start",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_start"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "0"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 0,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 0,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 1,
+   "sealedBy": "producer",
+   "type": "human_approval",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "human_approval"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "1"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 1,
+     "approval": "none",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 0,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 0,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 2,
+   "sealedBy": "producer",
+   "type": "tool_call",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "tool_call"
+    },
+    "resource": {
+     "type": "Tool",
+     "id": "payments.refund"
+    },
+    "context": {
+     "consequential": true,
+     "operation": "",
+     "stepsSoFar": 2,
+     "approval": "unbound",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 1,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 1,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [
+     "restricted-needs-bound-approval"
+    ],
+    "errors": []
+   },
+   "outcome": "denied",
+   "reason": "rule",
+   "rules": [
+    "restricted-needs-bound-approval"
+   ]
+  },
+  {
+   "seq": 3,
+   "sealedBy": "guard",
+   "type": "authorization",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "authorization"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "3"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 3,
+     "approval": "unbound",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 1,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 1,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 0
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   }
+  },
+  {
+   "seq": 4,
+   "sealedBy": "producer",
+   "type": "tool_call",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "tool_call"
+    },
+    "resource": {
+     "type": "Tool",
+     "id": "payments.refund"
+    },
+    "context": {
+     "consequential": true,
+     "operation": "",
+     "stepsSoFar": 4,
+     "approval": "bound",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 2,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 2,
+     "callsOfThisTool": 2,
+     "denialsSoFar": 1
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "boundBy": 1,
+   "outcome": "allowed"
+  },
+  {
+   "seq": 5,
+   "sealedBy": "producer",
+   "type": "tool_result",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "tool_result"
+    },
+    "resource": {
+     "type": "Tool",
+     "id": "payments.refund"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 5,
+     "approval": "unbound",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 2,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 2,
+     "callsOfThisTool": 2,
+     "denialsSoFar": 1
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  },
+  {
+   "seq": 6,
+   "sealedBy": "producer",
+   "type": "run_end",
+   "request": {
+    "principal": {
+     "type": "Agent",
+     "id": "urn:example:agent:support"
+    },
+    "action": {
+     "type": "Action",
+     "id": "run_end"
+    },
+    "resource": {
+     "type": "Step",
+     "id": "6"
+    },
+    "context": {
+     "consequential": false,
+     "operation": "",
+     "stepsSoFar": 6,
+     "approval": "unbound",
+     "isChildRun": false,
+     "totalSteps": 0,
+     "consequentialCount": 2,
+     "unpairedConsequential": 0,
+     "toolCallsSoFar": 2,
+     "callsOfThisTool": 0,
+     "denialsSoFar": 1
+    }
+   },
+   "diagnostics": {
+    "reason": [],
+    "errors": []
+   },
+   "outcome": "allowed"
+  }
+ ],
+ "runLevel": {
+  "request": {
+   "principal": {
+    "type": "Agent",
+    "id": "urn:example:agent:support"
+   },
+   "action": {
+    "type": "Action",
+    "id": "run"
+   },
+   "resource": {
+    "type": "Run",
+    "id": "urn:uuid:00000000-0000-4000-8000-140000000013"
+   },
+   "context": {
+    "consequential": false,
+    "operation": "",
+    "stepsSoFar": 6,
+    "approval": "none",
+    "isChildRun": false,
+    "totalSteps": 6,
+    "consequentialCount": 2,
+    "unpairedConsequential": 0,
+    "toolCallsSoFar": 2,
+    "callsOfThisTool": 0,
+    "denialsSoFar": 1
+   }
+  },
+  "diagnostics": {
+   "reason": [],
+   "errors": []
+  }
+ },
+ "notExecuted": [
+  "call-1"
+ ],
+ "discarded": 0,
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "FAIL",
+   "where": [
+    "2"
+   ]
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL"
+}
