@@ -125,6 +125,7 @@ from sigill_sdk._agent_policy import (
     PolicyRequestResult,
 )
 from sigill_sdk._policy_engine import CedarEngine, PolicyEngine, PolicyEngineError
+from sigill_sdk._agent_guard import Enforcement, EnforcementEvent, PolicyDenied, RunHalted, StartRefused
 from sigill_sdk._agent_run import (
     AgentRun,
     AgentRunCallbackError,
@@ -245,10 +246,13 @@ __all__ = [
     "ControlEvaluation",
     "ControlEvaluationRequest",
     "ControlResult",
+    "Enforcement",
+    "EnforcementEvent",
     "EnforcementFinding",
     "EvaluationReference",
     "PER_EVENT",
     "POLICY_CONTROL_SET_CONTENT_TYPE",
+    "PolicyDenied",
     "PolicyDigests",
     "PolicyEnforcement",
     "PolicyEngine",
@@ -260,8 +264,10 @@ __all__ = [
     "PolicyRuleResult",
     "PreparedEvaluation",
     "QualifiedArtifacts",
+    "RunHalted",
     "SignatureTimestampInfo",
     "SignerCertificateInfo",
+    "StartRefused",
     "TREE_SCOPE",
     "ToolCall",
     "bundle_fingerprint",

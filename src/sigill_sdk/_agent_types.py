@@ -265,6 +265,8 @@ class AgentDelegation:
     child_agent_id: str
     artifact: Optional[AgentRunArtifact] = None
     """The parent's sealed ``delegation`` event, when sealed in this process."""
+    _parent_run: Any = field(default=None, repr=False, compare=False)
+    # The parent run in this process: a child is not started once its guard halted the parent (enforcement §7.3).
 
 
 @dataclass(frozen=True)

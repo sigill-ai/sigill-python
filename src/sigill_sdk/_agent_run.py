@@ -19,7 +19,7 @@ import copy
 import json
 import threading
 import uuid
-from dataclasses import replace
+from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -61,6 +61,15 @@ from sigill_sdk._agent_types import (
     PolicyEvaluationRequest,
     PreparedEvaluation,
     QualifiedArtifacts,
+)
+from sigill_sdk._agent_guard import (
+    Enforcement,
+    EnforcementEvent,
+    PolicyDenied,
+    RunHalted,
+    StartRefused,
+    _guard_for,
+    _Guard,
 )
 from sigill_sdk._agent_policy import FACTS_VERSION, POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy, _build_facts, _is_v2
 from sigill_sdk._agent_policy import _parse as _parse_control_set
@@ -155,6 +164,15 @@ def _detail(fields: dict, detail: Optional[str]) -> dict:
     return fields
 
 
+@dataclass
+class _Delivery:
+    """What the guard sealed after one event, the event to report, and what the recording call raises."""
+
+    sealed: list = field(default_factory=list)
+    event: Optional[EnforcementEvent] = None
+    error: Optional[BaseException] = None
+
+
 class AgentRun:
     """Records one controlled agent run.
 
@@ -206,9 +224,14 @@ class AgentRun:
         # delegation §4: open delegations (child correlationId → delegation seq) and those already resolved.
         self._outstanding: dict[str, int] = {}
         self._resolved: set[str] = set()
-        # v4: each tool_call useId → ("open" | "result", its tool name) (enforcement §3.2, §5); the guard phase adds
-        # "denied".
+        # v4: each tool_call useId → ("open" | "result" | "denied", its tool name) (enforcement §3.2, §5).
         self._tool_calls: dict[str, tuple[str, Optional[str]]] = {}
+        # The guard (enforcement=): what it sealed after an event, kept by seq until the recording call delivers it.
+        self._guard: Optional[_Guard] = None
+        self._on_event: Optional[Callable[[EnforcementEvent], None]] = None
+        self._decisions: dict[int, _Delivery] = {}
+        self._halted = threading.Event()
+        self._halt: Optional[tuple] = None  # (reason, rules, seq, record) of the halt, for every later RunHalted
         self.correlation_id = _correlation_id
         """The run identifier (``activity.correlationId``)."""
         self.control_artifact: AgentRunArtifact = None  # type: ignore[assignment]
@@ -225,7 +248,8 @@ class AgentRun:
               start_objects: Optional[Sequence[AgentRunObject]] = None, retain_payloads: bool = False,
               qualified: bool = False, on_artifact_sealed: Optional[Callable[[AgentRunArtifact], None]] = None,
               delegating: bool = False, qualified_for: QualifiedArtifacts = QualifiedArtifacts.NONE,
-              disclose_policy: bool = False, records_model_calls: bool = False, _clock: Optional[Callable[[], datetime]] = None,
+              disclose_policy: bool = False, records_model_calls: bool = False,
+              enforcement: Optional[Enforcement] = None, _clock: Optional[Callable[[], datetime]] = None,
               _parent: Optional[AgentDelegation] = None) -> "AgentRun":
         """Opens a run: seals the Control Artifact (always timestamped), then
         ``run_start`` binding it.
@@ -263,12 +287,23 @@ class AgentRun:
             content) together with the control-set document, so the organisation can review, approve and
             track the policy. Requires an :class:`AgentPolicy` control set. Off by default. The upload never
             fails the run; its outcome is :attr:`policy_disclosure`. Execution events are not uploaded.
+        :param enforcement: the guard (``spec/agent-policy-control-set-v2.md`` §7): required by a v2 policy control
+            set with ``enforcement.mode: "enforce"``, which it then validates strictly before anything is sealed. Each
+            event is decided after it is sealed: a denied tool call raises :class:`PolicyDenied`, a halt
+            :class:`RunHalted`, a refused start :class:`StartRefused` — each after the decision is sealed. With
+            any other control set the engine only reports matching rules to ``on_event``.
+        :raises ValueError: an enforcing control set without ``enforcement``, or one that fails strict validation;
+            nothing was sealed.
+        :raises StartRefused: the guard refused the start (§7.4); the closed run is its ``run``.
         """
         if control_set is None:
             raise ValueError("control_set is required.")
         policy = timestamp_policy or AgentTimestampPolicy()
         _validate_policy(policy)
         _validate_control_set(control_set, disclose_policy)
+        if _parent is not None and getattr(_parent, "_parent_run", None) is not None and _parent._parent_run.halted:
+            raise _parent._parent_run._halted_error()  # §7.3: the child of a halted parent is never started
+        guard = _guard_for(control_set, enforcement, agent.agent_id, _parent is not None)
         if _parent is not None:
             if not _parent.child_correlation_id or not _parent.parent_correlation_id \
                     or not _parent.delegation_signature_sha256:
@@ -289,6 +324,8 @@ class AgentRun:
                   and _is_v2(control_set.content) else "3" if records_model_calls
                   else "2" if delegating or _parent is not None else "1", _parent=_parent,
                   _qualified_for=QualifiedArtifacts(qualified_for))
+        run._guard = guard
+        run._on_event = enforcement.on_event if enforcement is not None else None
 
         now = _truncate(clock())
         config = agent.configuration
@@ -350,14 +387,9 @@ class AgentRun:
                     AgentIndexResult("failed", error="Only SigillClient can share a policy with the evidence index.")
             except Exception as ex:  # noqa: BLE001
                 run.policy_disclosure = AgentIndexResult("failed", error=str(ex))
-        # Both are delivered even when the first callback fails: later events wait for their turn in order.
-        failure: Optional[BaseException] = None
-        for artifact, seq in ((run.control_artifact, -1), (start, 0)):
-            try:
-                run._notify(artifact, seq)
-            except (Exception, asyncio.CancelledError) as ex:  # noqa: BLE001 — every failure, a cancellation
-                if failure is None:                                 # included, surfaces with the started run
-                    failure = ex
+        # Both are delivered even when the first callback fails: later events wait for their turn in order. A
+        # refused start raises StartRefused here, after both and the guard's events are delivered.
+        failure = run._deliver(start, ((run.control_artifact, -1),))
         if failure is not None:
             raise AgentRunCallbackError(run, failure) from failure
         return run
@@ -393,6 +425,12 @@ class AgentRun:
     def is_finished(self) -> bool:
         """``run_end`` has been sealed."""
         return self._finished
+
+    @property
+    def halted(self) -> bool:
+        """The guard halted the run (its halting ``run_end`` is sealed): every further recording call raises
+        :class:`RunHalted`, and :meth:`finish` returns the bundle."""
+        return self._halted.is_set()
 
     @property
     def outstanding_delegations(self) -> list[str]:
@@ -441,10 +479,15 @@ class AgentRun:
             if call is not None and call._result is not None:
                 raise RuntimeError(f"Tool call '{call.use_id}' already has its result.")
             # Keep the last slot for run_end, and one per open delegation for its result (delegation §4 rule 6),
-            # so a bundle always fits MAX_ARTIFACTS and can finish.
+            # so a bundle always fits MAX_ARTIFACTS and can finish. In enforce mode also one for an enforcement
+            # record before the halt (enforcement §4 rule 4), and a tool_call one more for the record that may deny it.
             open_ = len(self._outstanding)
-            if len(self._artifacts) >= MAX_ARTIFACTS - 1 - open_:
+            guard = 0 if not self._enforcing else 2 if step_type == "tool_call" else 1
+            if len(self._artifacts) >= MAX_ARTIFACTS - 1 - open_ - guard:
                 raise RuntimeError(
+                    f"The run has {len(self._artifacts)} events; the rest of the bundle limit of {MAX_ARTIFACTS} is "
+                    f"reserved for run_end, the guard's enforcement record(s) and {open_} delegation result(s)."
+                    if guard else
                     f"The run has {len(self._artifacts)} events; only run_end fits within the bundle limit of "
                     f"{MAX_ARTIFACTS}. Finish the run." if open_ == 0 else
                     f"The run has {len(self._artifacts)} events; the rest of the bundle limit of {MAX_ARTIFACTS} is "
@@ -465,17 +508,20 @@ class AgentRun:
             if use_id is not None and step_type == "tool_result":
                 if state != "open":
                     raise ValueError(f"No tool_call of this run with use_id '{use_id}' awaits a result." if state is None
-                                     else f"The tool_call with use_id '{use_id}' already has its result.")
+                                     else f"The tool_call with use_id '{use_id}' was denied; it has no result."
+                                     if state == "denied" else
+                                     f"The tool_call with use_id '{use_id}' already has its result.")
                 if tool.get("name") != called:
                     raise ValueError(f"The tool_call with use_id '{use_id}' was made to tool '{called}'; its result "
                                      f"cannot name another tool.")
             artifact = self._seal_event(step_type, list(objects or []), step, consequential=consequential)
-            if use_id is not None:
-                self._tool_calls[use_id] = ("open", _str(tool.get("name"))) if step_type == "tool_call" \
-                    else ("result", called)
+            if use_id is not None and step_type == "tool_call":
+                self._tool_calls.setdefault(use_id, ("open", _str(tool.get("name"))))  # unless the guard denied it
+            elif use_id is not None:
+                self._tool_calls[use_id] = ("result", called)
             if call is not None:
                 call._result = artifact
-        self._notify(artifact, artifact.seq)
+        self._notify_all(artifact)
         return artifact
 
     def record_retrieval(self, context: bytes, content_type: str = "text/plain", *,
@@ -491,7 +537,7 @@ class AgentRun:
         (e.g. ``read``, ``update``); mark write-class calls ``consequential``.
         ``use_id`` correlates the call with its result. In a ``schemaVersion "4"`` run (a v2 policy control set)
         every call has one, unique in the run: it is generated when not given. :meth:`begin_tool_call` pairs
-        the result for you."""
+        the result for you. In an enforced run a denied call raises :class:`PolicyDenied` after it is sealed."""
         if use_id is None and self._schema_version == "4":
             use_id = str(uuid.uuid4())
         return self.record("tool_call", [AgentRunObject("tool-arguments", arguments, content_type)],
@@ -522,7 +568,10 @@ class AgentRun:
 
         :raises RuntimeError: ``definition`` in a run that is not ``schemaVersion "4"``.
         :raises ValueError: the call would not verify, or reuses a use id (v4); nothing was sealed and the run
-            stays usable."""
+            stays usable.
+        :raises PolicyDenied: the guard denied the call (after sealing it and its enforcement record): do not
+            execute the tool.
+        :raises RunHalted: the run is halted."""
         if definition is not None and self._schema_version != "4":
             raise RuntimeError("A tool-definition object needs a v2 policy control set (schemaVersion 4).")
         use_id = use_id if use_id is not None else str(uuid.uuid4())
@@ -532,6 +581,18 @@ class AgentRun:
         artifact = self._record_internal("tool_call", objects, {"tool": _tool_block(tool, operation, use_id)},
                                          consequential)
         return ToolCall(self, tool, use_id, artifact)
+
+    def invoke_tool(self, tool: str, arguments: bytes, func: Callable[[], bytes], *, operation: Optional[str] = None,
+                    consequential: bool = False, content_type: str = "application/json", use_id: Optional[str] = None,
+                    definition: Optional[bytes] = None) -> bytes:
+        """Begins the call (:meth:`begin_tool_call`), runs ``func()`` only if it is allowed, seals what it returns as
+        the call's result and returns it. A denied call raises :class:`PolicyDenied` and ``func`` never runs; an
+        exception from ``func`` seals no result."""
+        call = self.begin_tool_call(tool, arguments, operation=operation, consequential=consequential,
+                                    content_type=content_type, use_id=use_id, definition=definition)
+        result = func()
+        call.complete(result)
+        return result
 
     def record_authorization(self, authorization: AgentAuthorization) -> AgentRunArtifact:
         """A policy decision taken before an action, e.g. "this write needs approval"."""
@@ -634,10 +695,13 @@ class AgentRun:
 
     def finish(self, disposition: str = "completed", detail: Optional[str] = None) -> AgentRunBundle:
         """Seals ``run_end`` (always timestamped), closing the run, and returns
-        the bundle. ``disposition``: completed | failed | aborted."""
+        the bundle. ``disposition``: completed | failed | aborted. A run the guard halted is closed already: its
+        bundle is returned and nothing more is sealed."""
         if disposition not in _DISPOSITIONS:
             raise ValueError("disposition must be completed, failed or aborted.")
         with self._lock:
+            if self._halted.is_set():
+                return self.to_bundle()
             self._ensure_open()
             if disposition == "completed" and self._outstanding:
                 raise RuntimeError(f"{len(self._outstanding)} delegation(s) have no result: record them first, or close "
@@ -650,7 +714,7 @@ class AgentRun:
             }
             artifact = self._seal_event("run_end", [], _detail(step, detail), consequential=False)
             bundle = self.to_bundle()
-        self._notify(artifact, artifact.seq)
+        self._notify_all(artifact)
         return bundle
 
     def to_bundle(self) -> AgentRunBundle:
@@ -685,10 +749,15 @@ class AgentRun:
             self._ensure_open()
             if child in self._outstanding or child in self._resolved:
                 raise ValueError(f"'{child}' is already delegated by this run (§4 rule 10).")
-            # This event, a result for every open delegation including this one, and run_end must fit.
-            if len(self._artifacts) + 1 + len(self._outstanding) + 1 + 1 > MAX_ARTIFACTS:
+            # This event, a result for every open delegation including this one, and run_end must fit; in enforce mode
+            # also an enforcement record (enforcement §4 rule 4).
+            if len(self._artifacts) + 1 + len(self._outstanding) + 1 + 1 + self._enforcing > MAX_ARTIFACTS:
                 raise RuntimeError(f"No room for another delegation: the bundle limit of {MAX_ARTIFACTS} is reserved "
-                                   f"for run_end and the results of {len(self._outstanding)} open delegation(s).")
+                                   f"for run_end and the results of {len(self._outstanding)} open delegation(s)."
+                                   if not self._enforcing else
+                                   f"No room for another delegation: the bundle limit of {MAX_ARTIFACTS} is reserved "
+                                   f"for run_end, the guard's enforcement record and the results of "
+                                   f"{len(self._outstanding)} open delegation(s).")
             block: dict = {"childCorrelationId": child, "childAgentId": child_agent_id}
             if use_id is not None:
                 block["useId"] = use_id
@@ -696,9 +765,9 @@ class AgentRun:
                 [AgentRunObject("delegation-input", instruction, instruction_content_type)]
             artifact = self._seal_event("delegation", objects, {"delegation": block}, consequential=consequential)
             self._outstanding[child] = artifact.seq
-        self._notify(artifact, artifact.seq)
+        self._notify_all(artifact)  # a halt on this delegation raises RunHalted: the child is never started
         return AgentDelegation(self.correlation_id, artifact.signature_sha256, child, child_agent_id,
-                               artifact=artifact)
+                               artifact=artifact, _parent_run=self)
 
     def complete_delegation(self, child: "AgentRun | str", child_run_end_signature_sha256: Optional[str] = None,
                             child_disposition: Optional[str] = None) -> AgentRunArtifact:
@@ -736,15 +805,16 @@ class AgentRun:
             artifact = self._seal_event("delegation_result", [], {"delegation": block}, consequential=False)
             del self._outstanding[child]
             self._resolved.add(child)
-        self._notify(artifact, artifact.seq)
+        self._notify_all(artifact)
         return artifact
 
     # ── sealing ──
 
     def _seal_event(self, step_type: str, objects: list[AgentRunObject], fields: dict, *,
-                    consequential: bool) -> AgentRunArtifact:
+                    consequential: bool, _by_guard: bool = False) -> AgentRunArtifact:
         """Builds, validates and seals one event. Call with the lock held (or
-        before the run is published); the callback is the caller's job."""
+        before the run is published); the callback is the caller's job. Every
+        event passes here, so the guard decides each one right after it is sealed."""
         now = _truncate(self._clock())  # the decision below must use the signed, truncated time
         seq = len(self._artifacts)
         coverage = copy.copy(self._coverage)  # committed only once the event is sealed
@@ -811,7 +881,62 @@ class AgentRun:
         except BaseException:
             self._broken = True
             raise
+        if self._guard is not None:
+            self._apply_guard(artifact, not _by_guard)
         return artifact
+
+    def _apply_guard(self, artifact: AgentRunArtifact, producer: bool) -> None:
+        """Control Set v2 §7, under the lock right after ``artifact`` is sealed: the guard's decision, then its record
+        and the halt sealed directly after it, with no other event of the run in between. What the recording call
+        must deliver and raise is kept for :meth:`_deliver`. Any failure here breaks the run: a decision that could
+        not be sealed must never let the run go on."""
+        if not producer:
+            self._guard.after(artifact, False, self.control_artifact)  # counts the guard's own event in the facts
+            return
+        seq = artifact.seq
+        delivery = _Delivery()
+        try:
+            outcome = self._guard.after(artifact, True, self.control_artifact)
+            if outcome is None:
+                return
+            self._decisions[seq] = delivery
+            tool = _obj(artifact.envelope["step"].get("tool")) or {}
+            name, use_id = _str(tool.get("name")), _str(tool.get("useId"))
+            if outcome.reason is None:
+                delivery.event = EnforcementEvent("observed", None, outcome.rules, name, use_id, seq)
+                return
+            fields: dict = {"decision": "denied"}
+            if outcome.tool is not None:
+                fields["tool"] = outcome.tool
+            if outcome.rules:
+                fields["rules"] = list(outcome.rules)
+            fields["enforcer"] = {"engine": self._guard.engine_name, "factsVersion": "2", "reason": outcome.reason}
+            record = self._seal_event("authorization", [], fields, consequential=False, _by_guard=True)
+            delivery.sealed.append(record)
+            if outcome.tool is not None:
+                self._tool_calls[outcome.tool["useId"]] = ("denied", outcome.tool["name"])
+            if outcome.halt:
+                delivery.sealed.append(self._seal_event("run_end", [], {
+                    "finalSeq": len(self._artifacts), "finalPrevSignatureSha256": self._prev_signature_sha256,
+                    "runDisposition": "halted"}, consequential=False, _by_guard=True))
+                self._halt = (outcome.reason, outcome.rules, seq, record)
+                self._halted.set()
+            start = artifact.step_type == "run_start"
+            delivery.event = EnforcementEvent("start_refused" if start else "halted" if outcome.halt else "denied",
+                                              outcome.reason, outcome.rules, name, use_id, seq)
+            delivery.error = StartRefused(outcome.reason, self) if start else \
+                PolicyDenied(outcome.reason, outcome.rules, name, use_id, seq, record, outcome.halt) \
+                if outcome.tool is not None else RunHalted(outcome.reason, outcome.rules, seq, record)
+        except BaseException as ex:  # noqa: BLE001 — delivered to the recording call after the sealed events
+            self._broken = True
+            self._decisions[seq] = _Delivery(delivery.sealed, None, ex)
+
+    @property
+    def _enforcing(self) -> bool:
+        return self._guard is not None and self._guard.enforcing
+
+    def _halted_error(self) -> RunHalted:
+        return RunHalted(*self._halt)  # type: ignore[misc]
 
     def _check_uri_reuse(self, digests: Mapping[str, str]) -> None:
         """§5: a URI used again in this run must name the same content (the verifier fails it otherwise)."""
@@ -820,34 +945,77 @@ class AgentRun:
             if earlier is not None and earlier != hex_:
                 raise ValueError(f"Object URI '{uri}' was already sealed in this run with different content.")
 
-    def _notify(self, artifact: AgentRunArtifact, seq: int) -> None:
+    def _notify_all(self, artifact: AgentRunArtifact) -> None:
+        failure = self._deliver(artifact)
+        if failure is not None:
+            raise failure
+
+    def _deliver(self, artifact: AgentRunArtifact, before: Sequence[tuple[AgentRunArtifact, int]] = ()) \
+            -> Optional[BaseException]:
+        """Delivers ``before``, the event and what the guard sealed after it to the callbacks, in seal order — the
+        guard's :class:`EnforcementEvent` with the last of them — even when one fails. Then raises what the guard
+        decided for the caller (from the callback failure, if any); otherwise returns the first callback failure."""
+        delivery = self._decisions.pop(artifact.seq, None)  # set by this thread's seal; popped once, here
+        if delivery is None and not before:
+            self._notify(artifact, artifact.seq)
+            return None
+        items = [*before, (artifact, artifact.seq)] + [(a, a.seq) for a in (delivery.sealed if delivery else [])]
+        failure: Optional[BaseException] = None
+        try:
+            for i, (a, seq) in enumerate(items):
+                try:
+                    self._notify(a, seq, delivery.event if delivery is not None and i == len(items) - 1 else None)
+                except (Exception, asyncio.CancelledError) as ex:  # noqa: BLE001 — every failure, a cancellation
+                    if failure is None:                                 # included, surfaces after all are delivered
+                        failure = ex
+        finally:  # a KeyboardInterrupt or SystemExit in a callback must not leave later events waiting forever
+            with self._notify_cond:
+                self._next_notify = max(self._next_notify, items[-1][1] + 1)
+                self._notify_cond.notify_all()
+        if delivery is not None and delivery.error is not None:
+            if failure is not None:
+                raise delivery.error from failure
+            raise delivery.error
+        return failure
+
+    def _notify(self, artifact: AgentRunArtifact, seq: int, event: Optional[EnforcementEvent] = None) -> None:
         """Runs the callback outside the lock, so it may call back into the
         run, and in order (the Control Artifact as -1, then each seq):
         concurrent events wait their turn, so a crash can leave the persisted
         prefix short, never with a hole. An event recorded from inside a
         callback is delivered immediately (it is next in order, and waiting
         would deadlock on the callback that recorded it). A failing callback
-        is the caller's error and does not break the run."""
+        is the caller's error and does not break the run. ``event`` goes to
+        ``on_event`` in the same turn, after ``on_artifact_sealed``, even when that fails."""
         nested = getattr(self._in_callback, "active", False)
         with self._notify_cond:
             if not nested:
                 self._notify_cond.wait_for(lambda: self._next_notify >= seq)
         try:
-            if self._on_sealed is not None:
-                self._in_callback.active = True
-                try:
-                    self._on_sealed(artifact)
-                finally:
-                    self._in_callback.active = nested
+            try:
+                if self._on_sealed is not None:
+                    self._callback(self._on_sealed, artifact, nested)
+            finally:
+                if event is not None and self._on_event is not None:
+                    self._callback(self._on_event, event, nested)
         finally:
             with self._notify_cond:
                 self._next_notify = max(self._next_notify, seq + 1)
                 self._notify_cond.notify_all()
 
+    def _callback(self, callback: Callable[[Any], None], arg: Any, nested: bool) -> None:
+        self._in_callback.active = True
+        try:
+            callback(arg)
+        finally:
+            self._in_callback.active = nested
+
     def _ensure_open(self) -> None:
         if self._broken:
             raise RuntimeError("The run's chain is broken by an earlier sealing failure; no further events can be "
                                "sealed.")
+        if self._halt is not None:
+            raise self._halted_error()
         if self._finished:
             raise RuntimeError("The run is finished.")
 

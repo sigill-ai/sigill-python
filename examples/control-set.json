@@ -1,0 +1,59 @@
+{
+  "schemaVersion": "2",
+  "id": "example-support-agent",
+  "version": "1",
+  "controls": [],
+  "cedar": {
+    "policies": {
+      "staticPolicies": {
+        "no-file-deletion": {
+          "effect": "forbid",
+          "principal": { "op": "All" },
+          "action": { "op": "==", "entity": { "type": "Action", "id": "tool_call" } },
+          "resource": { "op": "==", "entity": { "type": "Tool", "id": "fs.delete" } },
+          "conditions": [],
+          "annotations": { "id": "no-file-deletion", "effect": "deny" }
+        },
+        "refund-needs-approval": {
+          "effect": "forbid",
+          "principal": { "op": "All" },
+          "action": { "op": "==", "entity": { "type": "Action", "id": "tool_call" } },
+          "resource": { "op": "in", "entity": { "type": "ToolGroup", "id": "payments" } },
+          "conditions": [
+            { "kind": "unless", "body": { "==": {
+              "left": { ".": { "left": { "Var": "context" }, "attr": "approval" } },
+              "right": { "Value": "bound" } } } }
+          ],
+          "annotations": { "id": "refund-needs-approval" }
+        },
+        "repeated-search": {
+          "effect": "forbid",
+          "principal": { "op": "All" },
+          "action": { "op": "==", "entity": { "type": "Action", "id": "tool_call" } },
+          "resource": { "op": "==", "entity": { "type": "Tool", "id": "docs.search" } },
+          "conditions": [
+            { "kind": "when", "body": { ">": {
+              "left": { ".": { "left": { "Var": "context" }, "attr": "callsOfThisTool" } },
+              "right": { "Value": 2 } } } }
+          ],
+          "annotations": { "id": "repeated-search", "effect": "observe" }
+        }
+      }
+    },
+    "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825",
+    "entities": [
+      { "uid": { "type": "Tool", "id": "docs.search" }, "attrs": { "consequential": false }, "parents": [] },
+      { "uid": { "type": "Tool", "id": "fs.delete" }, "attrs": { "consequential": true }, "parents": [] },
+      { "uid": { "type": "Tool", "id": "payments.refund" }, "attrs": { "consequential": true },
+        "parents": [ { "type": "ToolGroup", "id": "payments" } ] },
+      { "uid": { "type": "ToolGroup", "id": "payments" }, "attrs": {}, "parents": [] }
+    ]
+  },
+  "enforcement": {
+    "mode": "enforce",
+    "defaultEffect": "deny",
+    "unknownTools": "deny",
+    "onRuleError": "deny",
+    "haltAfterDenials": 3
+  }
+}

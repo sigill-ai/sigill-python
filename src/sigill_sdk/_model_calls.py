@@ -13,7 +13,9 @@ any other provider, or a gateway in front of one, call ``AgentRun.record_model_c
 pass through unrecorded. The request and
 response bodies are sealed as digests only; their content never leaves the process. A streamed response
 (server-sent events) is recorded with the identifiers in its headers only. The run must be started with
-``records_model_calls=True``. A failure to record never fails the model call: it is reported to ``on_error``.
+``records_model_calls=True``. A failure to record never fails the model call: it is reported to ``on_error``. The
+one exception is the run's guard: a halt on the recorded call raises :class:`RunHalted`, and a halted run makes no
+further model calls through the transport.
 
 Mirrors the .NET SDK's ``ModelCallHandler`` / ``ModelCallParser``.
 """
@@ -27,6 +29,7 @@ from urllib.parse import unquote
 
 import httpx
 
+from sigill_sdk._agent_guard import RunHalted
 from sigill_sdk._agent_types import ModelCall, ModelInfo, ModelUsage, VendorRef
 
 _ANTHROPIC, _OPENAI, _AZURE_OPENAI, _BEDROCK = "anthropic", "openai", "azure-openai", "bedrock"
@@ -186,6 +189,11 @@ def _deployment_of(path: str) -> Optional[str]:
     return _fit(parts[i + 1], 255) if 0 <= i < len(parts) - 1 else None
 
 
+def _refuse_if_halted(run: Any) -> None:
+    if getattr(run, "halted", False) is True:
+        raise run._halted_error()
+
+
 def _replay(response: httpx.Response, raw: bytes, request: httpx.Request) -> httpx.Response:
     """A fresh response over the raw (still content-encoded) bytes: the caller reads it exactly as it would
     have read the original."""
@@ -214,6 +222,7 @@ class ModelCallTransport(httpx.BaseTransport):
         api = _classify(request)
         if api is None:
             return self._inner.handle_request(request)
+        _refuse_if_halted(self._run)
         request_body = request.read() or None  # read() also makes the body replayable for the inner transport
         response = self._inner.handle_request(request)
         response_body = None
@@ -228,6 +237,8 @@ class ModelCallTransport(httpx.BaseTransport):
             call = _parse(api, request, request_body, response, response_body)
             if call is not None:
                 self._run.record_model_call(call, request_body, response_body)
+        except RunHalted:  # the guard stopped the run: the agent must not go on
+            raise
         except Exception as ex:  # noqa: BLE001 — recording never fails the model call
             if self._on_error is not None:
                 self._on_error(ex)
@@ -255,6 +266,7 @@ class AsyncModelCallTransport(httpx.AsyncBaseTransport):
         api = _classify(request)
         if api is None:
             return await self._inner.handle_async_request(request)
+        _refuse_if_halted(self._run)
         request_body = (await request.aread()) or None
         response = await self._inner.handle_async_request(request)
         response_body = None
@@ -268,6 +280,8 @@ class AsyncModelCallTransport(httpx.AsyncBaseTransport):
             call = _parse(api, request, request_body, response, response_body)
             if call is not None:
                 await asyncio.to_thread(self._run.record_model_call, call, request_body, response_body)
+        except RunHalted:  # the guard stopped the run: the agent must not go on
+            raise
         except Exception as ex:  # noqa: BLE001 — recording never fails the model call
             if self._on_error is not None:
                 self._on_error(ex)

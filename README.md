@@ -499,12 +499,8 @@ A run whose control set is a [policy control set v2](spec/agent-policy-control-s
 (`"schemaVersion": "2"`, loaded with `AgentPolicy.control_set_from_document`) is
 sealed as execution `schemaVersion "4"` ([Agent Enforcement v1](spec/agent-enforcement-v1.md)).
 Every tool call then carries a use id, unique in the run, and its result names it.
-**This release records and verifies v4; it does not enforce yet:** nothing denies a
-call or halts a run. The recorder offers no way to write an enforcement record (or
-`rules` on an event); a producer that signs one by other means is not stopped by this
-API — that is detected by recomputing the decisions from the control set and the events,
-except a record with reason `unavailable`: whether the engine in fact failed cannot be
-recomputed ([Agent Enforcement v1](spec/agent-enforcement-v1.md) §6).
+Only the guard ([Enforcement](#enforcement-deny-a-call-halt-a-run)) writes enforcement records:
+`record` refuses `enforcer` and `rules` on an event.
 
 `begin_tool_call` seals the call and returns a `ToolCall` that seals the matching
 result. The use id is generated unless you pass one; `definition` seals the digest
@@ -570,7 +566,86 @@ set from its sealed facts; results that differ make that evaluation invalid, nam
 rule that differs, and so does a request the engine refuses. An evaluation made with another
 Cedar version, an engine failure, or a verification past its recomputation budget
 (a fixed number of control-set bytes × facts requests) is not recomputed (a note says so). Without an engine nothing changes: the results are the evaluator's.
-**The SDK still does not enforce:** nothing here denies a call or halts a run.
+
+### Enforcement: deny a call, halt a run
+
+A v2 policy control set with `"enforcement": {"mode": "enforce", ...}` makes the SDK's
+guard stop the agent before the action ([Control Set v2](spec/agent-policy-control-set-v2.md) §6–§8,
+[Agent Enforcement v1](spec/agent-enforcement-v1.md)). Such a run needs a policy engine;
+starting it without one is a `ValueError`, and the control set is validated strictly
+before anything is sealed.
+
+```python
+from sigill_sdk import CedarEngine, Enforcement, PolicyDenied, RunHalted
+
+run = client.start_agent_run(agent, certificate_id=cert_id, activity="refund",
+                             control_set=AgentPolicy.control_set_from_document(document),
+                             enforcement=Enforcement(CedarEngine(), on_event=print))
+try:
+    result = run.invoke_tool("payments.refund", args_json, lambda: refund(args_json),
+                             consequential=True)    # refund() runs only if the call is allowed
+except PolicyDenied as denied:
+    print(denied.reason, denied.rules, denied.use_id, denied.halted)
+except RunHalted:
+    pass                                            # the run is over; stop the agent
+bundle = run.finish()                               # a halted run: its bundle, nothing more sealed
+```
+
+The guard evaluates every event after it is sealed. What the caller sees:
+
+- **A denied call.** The `tool_call` is sealed (the attempt), then one enforcement record
+  (`authorization` with `enforcer`) directly after it, then `begin_tool_call`,
+  `record_tool_call` or `invoke_tool` raises `PolicyDenied` (`reason`, `rules`, `tool`,
+  `use_id`, `seq`, `record`, `halted`). No `ToolCall` is returned, and a result for that
+  use id is refused. A retry is a new call with a new use id.
+- **A halt.** A matching `halt` rule, `haltAfterDenials`, or an engine that fails (reason
+  `unavailable`) seals the record and then `run_end` with `runDisposition: "halted"`. The
+  recording call raises `RunHalted` (or `PolicyDenied` with `halted`), `run.halted` is true,
+  every later recording call raises `RunHalted` repeating the halt's `reason`, `rules`, `seq`
+  and `record`, and a child of the halted run is not started.
+  The model-call transport raises it too, and sends no further model calls.
+- **A refused start.** A `lockedConfiguration` digest that differs from the Control
+  Artifact's, an engine that cannot load or cannot validate the control set, or a `halt` rule
+  on `run_start`: `start_agent_run` raises `StartRefused`, whose
+  `run` is the closed run (Control Artifact, `run_start`, record, halted `run_end`).
+- **`on_event`** receives an `EnforcementEvent` (`denied`, `halted`, `start_refused`, or
+  `observed` for rules that matched without effect, such as an `observe` rule; `tool` and
+  `use_id` are set on a `tool_call` or `tool_result`) after the evidence is sealed, in seal
+  order, before the exception reaches the caller. Any engine answer that is not a
+  well-formed `isAuthorized` answer counts as an engine failure.
+- Messages and attributes name the tool, the use id, rule ids, the reason and seqs; never
+  arguments, results or definitions.
+
+The decision, its record and the halt are sealed under the run's lock, with no other event
+in between, also when several threads record on one run. A sealing failure breaks the run as
+before, and the tool does not run. In enforce mode the event budget keeps room for one
+enforcement record and the halting `run_end`. With `mode: "observe"`, a v1 control set or
+another control set, nothing is denied or sealed; an engine passed anyway reports matching
+rules as `observed`, and if it cannot load or validate at the start, `start_agent_run` raises
+its `PolicyEngineError` before anything is sealed.
+
+Examples (scripted agents, no model calls) in [`examples/`](examples/), with their
+[control set](examples/control-set.json); each reads `SIGILL_API_KEY`,
+`SIGILL_CERTIFICATE_ID`, `SIGILL_BASE_URL` (default: the SDK's default endpoint) and
+`SIGILL_CA_BUNDLE` (for a private CA), and prints its run and verification:
+
+- `loop_until_halted.py`: an agent retries a forbidden call until the run is halted;
+- `graph_agent.py`: two branches record concurrently on one run, one is denied, the other
+  finishes, plus a delegated child run;
+- `approval_flow.py`: a refund is denied, approved with `covers`, retried and allowed.
+
+What enforcement does and does not show:
+
+- Enforcement is done by the producer's own SDK, in the producer's process.
+- A stop means the SDK refused the call; it does not mean the tool could not be reached
+  another way.
+- That a denied tool did not run is not proven by the evidence; the evidence shows the
+  denial and that no result was recorded.
+- Anyone with the control set and the signed events can recompute every decision, except a
+  record with reason `unavailable`: whether the engine in fact failed cannot be recomputed.
+- An engine that does not answer holds the run: there is no timeout on a decision.
+- A child run is refused after its parent halted only when it is started from the delegation
+  object the parent returned in the same process.
 
 ### Sub-agents: run trees
 

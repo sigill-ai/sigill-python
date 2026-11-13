@@ -1,6 +1,7 @@
 """Agent Policy Control Set v2 and Agent Enforcement v1 (Execution Evidence v4): validation, digests and the
 enforcement view against vector 13; facts v2, the v4 schema and the verifier's enforcement findings against
-vector 14; the recorder's tool-call lifecycle and bound approvals. No guard: nothing here denies or halts.
+vector 14; the recorder's tool-call lifecycle and bound approvals. No guard: nothing here denies or halts (the guard
+is tested in test_agent_guard.py).
 """
 
 from __future__ import annotations
@@ -224,7 +225,9 @@ def test_each_findings_run_produces_exactly_its_findings(name: str) -> None:
 # ── Recorder: Execution Evidence v4 and the tool-call lifecycle ─────────────
 
 def _v4_run(sealer: StubSealer, **opts):  # noqa: ANN202
-    return _start(_client(sealer), control_set=AgentPolicy.control_set_from_document(DOC), **opts)
+    # Vector 13's document in observe mode: an enforcing one needs enforcement= (test_agent_guard.py).
+    observe = _with_enforcement({**json.loads(DOC)["enforcement"], "mode": "observe"})
+    return _start(_client(sealer), control_set=AgentPolicy.control_set_from_document(observe), **opts)
 
 
 def test_a_v2_policy_run_seals_v4_and_pairs_calls_with_generated_use_ids() -> None:

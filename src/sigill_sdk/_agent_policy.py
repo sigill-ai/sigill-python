@@ -11,6 +11,7 @@ approved document as a file and pass the same bytes to every run.
 
 from __future__ import annotations
 
+import copy
 import json
 import math
 from decimal import Decimal
@@ -148,6 +149,22 @@ def _engine_messages(answer: dict) -> str:
     errors = answer.get("errors")
     return "; ".join(str(e.get("message")) for e in (errors if isinstance(errors, list) else [])
                      if isinstance(e, dict)) or "no message"
+
+
+def _diagnostics(answer: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """(matching rules without the baseline permit, erroring rules), each sorted and unique, from the one answer shape
+    accepted: ``type`` "success", ``response.diagnostics.reason`` a list of strings, ``response.diagnostics.errors`` a
+    list of objects each with a string ``policyId``, and ``response.decision`` "deny" exactly when ``reason`` without
+    the baseline permit is non-empty, else "allow" (with the baseline permit in every call, the core gives nothing
+    else). Anything else raises :class:`PolicyEngineError` — the guard and the evaluator fail closed on it."""
+    response = answer.get("response") if isinstance(answer, dict) and answer.get("type") == "success" else None
+    d = response.get("diagnostics") if isinstance(response, dict) else None
+    reason, errors = (d.get("reason"), d.get("errors")) if isinstance(d, dict) else (None, None)
+    if not isinstance(reason, list) or not all(isinstance(x, str) for x in reason) or not isinstance(errors, list) \
+            or not all(isinstance(e, dict) and isinstance(e.get("policyId"), str) for e in errors) \
+            or response.get("decision") != ("deny" if set(reason) - {BASELINE_PERMIT} else "allow"):
+        raise PolicyEngineError("The policy engine's answer is not an isAuthorized answer.")
+    return tuple(sorted(set(reason) - {BASELINE_PERMIT})), tuple(sorted({e["policyId"] for e in errors}))
 
 
 def _is_v2(document: bytes) -> bool:
@@ -444,6 +461,65 @@ def _approval_v2(step: dict, arguments_sha256: Optional[str], approvals: list[tu
     return "unbound" if approvals else "none"
 
 
+def _step(e: dict) -> dict:
+    return _obj(e.get("step")) or {}
+
+
+def _step_type(e: dict) -> str:
+    return _str(_step(e).get("type")) or ""
+
+
+def _tool(e: dict, name: str) -> Optional[str]:
+    return _str((_obj(_step(e).get("tool")) or {}).get(name))
+
+
+class _Facts:
+    """The running state of a run's facts: :meth:`next` builds each event's request, in seq order, in O(1) — O(earlier
+    approvals) for a v2 ``tool_call``. Shared by the facts builder and the guard, so both build the same request."""
+
+    def __init__(self, agent_id: str, is_child_run: bool, v2: bool) -> None:
+        self.agent_id, self.is_child_run, self.v2 = agent_id, is_child_run, v2
+        self.consequential_count = self.tool_calls = self.denials = 0
+        self.approvals: list[tuple[int, dict]] = []  # earlier human_approval steps
+        self.consumed: set[int] = set()
+        self.calls_of: dict[Optional[str], int] = {}
+
+    def next(self, seq: int, e: dict, digests: Mapping[str, str]) -> dict:
+        """The request of event ``e`` at ``seq`` (v1 §5; v2 §8 with its object ``digests``); then counts it."""
+        type_ = _step_type(e)
+        consequential = _step(e).get("consequential") is True
+        if consequential:
+            self.consequential_count += 1
+        context = _context(consequential, _tool(e, "operation") or "", seq,
+                           "unbound" if self.approvals else "none", self.is_child_run, 0, self.consequential_count, 0)
+        if self.v2:
+            if type_ == "tool_call":
+                self.tool_calls += 1
+                self.calls_of[_tool(e, "name")] = self.calls_of.get(_tool(e, "name"), 0) + 1
+                objs = e.get("objects")
+                args = [o for o in (objs if isinstance(objs, list) else [])
+                        if isinstance(o, dict) and o.get("role") == "tool-arguments"]
+                digest = digests.get(_str(args[0].get("uri")) or "") if len(args) == 1 else None
+                context["approval"] = _approval_v2(_step(e), digest, self.approvals, self.consumed)
+            context["toolCallsSoFar"] = self.tool_calls
+            # An absent tool name equals nothing, not even another absent one.
+            context["callsOfThisTool"] = self.calls_of.get(_tool(e, "name"), 0) \
+                if type_ in ("tool_call", "tool_result") and _tool(e, "name") is not None else 0
+            context["denialsSoFar"] = self.denials
+            if _is_record(_step(e)):
+                self.denials += 1
+        if type_ == "human_approval":
+            self.approvals.append((seq, _step(e)))
+        return {
+            "seq": seq,
+            "principal": {"type": "Agent", "id": self.agent_id},
+            "action": {"type": "Action", "id": type_},
+            "resource": {"type": "Tool", "id": _tool(e, "name") or ""} if type_ in ("tool_call", "tool_result")
+            else {"type": "Step", "id": str(seq)},
+            "context": context,
+        }
+
+
 def _build_facts(agent_id: str, correlation_id: str, events: Iterable[dict],
                  claimed_missing: Optional[Sequence[int]],
                  v2: Optional[tuple[Mapping[int, Mapping[str, str]], list]] = None) -> PolicyFacts:
@@ -466,64 +542,17 @@ def _build_facts(agent_id: str, correlation_id: str, events: Iterable[dict],
             raise ValueError(f"the prefix is not contiguous (seq {missing[0]} missing)")
         missing = list(claimed_missing)
     prefix = [(s, by_seq[s]) for s in sorted(by_seq) if s <= through_seq]
-
-    def step(e: dict) -> dict:
-        return _obj(e.get("step")) or {}
-
-    def step_type(e: dict) -> str:
-        return _str(step(e).get("type")) or ""
+    step, step_type, tool = _step, _step_type, _tool
 
     def consequential_of(e: dict) -> bool:
         return step(e).get("consequential") is True
 
-    def tool(e: dict, name: str) -> Optional[str]:
-        return _str((_obj(step(e).get("tool")) or {}).get(name))
-
-    def principal() -> dict:
-        return {"type": "Agent", "id": agent_id}
-
     first = by_seq.get(0)
     is_child_run = first is not None and step_type(first) == "run_start" \
         and bool(_str((_obj(first.get("binds")) or {}).get("parentCorrelationId")))
-    requests: list[dict] = []
-    consequential_count = 0
-    approvals: list[tuple[int, dict]] = []  # earlier human_approval steps
-    consumed: set[int] = set()
-    tool_calls = denials = 0
-    calls_of: dict[Optional[str], int] = {}
-    for seq, e in prefix:
-        type_ = step_type(e)
-        consequential = consequential_of(e)
-        if consequential:
-            consequential_count += 1
-        context = _context(consequential, tool(e, "operation") or "", seq,
-                           "unbound" if approvals else "none", is_child_run, 0, consequential_count, 0)
-        if v2 is not None:
-            if type_ == "tool_call":
-                tool_calls += 1
-                calls_of[tool(e, "name")] = calls_of.get(tool(e, "name"), 0) + 1
-                objs = e.get("objects")
-                args = [o for o in (objs if isinstance(objs, list) else [])
-                        if isinstance(o, dict) and o.get("role") == "tool-arguments"]
-                digest = v2[0].get(seq, {}).get(_str(args[0].get("uri")) or "") if len(args) == 1 else None
-                context["approval"] = _approval_v2(step(e), digest, approvals, consumed)
-            context["toolCallsSoFar"] = tool_calls
-            # An absent tool name equals nothing, not even another absent one.
-            context["callsOfThisTool"] = calls_of.get(tool(e, "name"), 0) \
-                if type_ in ("tool_call", "tool_result") and tool(e, "name") is not None else 0
-            context["denialsSoFar"] = denials
-            if _is_record(step(e)):
-                denials += 1
-        requests.append({
-            "seq": seq,
-            "principal": principal(),
-            "action": {"type": "Action", "id": type_},
-            "resource": {"type": "Tool", "id": tool(e, "name") or ""} if type_ in ("tool_call", "tool_result")
-            else {"type": "Step", "id": str(seq)},
-            "context": context,
-        })
-        if type_ == "human_approval":
-            approvals.append((seq, step(e)))
+    state = _Facts(agent_id, is_child_run, v2 is not None)
+    requests = [state.next(seq, e, v2[0].get(seq, {}) if v2 is not None else {}) for seq, e in prefix]
+    consequential_count, tool_calls, denials = state.consequential_count, state.tool_calls, state.denials
 
     run_end = next(((s, e) for s, e in prefix if step_type(e) == "run_end"), None)
     run_level = run_end is not None and not missing
@@ -553,7 +582,7 @@ def _build_facts(agent_id: str, correlation_id: str, events: Iterable[dict],
             context.update(toolCallsSoFar=tool_calls, callsOfThisTool=0, denialsSoFar=denials)
         requests.append({
             "seq": "run",
-            "principal": principal(),
+            "principal": {"type": "Agent", "id": agent_id},
             "action": {"type": "Action", "id": "run"},
             "resource": {"type": "Run", "id": correlation_id},
             "context": context,
@@ -764,16 +793,13 @@ class AgentPolicy:
         out = []
         for r in requests:
             seq = str(r.get("seq"))
-            answer = engine.authorize({**{k: r.get(k) for k in ("principal", "action", "resource", "context")}, **base})
-            if answer.get("type") != "success":
+            # A copy per request: an engine that changes its input cannot change a later request.
+            answer = engine.authorize(copy.deepcopy(
+                {**{k: r.get(k) for k in ("principal", "action", "resource", "context")}, **base}))
+            if isinstance(answer, dict) and answer.get("type") != "success":
                 raise PolicyEngineError(f"The policy engine refused request {seq}: {_engine_messages(answer)}",
                                         refused=True)
-            try:
-                d = answer["response"]["diagnostics"]
-                reason = tuple(sorted(x for x in d["reason"] if x != BASELINE_PERMIT))
-                errs = tuple(sorted(e["policyId"] for e in d["errors"]))
-            except (KeyError, TypeError) as e:
-                raise PolicyEngineError("The policy engine's answer is not an isAuthorized answer.") from e
+            reason, errs = _diagnostics(answer)
             out.append(PolicyRequestResult(seq, reason, errs))
             for rid, result in [(rid, "INDETERMINATE") for rid in errs] + [(rid, "FAIL") for rid in reason]:
                 if rid in results:
