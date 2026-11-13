@@ -493,6 +493,49 @@ What to know:
   callable `(signature, digests) -> BlindObjectsVerdict`; `remote_verifier(client)`
   is the blind endpoint used above.
 
+### Tool calls and bound approvals (Execution Evidence v4, draft)
+
+A run whose control set is a [policy control set v2](spec/agent-policy-control-set-v2.md)
+(`"schemaVersion": "2"`, loaded with `AgentPolicy.control_set_from_document`) is
+sealed as execution `schemaVersion "4"` ([Agent Enforcement v1](spec/agent-enforcement-v1.md)).
+Every tool call then carries a use id, unique in the run, and its result names it.
+**This release records and verifies v4; it does not enforce yet:** nothing denies a
+call or halts a run. The recorder offers no way to write an enforcement record (or
+`rules` on an event); a producer that signs one by other means is not stopped by this
+API — that is detected by recomputing the decisions from the control set and the events,
+except a record with reason `unavailable`: whether the engine in fact failed cannot be
+recomputed ([Agent Enforcement v1](spec/agent-enforcement-v1.md) §6).
+
+`begin_tool_call` seals the call and returns a `ToolCall` that seals the matching
+result. The use id is generated unless you pass one; `definition` seals the digest
+of the tool's definition as your runtime holds it.
+
+```python
+call = run.begin_tool_call("crm.update_address", args_json, consequential=True,
+                           definition=manifest_entry_json)
+result = update_address(args_json)   # an exception here seals no result
+call.complete(result)
+```
+
+An approval can name the call it is for: a tool and the digest of its exact
+arguments, optionally one use id, optionally an expiry. Only digests are sealed.
+In the facts (`AgentPolicy.build_facts_v2`) an approval binds at most one call; a
+rejection is sticky for the run.
+
+```python
+from sigill_sdk import ApprovalCovers
+
+run.record_human_approval("approved", approver="urn:example:approver:7f3a",
+                          covers=ApprovalCovers.for_arguments("payments.refund", args_json,
+                                                              expires_at=deadline))
+run.begin_tool_call("payments.refund", args_json, consequential=True).complete(result)
+# or, for a call already sealed: covers=call.covers()
+```
+
+`verify_agent_run` adds the `enforcement` check for a v4 run (and fails an older run
+whose supplied policy control set is not a strict v1 document): its findings, such as a result
+without a call or a tool executed after a denial, are in `result.enforcement_findings`.
+
 ### Sub-agents: run trees
 
 An agent that starts sub-agents records each one as its own run, bound to the

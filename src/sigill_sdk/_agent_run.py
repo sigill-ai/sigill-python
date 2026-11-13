@@ -53,6 +53,7 @@ from sigill_sdk._agent_types import (
     AgentRunBundle,
     AgentRunObject,
     AgentTimestampPolicy,
+    ApprovalCovers,
     AttestedEvaluationRequest,
     ControlEvaluationRequest,
     EvaluationReference,
@@ -61,15 +62,17 @@ from sigill_sdk._agent_types import (
     PreparedEvaluation,
     QualifiedArtifacts,
 )
-from sigill_sdk._agent_policy import FACTS_VERSION, POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy, _build_facts
+from sigill_sdk._agent_policy import FACTS_VERSION, POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy, _build_facts, _is_v2
+from sigill_sdk._agent_policy import _parse as _parse_control_set
 from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
 from sigill_sdk._references import new_object_uri
 from sigill_sdk._sign_objects import SignedObjectDigest
 
+# "enforcer" and "rules" too: the recorder offers no way to write an enforcement record or a guard-looking denial.
 _RESERVED_STEP_FIELDS = frozenset({
     "type", "eventTime", "consequential", "timestamp", "finalSeq", "finalPrevSignatureSha256", "runDisposition",
-    "delegation", "model", "vendorRefs", "usage",
+    "delegation", "model", "vendorRefs", "usage", "covers", "enforcer", "rules",
 })
 _DISPOSITIONS = ("completed", "failed", "aborted")
 
@@ -203,6 +206,9 @@ class AgentRun:
         # delegation §4: open delegations (child correlationId → delegation seq) and those already resolved.
         self._outstanding: dict[str, int] = {}
         self._resolved: set[str] = set()
+        # v4: each tool_call useId → ("open" | "result", its tool name) (enforcement §3.2, §5); the guard phase adds
+        # "denied".
+        self._tool_calls: dict[str, tuple[str, Optional[str]]] = {}
         self.correlation_id = _correlation_id
         """The run identifier (``activity.correlationId``)."""
         self.control_artifact: AgentRunArtifact = None  # type: ignore[assignment]
@@ -247,7 +253,9 @@ class AgentRun:
         :param records_model_calls: the run records model calls with the provider's own identifiers
             (:meth:`record_model_call`, ``spec/agent-model-calls-v1.md``). Every event is sealed as
             ``schemaVersion "3"`` — v3 contains v2, so such a run can also delegate. Decided at start: one run
-            uses one version.
+            uses one version. A run whose ``control_set`` is a v2 policy control set (``schemaVersion "2"``) is
+            sealed as ``schemaVersion "4"`` (``spec/agent-enforcement-v1.md``), which contains v3: every tool call
+            then carries a unique use id.
         :param qualified_for: request qualified timestamps for these artifacts only, in addition to
             ``qualified``: the Control Artifact and ``run_end`` are the ones a declared policy rests on.
         :param disclose_policy: **preview** — share the declared policy with your Sigill organisation's evidence index:
@@ -277,7 +285,9 @@ class AgentRun:
         run = cls(_client=client, _agent=agent, _certificate_id=str(certificate_id), _activity=activity,
                   _policy=policy, _correlation_id=correlation,
                   _retain=retain_payloads, _qualified=qualified, _on_sealed=on_artifact_sealed, _clock=clock,
-                  _schema_version="3" if records_model_calls else "2" if delegating or _parent is not None else "1", _parent=_parent,
+                  _schema_version="4" if control_set.content_type == POLICY_CONTROL_SET_CONTENT_TYPE
+                  and _is_v2(control_set.content) else "3" if records_model_calls
+                  else "2" if delegating or _parent is not None else "1", _parent=_parent,
                   _qualified_for=QualifiedArtifacts(qualified_for))
 
         now = _truncate(clock())
@@ -407,20 +417,29 @@ class AgentRun:
         """
         if not step_type:
             raise ValueError("step_type is required.")
+        # Check what will be sealed, not the caller's objects: a str or dict subclass can make a check on the
+        # original miss a member that the JSON round trip still writes.
+        step_type = json.loads(json.dumps(step_type))
+        fields = json.loads(json.dumps(fields or {}))
         if step_type in ("run_start", "run_end"):
             raise ValueError(f"'{step_type}' is sealed by start() / finish().")
         if step_type in ("delegation", "delegation_result"):
             raise ValueError(f"'{step_type}' is sealed by delegate() / complete_delegation().")
-        reserved = sorted(_RESERVED_STEP_FIELDS.intersection(fields or {}))
+        reserved = sorted(_RESERVED_STEP_FIELDS.intersection(fields if isinstance(fields, dict) else {}))
         if reserved:
             raise ValueError(f"fields uses reserved step member(s): {', '.join(reserved)}")
         return self._record_internal(step_type, objects, fields, consequential, require_timestamp)
 
     def _record_internal(self, step_type: str, objects: Optional[Sequence[AgentRunObject]], fields: Optional[dict],
-                         consequential: bool, require_timestamp: bool = False) -> AgentRunArtifact:
-        """Seals one event whose step members are already checked (reserved members only from this class)."""
+                         consequential: bool, require_timestamp: bool = False, *,
+                         call: Optional["ToolCall"] = None) -> AgentRunArtifact:
+        """Seals one event whose step members are already checked (reserved members only from this class). Every
+        tool_call and tool_result of the run passes here, under the lock; ``call`` is the :class:`ToolCall` a
+        tool_result completes."""
         with self._lock:
             self._ensure_open()
+            if call is not None and call._result is not None:
+                raise RuntimeError(f"Tool call '{call.use_id}' already has its result.")
             # Keep the last slot for run_end, and one per open delegation for its result (delegation §4 rule 6),
             # so a bundle always fits MAX_ARTIFACTS and can finish.
             open_ = len(self._outstanding)
@@ -433,7 +452,29 @@ class AgentRun:
             step = json.loads(json.dumps(fields or {}))
             if require_timestamp:
                 step["timestamp"] = "required"
+            # v4: refuse before sealing what the verifier would report (enforcement §5): a reused call useId, a
+            # result for no earlier call (orphan_result), a second result (conflicting_result), a result naming
+            # another tool than its call (§3.2).
+            v4_tool = self._schema_version == "4" and step_type in ("tool_call", "tool_result")
+            tool = _obj(step.get("tool")) or {}
+            use_id = _str(tool.get("useId")) if v4_tool else None
+            state, called = self._tool_calls.get(use_id, (None, None)) if use_id is not None else (None, None)
+            if use_id is not None and step_type == "tool_call" and state is not None:
+                raise ValueError(f"use_id '{use_id}' is already used by a tool_call of this run; a retry is a new call "
+                                 f"with a new use id (enforcement §3.2).")
+            if use_id is not None and step_type == "tool_result":
+                if state != "open":
+                    raise ValueError(f"No tool_call of this run with use_id '{use_id}' awaits a result." if state is None
+                                     else f"The tool_call with use_id '{use_id}' already has its result.")
+                if tool.get("name") != called:
+                    raise ValueError(f"The tool_call with use_id '{use_id}' was made to tool '{called}'; its result "
+                                     f"cannot name another tool.")
             artifact = self._seal_event(step_type, list(objects or []), step, consequential=consequential)
+            if use_id is not None:
+                self._tool_calls[use_id] = ("open", _str(tool.get("name"))) if step_type == "tool_call" \
+                    else ("result", called)
+            if call is not None:
+                call._result = artifact
         self._notify(artifact, artifact.seq)
         return artifact
 
@@ -448,15 +489,49 @@ class AgentRun:
                          use_id: Optional[str] = None) -> AgentRunArtifact:
         """A tool call the agent decided to make. ``operation`` classifies it
         (e.g. ``read``, ``update``); mark write-class calls ``consequential``.
-        ``use_id`` correlates the call with its result."""
+        ``use_id`` correlates the call with its result. In a ``schemaVersion "4"`` run (a v2 policy control set)
+        every call has one, unique in the run: it is generated when not given. :meth:`begin_tool_call` pairs
+        the result for you."""
+        if use_id is None and self._schema_version == "4":
+            use_id = str(uuid.uuid4())
         return self.record("tool_call", [AgentRunObject("tool-arguments", arguments, content_type)],
                            {"tool": _tool_block(tool, operation, use_id)}, consequential=consequential)
 
     def record_tool_result(self, tool: str, result: bytes, *, content_type: str = "application/json",
                            use_id: Optional[str] = None) -> AgentRunArtifact:
-        """The result a tool returned — context for the model's next turn."""
+        """The result a tool returned — context for the model's next turn. In a ``schemaVersion "4"`` run it must
+        name its call's ``use_id``."""
+        if use_id is None and self._schema_version == "4":
+            raise ValueError("In a schemaVersion 4 run a tool_result names its call: use_id is required.")
         return self.record("tool_result", [AgentRunObject("tool-result", result, content_type)],
                            {"tool": _tool_block(tool, None, use_id)})
+
+    def begin_tool_call(self, tool: str, arguments: bytes, *, operation: Optional[str] = None,
+                        consequential: bool = False, content_type: str = "application/json",
+                        use_id: Optional[str] = None, definition: Optional[bytes] = None) -> "ToolCall":
+        """Seals the ``tool_call`` and returns the :class:`ToolCall` whose :meth:`ToolCall.complete` seals its
+        ``tool_result`` with the same tool name and use id. ``use_id`` is generated when not given.
+        ``definition`` is the tool's definition as the runtime holds it (e.g. its entry in the tool manifest),
+        sealed as a digest-only ``tool-definition`` object (``schemaVersion "4"`` only).
+
+        ::
+
+            call = run.begin_tool_call("crm.read_customer", args_json, operation="read")
+            result = execute(args_json)
+            call.complete(result)
+
+        :raises RuntimeError: ``definition`` in a run that is not ``schemaVersion "4"``.
+        :raises ValueError: the call would not verify, or reuses a use id (v4); nothing was sealed and the run
+            stays usable."""
+        if definition is not None and self._schema_version != "4":
+            raise RuntimeError("A tool-definition object needs a v2 policy control set (schemaVersion 4).")
+        use_id = use_id if use_id is not None else str(uuid.uuid4())
+        objects = [AgentRunObject("tool-arguments", arguments, content_type)]
+        if definition is not None:
+            objects.append(AgentRunObject("tool-definition", definition, "application/json"))
+        artifact = self._record_internal("tool_call", objects, {"tool": _tool_block(tool, operation, use_id)},
+                                         consequential)
+        return ToolCall(self, tool, use_id, artifact)
 
     def record_authorization(self, authorization: AgentAuthorization) -> AgentRunArtifact:
         """A policy decision taken before an action, e.g. "this write needs approval"."""
@@ -470,20 +545,39 @@ class AgentRun:
     def record_human_approval(self, decision: str, *, receipt: Optional[bytes] = None,
                               identity_assertion: Optional[bytes] = None, approver: Optional[str] = None,
                               detail: Optional[str] = None, receipt_content_type: str = "application/json",
-                              identity_assertion_content_type: str = "application/jwt") -> AgentRunArtifact:
+                              identity_assertion_content_type: str = "application/jwt",
+                              covers: Optional[ApprovalCovers] = None) -> AgentRunArtifact:
         """A human approval: ``decision`` is ``approved`` or ``rejected``.
         ``approver`` is an opaque identifier — never a name or e-mail address.
         What the approval covers (the receipt) and an identity assertion (e.g.
-        an IdP token) are bound as detached objects; their bytes stay local."""
+        an IdP token) are bound as detached objects; their bytes stay local.
+        ``covers`` names the call it is for — a tool and the digest of its exact arguments
+        (``spec/agent-enforcement-v1.md`` §3.5); it requires ``schemaVersion "4"``.
+
+        :raises RuntimeError: ``covers`` in a run that is not ``schemaVersion "4"``."""
         fields: dict = {"decision": decision}
         if approver is not None:
             fields["approver"] = approver
+        if covers is not None:
+            if self._schema_version != "4":
+                raise RuntimeError("covers needs a v2 policy control set (schemaVersion 4).")
+            block: dict = {"tool": covers.tool, "argumentsSha256": covers.arguments_sha256}
+            if covers.use_id is not None:
+                block["useId"] = covers.use_id
+            if covers.expires_at is not None:
+                if covers.expires_at.tzinfo is None or covers.expires_at.utcoffset() is None:
+                    raise ValueError("covers.expires_at must be timezone-aware: a naive datetime names no instant.")
+                try:
+                    block["expiresAt"] = _format_time(_truncate(covers.expires_at))
+                except OverflowError:
+                    raise ValueError("covers.expires_at lies outside years 1-9999 in UTC.") from None
+            fields["covers"] = block
         objects = []
         if receipt is not None:
             objects.append(AgentRunObject("approval-receipt", receipt, receipt_content_type))
         if identity_assertion is not None:
             objects.append(AgentRunObject("identity-assertion", identity_assertion, identity_assertion_content_type))
-        return self.record("human_approval", objects, _detail(fields, detail))
+        return self._record_internal("human_approval", objects, _detail(fields, detail), False)
 
     def record_model_output(self, output: bytes, content_type: str = "text/plain", *,
                             consequential: bool = False) -> AgentRunArtifact:
@@ -504,7 +598,7 @@ class AgentRun:
         """
         if call is None:
             raise ValueError("call is required.")
-        if self._schema_version != "3":
+        if self._schema_version not in ("3", "4"):
             raise RuntimeError("This run was not started with records_model_calls=True; model calls use "
                                "schemaVersion 3 throughout.")
         step: dict = {}
@@ -581,7 +675,7 @@ class AgentRun:
         """
         if not child_agent_id:
             raise ValueError("child_agent_id is required.")
-        if self._schema_version not in ("2", "3"):
+        if self._schema_version not in ("2", "3", "4"):
             raise RuntimeError("This run was not started with delegating=True; a run that delegates uses "
                                "schemaVersion 2 (or 3) throughout.")
         child = child_correlation_id if child_correlation_id is not None else f"urn:uuid:{uuid.uuid4()}"
@@ -626,7 +720,8 @@ class AgentRun:
             return self.complete_delegation(child.correlation_id, end.signature_sha256, disposition)
         if child is None:
             raise ValueError("child is required.")
-        if child_disposition not in _DISPOSITIONS:
+        # Enforcement §3.6: only a v4 parent can record a child its guard halted.
+        if child_disposition not in _DISPOSITIONS + (("halted",) if self._schema_version == "4" else ()):
             raise ValueError("child_disposition must be completed, failed or aborted.")
         with self._lock:
             self._ensure_open()
@@ -755,6 +850,52 @@ class AgentRun:
                                "sealed.")
         if self._finished:
             raise RuntimeError("The run is finished.")
+
+
+class ToolCall:
+    """One tool call from its ``tool_call`` to its ``tool_result`` (:meth:`AgentRun.begin_tool_call`). A context
+    manager that does nothing on exit: the result is sealed only by :meth:`complete`, so an exception in the body
+    seals nothing."""
+
+    def __init__(self, run: AgentRun, tool: str, use_id: str, artifact: AgentRunArtifact) -> None:
+        self._run = run
+        self._tool = tool
+        self._use_id = use_id
+        self._artifact = artifact
+        self._result: Optional[AgentRunArtifact] = None  # set under the run's lock with the sealed tool_result
+
+    @property
+    def tool(self) -> str:
+        return self._tool
+
+    @property
+    def use_id(self) -> str:
+        """The call's ``step.tool.useId``; its result names it."""
+        return self._use_id
+
+    @property
+    def artifact(self) -> AgentRunArtifact:
+        """The sealed ``tool_call``."""
+        return self._artifact
+
+    def complete(self, result: bytes, *, content_type: str = "application/json") -> AgentRunArtifact:
+        """Seals the call's ``tool_result`` (same tool name and use id) and returns it.
+
+        :raises RuntimeError: the call already has its result; nothing was sealed."""
+        return self._run._record_internal("tool_result", [AgentRunObject("tool-result", result, content_type)],
+                                          {"tool": _tool_block(self._tool, None, self._use_id)}, False, call=self)
+
+    def covers(self, expires_at: Optional[datetime] = None) -> ApprovalCovers:
+        """An :class:`ApprovalCovers` for exactly this call: its tool, its signed ``tool-arguments`` digest and its
+        use id."""
+        uri = next(o["uri"] for o in self._artifact.envelope["objects"] if o["role"] == "tool-arguments")
+        return ApprovalCovers(self._tool, self._artifact.object_digests[uri], self._use_id, expires_at)
+
+    def __enter__(self) -> "ToolCall":
+        return self
+
+    def __exit__(self, *exc_info: Any) -> None:
+        return None
 
 
 class AgentRunCallbackError(SigillError):
@@ -908,6 +1049,9 @@ class ControlEvaluation:
         if problems:
             raise ValueError("Invalid policy control set: " + "; ".join(problems))
         policy_doc = json.loads(doc)
+        if "schemaVersion" in policy_doc:
+            raise ValueError("Policy evaluations of a v2 control set are not specified yet (Control Evaluation v2 "
+                             "fixes factsVersion 1).")
         cedar = policy_doc.get("cedar")
         if not isinstance(cedar, dict):
             raise ValueError("The control set carries no Cedar rules.")
@@ -1039,7 +1183,7 @@ class ControlEvaluation:
         if doc is None:
             raise ValueError("control_set_document is required.")
         cs_uri, cs_node = _control_set_object(control, doc)
-        parsed = json.loads(doc)
+        parsed = _parse_control_set(doc)  # the one strict parse; None for anything else
         private = parsed.get("privateControls") if isinstance(parsed, dict) else None
         declared = [x["id"] for x in (private if isinstance(private, list) else [])
                     if isinstance(x, dict) and isinstance(x.get("id"), str)]

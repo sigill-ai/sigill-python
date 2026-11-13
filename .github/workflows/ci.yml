@@ -65,3 +65,32 @@ jobs:
             git diff -- spec/test-vectors
             exit 1
           fi
+      - name: Check vectors 11-14 (digests and schemas; their generators need Node and Cedar)
+        run: |
+          python - <<'EOF'
+          import glob, hashlib, json, jcs, jsonschema
+          load = lambda p: json.load(open(p, encoding="utf-8"))
+          sha = lambda b: hashlib.sha256(b).hexdigest()
+          scope = lambda d: sha(jcs.canonicalize({k: v for k, v in d.items() if k not in ("id", "version")}))
+          for vec, schema in (("11-policy-control-set", "v1"), ("13-policy-control-set-v2", "v2")):
+              raw = open(f"spec/test-vectors/{vec}/control-set.json", "rb").read()
+              doc, want = json.loads(raw), load(f"spec/test-vectors/{vec}/expected.json")
+              assert sha(raw) == want["objectSha256"], vec
+              assert sha(jcs.canonicalize(doc["cedar"])) == want["cedarDigest"], vec
+              assert scope(doc) == want["approvalScopeDigest"], vec
+              assert sha(jcs.canonicalize(load(f"spec/agent-policy-cedar-schema-{schema}.json"))) == want["schemaSha256"], vec
+          v14 = "spec/test-vectors/14-policy-enforcement"
+          validators = {v: jsonschema.Draft202012Validator(load(f"spec/agent-execution-evidence-v{v}.schema.json")) for v in "1234"}
+          ok = lambda e: validators[e["schemaVersion"]].is_valid(e)
+          cases = load(f"{v14}/envelopes.json")
+          assert all(ok(c["envelope"]) for c in cases["valid"]), [c["name"] for c in cases["valid"] if not ok(c["envelope"])]
+          assert not any(ok(c["envelope"]) for c in cases["invalid"]), [c["name"] for c in cases["invalid"] if ok(c["envelope"])]
+          base = load("spec/test-vectors/13-policy-control-set-v2/control-set.json")
+          for path in sorted(glob.glob(f"{v14}/runs/*.json") + glob.glob(f"{v14}/findings/*.json")):
+              run = load(path)
+              assert all(ok(e["envelope"]) for e in run["events"]), path
+              if "/runs/" in path:
+                  expected = load(path.replace("/runs/", "/expected/"))
+                  assert scope({**base, "enforcement": run["enforcement"]}) == expected["approvalScopeDigest"], path
+          print("vectors 11-14: digests and schemas hold")
+          EOF

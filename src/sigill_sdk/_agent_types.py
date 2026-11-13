@@ -28,7 +28,7 @@ from sigill_sdk._agent_profiles import (
     _str,
     signature_sha256,
 )
-from sigill_sdk._canonical import canonicalize
+from sigill_sdk._canonical import canonicalize, hash_bytes
 from sigill_sdk._errors import SigillError
 from sigill_sdk._references import new_object_uri
 from sigill_sdk._sign_objects import SignedObjectDigest
@@ -146,6 +146,30 @@ class AgentAuthorization:
     policy_id: Optional[str] = None
     detail: Optional[str] = None
     """Optional free text (``step.detail``). No personal data."""
+
+
+@dataclass(frozen=True)
+class ApprovalCovers:
+    """The call a human approval or rejection is for (``spec/agent-enforcement-v1.md`` §3.5): a tool and the digest of
+    its exact arguments, optionally restricted to one ``use_id``. An approval binds at most one call; a rejection is
+    sticky for the run. Build it from a call with :meth:`ToolCall.covers`, or before the call with
+    :meth:`for_arguments`. Requires a v2 policy control set (``schemaVersion "4"``)."""
+
+    tool: str
+    """The covered call's tool name."""
+    arguments_sha256: str
+    """Lowercase hex SHA-256 of the covered call's ``tool-arguments`` bytes."""
+    use_id: Optional[str] = None
+    """Restricts the approval or rejection to the call with this use id."""
+    expires_at: Optional[datetime] = None
+    """An approval does not bind a call at or after this instant (a rejection ignores it). Sealed at millisecond
+    precision, in UTC."""
+
+    @classmethod
+    def for_arguments(cls, tool: str, arguments: bytes, expires_at: Optional[datetime] = None) -> "ApprovalCovers":
+        """Covers a call of ``tool`` with exactly these argument bytes, whatever its use id: approve before the call
+        (or its retry) is made."""
+        return cls(tool, hash_bytes(arguments), None, expires_at)
 
 
 @dataclass(frozen=True)

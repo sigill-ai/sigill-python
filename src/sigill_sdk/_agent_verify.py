@@ -38,6 +38,7 @@ from sigill_sdk._agent_profiles import (
     signer_of,
 )
 from sigill_sdk._agent_policy import POLICY_CONTROL_SET_CONTENT_TYPE, AgentPolicy, _build_facts
+from sigill_sdk._agent_policy import _parse as _parse_control_set
 from sigill_sdk._agent_types import (
     AgentRunArtifact,
     AgentRunBundle,
@@ -299,6 +300,17 @@ class AgentEvaluationVerdict:
 
 
 @dataclass(frozen=True)
+class EnforcementFinding:
+    """One finding of the ``enforcement`` check (``spec/agent-enforcement-v1.md`` §5)."""
+
+    code: str
+    """orphan_result | conflicting_result | executed_after_denial | duplicate_use_id | misplaced_decision |
+    unrecorded_halt | continued_after_halt | evidence_version_mismatch."""
+    seqs: list[int]
+    """The seqs involved."""
+
+
+@dataclass(frozen=True)
 class AgentRunVerificationResult:
     """The run-level result (common rules §8)."""
 
@@ -306,7 +318,8 @@ class AgentRunVerificationResult:
     """run_finalized | run_open | run_invalid."""
     checks: dict[str, str]
     """The nine checks (correlation, sequence, chain, envelope, signatures, timestamps, objects, finalization,
-    control): ok | warn | bad."""
+    control): ok | warn | bad; a tenth, ``enforcement``, for a ``schemaVersion "4"`` run, and for another run
+    when its supplied policy control set gives ``evidence_version_mismatch`` (``spec/agent-enforcement-v1.md`` §5)."""
     binding: str
     """bound | run_only | control_only | unbound."""
     findings: list[str]
@@ -337,6 +350,9 @@ class AgentRunVerificationResult:
     notes: list[str] = field(default_factory=list)
     """Informational notes — currently the legacy envelope reference diagnostic (AiEvidenceEnvelopeV2 §5.4). Never a
     warning: notes do not affect ``verdict``, ``checks`` or ``warnings``."""
+    enforcement_findings: list[EnforcementFinding] = field(default_factory=list)
+    """The ``enforcement`` check's findings, in the order of Agent Enforcement v1 §5 (each also in :attr:`findings`).
+    A verifier does not evaluate the policy: a guard that skipped a due denial or halt is not found here."""
 
     @property
     def scope(self) -> str:
@@ -650,7 +666,7 @@ def _check_evaluation_v2(sa: _Signed, c: _ArtifactCheck, payloads: Mapping[str, 
             bad(f"control '{m}' is not one of the control set's {what}s")
 
     cs_bytes = signed_bytes("control-set")
-    cs = _json_doc(cs_bytes)
+    cs = _parse_control_set(cs_bytes) if cs_bytes is not None else None  # the one strict control-set parse
     if kind == "state":
         if cs is not None:  # digests-only bundles keep v1 behaviour
             same_ids(_ids_of(cs.get("controls")), "state control")
@@ -672,7 +688,7 @@ def _json_doc(b: Optional[bytes]) -> Optional[dict]:
         return None
     try:
         return _obj(json.loads(b))
-    except ValueError:
+    except (ValueError, RecursionError):  # deep nesting is malformed input, never an escaping exception
         return None
 
 
@@ -692,6 +708,9 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
     cedar = cs.get("cedar")
     if AgentPolicy.validate(cs_bytes) or not isinstance(cedar, dict):
         bad("its control set is not a valid policy control set with Cedar rules")
+        return
+    if "schemaVersion" in cs:
+        bad("policy evaluations of a v2 control set are not specified yet (Control Evaluation v2 fixes factsVersion 1)")
         return
 
     digests = AgentPolicy.compute_digests(cs_bytes)
@@ -793,6 +812,101 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
         bad("the approval record approves another approval scope")
     if _str(approval.get("agentId")) != agent_id:
         bad("the approval record is for another agent")
+
+
+# ── Agent Enforcement v1 §5 ─────────────────────────────────────────────────
+
+def _enforcement_findings(envs: list[dict], control_set: Optional[tuple[Optional[str], bytes]]) -> \
+        list[EnforcementFinding]:
+    """The §5 findings over the run's events (seq order), in the order of its table. ``control_set``: the run's
+    control-set object (content type, signed bytes), when the verifier was given its bytes."""
+    def step(e: dict) -> dict:
+        return _obj(e.get("step")) or {}
+
+    def tool(e: dict) -> Optional[dict]:
+        return _obj(step(e).get("tool"))
+
+    def use_id(e: dict) -> Optional[str]:
+        return _str((tool(e) or {}).get("useId"))
+
+    def seq(e: dict) -> int:
+        return _int((_obj(e.get("chain")) or {}).get("seq"))
+
+    def is_record(e: Optional[dict]) -> bool:
+        return e is not None and step(e).get("type") == "authorization" and "enforcer" in step(e)
+
+    def halted_end(e: Optional[dict]) -> bool:
+        return e is not None and step(e).get("type") == "run_end" and step(e).get("runDisposition") == "halted"
+
+    def same(a: Optional[str], b: Optional[str]) -> bool:
+        """An absent (or non-string) value equals nothing, not even another absent one."""
+        return a is not None and a == b
+
+    by_seq: dict = {}
+    for e in envs:  # two events at one seq: the first in bundle order is the event at that seq
+        by_seq.setdefault(seq(e), e)
+    envs = list(by_seq.values())
+    of_type = {t: [e for e in envs if step(e).get("type") == t] for t in ("tool_call", "tool_result", "run_end")}
+    records = [e for e in envs if is_record(e)]
+    out: list[EnforcementFinding] = []
+    for r in of_type["tool_result"]:
+        if not any(seq(c) < seq(r) and same(use_id(c), use_id(r)) for c in of_type["tool_call"]):
+            out.append(EnforcementFinding("orphan_result", [seq(r)]))
+    first: dict = {}
+    for r in of_type["tool_result"]:
+        if use_id(r) is None:
+            continue
+        if use_id(r) in first:
+            out.append(EnforcementFinding("conflicting_result", [first[use_id(r)], seq(r)]))
+        else:
+            first[use_id(r)] = seq(r)
+    for r in of_type["tool_result"]:
+        d = next((x for x in records if tool(x) is not None and same(use_id(x), use_id(r))), None)
+        if d is not None:
+            out.append(EnforcementFinding("executed_after_denial", sorted([seq(d), seq(r)])))
+    calls: dict = {}
+    for c in of_type["tool_call"]:
+        if use_id(c) is not None:
+            calls.setdefault(use_id(c), []).append(seq(c))
+    out.extend(EnforcementFinding("duplicate_use_id", s) for s in calls.values() if len(s) > 1)
+    for r in records:
+        prev = by_seq.get(seq(r) - 1)
+        if tool(r) is not None:
+            placed = prev is not None and step(prev).get("type") == "tool_call" \
+                and same(_str((tool(prev) or {}).get("name")), _str(tool(r).get("name"))) \
+                and same(use_id(prev), use_id(r))
+        else:
+            placed = prev is None or step(prev).get("type") != "tool_call"
+        if is_record(prev) or not placed:
+            out.append(EnforcementFinding("misplaced_decision", [seq(r)]))
+    for e in of_type["run_end"]:
+        if halted_end(e) and not is_record(by_seq.get(seq(e) - 1)):
+            out.append(EnforcementFinding("unrecorded_halt", [seq(e)]))
+    # Every record without tool is a halt, and so is every unavailable record.
+    for r in records:
+        if (_str((_obj(step(r).get("enforcer")) or {}).get("reason")) == "unavailable" or tool(r) is None) \
+                and not halted_end(by_seq.get(seq(r) + 1)):
+            out.append(EnforcementFinding("continued_after_halt", [seq(r)]))
+    # Fails closed: only bytes that parse strictly as an object without schemaVersion (a v1 control set) are spared.
+    if control_set is not None and control_set[0] == POLICY_CONTROL_SET_CONTENT_TYPE:
+        doc = _parse_control_set(control_set[1])
+        not_v4 = [seq(e) for e in envs if e.get("schemaVersion") != "4"]
+        if not_v4 and (doc is None or "schemaVersion" in doc):
+            out.append(EnforcementFinding("evidence_version_mismatch", not_v4))
+    return out
+
+
+_ENFORCEMENT_TEXT = {
+    "orphan_result": "a tool_result whose useId no earlier tool_call used",
+    "conflicting_result": "a second tool_result for the same useId",
+    "executed_after_denial": "a tool_result for a call an enforcement record denied",
+    "duplicate_use_id": "tool_calls share a useId",
+    "misplaced_decision": "an enforcement record that does not directly follow the event it decides",
+    "unrecorded_halt": "a halted run_end that does not directly follow an enforcement record",
+    "continued_after_halt": "the run continued after an enforcement record that halts it",
+    "evidence_version_mismatch": "the policy control set does not parse strictly as a v1 document, but the events "
+                                 "are not all schemaVersion 4",
+}
 
 
 # ── The run ─────────────────────────────────────────────────────────────────
@@ -1114,12 +1228,29 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             certificate=ctl_check.certificate, objects=ctl_check.objects)
     checks["control"] = "ok" if control_ok else "bad"
 
+    # ── Agent Enforcement v1 §5: a v4 run, or a run whose policy control-set bytes are supplied (signed bytes only)
+    control_set: Optional[tuple[Optional[str], bytes]] = None
+    cs_objects = [o for o in ctl.objects if o.role == "control-set"] if ctl is not None and ctl_check is not None else []
+    if len(cs_objects) == 1 and cs_objects[0].uri in bundle.payloads \
+            and ctl_check.signed_digest(cs_objects[0].uri) == hash_bytes(bundle.payloads[cs_objects[0].uri]):
+        control_set = (cs_objects[0].content_type, bundle.payloads[cs_objects[0].uri])
+    is_v4 = versions == ["4"]
+    enforcement_findings = [f for f in _enforcement_findings([g.env for g in good if g.seq is not None], control_set)
+                            if is_v4 or f.code == "evidence_version_mismatch"]
+    # On a v1–v3 run the check appears only with its one possible finding: the agent-run vectors pin nine checks
+    # for v1 runs whose v1 policy control set is supplied.
+    if is_v4 or enforcement_findings:
+        checks["enforcement"] = "bad" if enforcement_findings else "ok"
+        findings.extend(f"enforcement: {_ENFORCEMENT_TEXT[f.code]} ({f.code}; seq {', '.join(str(s) for s in f.seqs)})."
+                        for f in enforcement_findings)
+
     # ── seal time, defence in depth (§8): warnings only
     ctl_at = _time(ctl_check.gen_time) if ctl_check is not None and ctl_check.timestamp_ok else None
     sealed_before_run: Optional[bool] = None
     first = next((t for t in timeline if t[2] is not None), None)
     if ctl_at is not None and first is not None:
-        sealed_before_run = ctl_at <= first[2] + timedelta(seconds=1)  # TSAs state up to 1 s accuracy
+        # Differences, not sums: datetime ± timedelta overflows at years 1 and 9999. TSAs state up to 1 s accuracy.
+        sealed_before_run = ctl_at - first[2] <= timedelta(seconds=1)
         if not sealed_before_run:
             warnings.append(f"The Control Artifact's timestamp is later than the run's first timestamp (seq {first[0]}): "
                             "the control basis may not have been sealed before the run.")
@@ -1134,13 +1265,13 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         if ctl_at is not None:
             if plausible is None:
                 plausible = True
-            if claimed < ctl_at - _SEAL_TIME_ALLOWANCE:
+            if ctl_at - claimed > _SEAL_TIME_ALLOWANCE:
                 early.append(t_seq)
         upper = next((t[2] for t in timeline[i:] if t[2] is not None), None)
         if upper is not None:
             if plausible is None:
                 plausible = True
-            if claimed > upper + _SEAL_TIME_ALLOWANCE:
+            if claimed - upper > _SEAL_TIME_ALLOWANCE:
                 late.append(t_seq)
     if early or late:
         plausible = False
@@ -1195,7 +1326,9 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             findings.append(f"More than one run_end (seq {', '.join(_n(e.seq) for e in ends)}).")
         end_step = _obj(end.env.get("step")) or {}
         disposition = _str(end_step.get("runDisposition"))
-        if disposition is None or disposition not in _DISPOSITIONS:
+        # Enforcement §3.6: a v4 run may end halted (the guard stopped it).
+        if disposition is None or disposition not in _DISPOSITIONS + (
+                ("halted",) if _str(end.env.get("schemaVersion")) == "4" else ()):
             fin_ok = False
             findings.append(f"run_end carries no valid runDisposition (got '{disposition or 'none'}').")
         if good[-1] is not end:
@@ -1369,7 +1502,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
                                             policy_signed),
         certificates=certificates, control=control, artifacts=verdicts, evaluations=evaluations,
         fingerprint=_safe_fingerprint(bundle), signer=run_signer, control_sealed_before_run=sealed_before_run,
-        event_times_plausible=plausible, notes=notes,
+        event_times_plausible=plausible, notes=notes, enforcement_findings=enforcement_findings,
         model_calls=len(model_steps),
         model_calls_with_vendor_refs=sum(1 for st in model_steps
                                          if isinstance(st.get("vendorRefs"), list) and st["vendorRefs"]))

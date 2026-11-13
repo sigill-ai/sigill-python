@@ -525,7 +525,7 @@ def verify_agent_run_tree(tree: AgentRunTreeBundle, verifier: BlindObjectsVerifi
             if state is None:
                 open_reasons.append(AgentRunTreeFinding(
                     "delegation_pending", f"{e.parent_correlation_id} → {e.child_correlation_id}: no result yet."))
-            elif state in ("aborted", "failed"):
+            elif state in ("aborted", "failed", "halted"):  # enforcement §3.6: halted counts as aborted
                 open_reasons.append(AgentRunTreeFinding(
                     "parent_terminated", f"{e.parent_correlation_id} closed {state} with {e.child_correlation_id} "
                                          f"unresolved: parent terminated; evidence incomplete."))

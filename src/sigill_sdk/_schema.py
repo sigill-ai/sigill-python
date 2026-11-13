@@ -1,12 +1,12 @@
 # Licensed to Sigill under the Apache License, Version 2.0.
 # SPDX-License-Identifier: Apache-2.0
-"""Validation against the bundled Agent Evidence Profiles JSON Schemas (execution v1, v2 and v3).
+"""Validation against the bundled Agent Evidence Profiles JSON Schemas (execution v1 to v4).
 
 Byte-exact copies of ``spec/*.schema.json`` ship under ``_schemas/``.
 Implements exactly the JSON Schema keywords those schemas use (type,
 required, properties, additionalProperties, const, enum, items, minItems,
-minLength, minimum, maximum, pattern, format, allOf, anyOf, not, if/then/else,
-contains/minContains/maxContains, local $ref). A schema using anything else
+maxItems, uniqueItems, minLength, maxLength, minimum, maximum, pattern, format, allOf, anyOf, not,
+if/then/else, contains/minContains/maxContains, local $ref). A schema using anything else
 is rejected at load time rather than silently half-checked. Error messages
 match the .NET SDK byte for byte; the agent-run vectors pin them.
 """
@@ -15,29 +15,41 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from importlib import resources
 from typing import Any
+
+from sigill_sdk._canonical import canonicalize
 
 _RESOURCES = {
     "AgentControlArtifact": "agent-control-artifact-v1.schema.json",
     "AgentExecutionEvidence": "agent-execution-evidence-v1.schema.json",
     "AgentExecutionEvidence/2": "agent-execution-evidence-v2.schema.json",
     "AgentExecutionEvidence/3": "agent-execution-evidence-v3.schema.json",
+    "AgentExecutionEvidence/4": "agent-execution-evidence-v4.schema.json",
     "ControlEvaluation": "control-evaluation-v1.schema.json",
     "ControlEvaluation/2": "control-evaluation-v2.schema.json",
 }
 
 _SUPPORTED = {
     "$schema", "$id", "$defs", "$ref", "title", "description", "type", "required", "properties",
-    "additionalProperties", "const", "enum", "items", "minItems", "minLength", "minimum", "maximum", "pattern", "format",
-    "allOf", "anyOf", "not", "if", "then", "else", "contains", "minContains", "maxContains",
+    "additionalProperties", "const", "enum", "items", "minItems", "maxItems", "uniqueItems", "minLength", "maxLength",
+    "minimum", "maximum", "pattern", "format", "allOf", "anyOf", "not", "if", "then", "else", "contains",
+    "minContains", "maxContains",
 }
 _IDENT = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_UUID = re.compile(r"^(urn:uuid:)?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
-_URI_REFERENCE = re.compile(r"^([A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=]|%[0-9A-Fa-f]{2})*$")
-_DATE_TIME = re.compile(r"^(\d{4}-\d{2}-\d{2})[Tt](\d{2}:\d{2}:\d{2})(?:\.(\d+))?([Zz]|[+-]\d{2}:\d{2})$")
+# \Z, not $: ECMA-262 `$` never matches before a final newline, Python's does.
+_UUID = re.compile(r"^(urn:uuid:)?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\Z")
+_URI_REFERENCE = re.compile(r"^([A-Za-z0-9\-._~:/?#\[\]@!$&'()*+,;=]|%[0-9A-Fa-f]{2})*\Z")
+_DATE_TIME = re.compile(
+    r"^([0-9]{4}-[0-9]{2}-[0-9]{2})[Tt]([0-9]{2}:[0-9]{2}:[0-9]{2})(?:\.([0-9]+))?([Zz]|[+-][0-9]{2}:[0-9]{2})\Z")
+_MAX_OFFSET_MINUTES = 14 * 60  # the widest UTC offset both SDKs represent
+
+
+def _ecma_pattern(pattern: str) -> str:
+    """A schema pattern with a trailing ``$`` anchored at the very end, as ECMA-262 reads it."""
+    return pattern[:-1] + r"\Z" if pattern.endswith("$") and not pattern.endswith("\\$") else pattern
 
 
 def _check_keywords(node: Any) -> None:
@@ -66,7 +78,8 @@ def profile_schema(schema_name: str) -> dict:
 
 
 def parse_date_time(s: str) -> datetime | None:
-    """RFC 3339 date-time; fractional seconds of any length."""
+    """RFC 3339 date-time; fractional seconds of any length, truncated (never rounded) to microseconds; a UTC
+    offset of at most ±14:00; its UTC instant within years 1–9999. Returned in UTC."""
     if not isinstance(s, str):
         return None
     m = _DATE_TIME.match(s)
@@ -75,9 +88,11 @@ def parse_date_time(s: str) -> datetime | None:
     date, clock, frac, tz = m.groups()
     frac = (frac or "0")[:6].ljust(6, "0")
     tz = "+00:00" if tz in ("Z", "z") else tz
+    if int(tz[1:3]) * 60 + int(tz[4:6]) > _MAX_OFFSET_MINUTES:
+        return None
     try:
-        return datetime.fromisoformat(f"{date}T{clock}.{frac}{tz}")
-    except ValueError:
+        return datetime.fromisoformat(f"{date}T{clock}.{frac}{tz}").astimezone(timezone.utc)
+    except (ValueError, OverflowError):  # OverflowError: the UTC instant falls outside years 1-9999
         return None
 
 
@@ -115,6 +130,14 @@ def _json_equal(a: Any, b: Any) -> bool:
     if isinstance(a, (int, float)) and isinstance(b, (int, float)):
         return a == b
     return type(a) is type(b) and a == b
+
+
+def _canonical_key(v: Any) -> bytes:
+    """Equal under JSON equality ⇔ equal key (JCS: 1 and 1.0 alike, true and 1 apart)."""
+    try:
+        return canonicalize(v)
+    except Exception:  # noqa: BLE001 — not I-JSON (the envelope check reports that): a stable fallback
+        return json.dumps(v, sort_keys=True).encode()
 
 
 def _format_ok(v: str, fmt: str) -> bool:
@@ -190,7 +213,9 @@ def validate(instance: Any, schema: dict, root: dict, path: str = "") -> list[st
     if isinstance(instance, str):
         if "minLength" in schema and len(instance) < schema["minLength"]:
             errs.append(f"{_label(path)} is shorter than {schema['minLength']}")
-        if "pattern" in schema and not re.search(schema["pattern"], instance):
+        if "maxLength" in schema and len(instance) > schema["maxLength"]:
+            errs.append(f"{_label(path)} is longer than {schema['maxLength']}")
+        if "pattern" in schema and not re.search(_ecma_pattern(schema["pattern"]), instance):
             errs.append(f"{_label(path)} does not match {schema['pattern']}")
         if "format" in schema and not _format_ok(instance, schema["format"]):
             errs.append(f"{_label(path)} is not a valid {schema['format']}")
@@ -202,6 +227,14 @@ def validate(instance: Any, schema: dict, root: dict, path: str = "") -> list[st
         min_items = schema.get("minItems")
         if isinstance(min_items, int) and len(instance) < min_items:
             errs.append(f"{_label(path)} must have at least {min_items} item{'' if min_items == 1 else 's'}")
+        max_items = schema.get("maxItems")
+        too_many = isinstance(max_items, int) and len(instance) > max_items
+        if too_many:
+            errs.append(f"{_label(path)} must have at most {max_items} item{'' if max_items == 1 else 's'}")
+        # Linear, and skipped past maxItems: an untrusted array must not cost quadratic time.
+        if schema.get("uniqueItems") is True and not too_many \
+                and len({_canonical_key(x) for x in instance}) != len(instance):
+            errs.append(f"{_label(path)} has non-unique items")
         if isinstance(schema.get("items"), dict):
             for i, item in enumerate(instance):
                 errs.extend(validate(item, schema["items"], root, f"{path}[{i}]" if path else f"[{i}]"))
