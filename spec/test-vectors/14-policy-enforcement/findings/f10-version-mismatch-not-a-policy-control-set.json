@@ -1,0 +1,145 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006d",
+ "controlSetContentType": "application/json",
+ "events": [
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006d0000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006d"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z"
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "62271205d7c8b97675420bac28d784d43c4d20c4d87bef736b1eee45d36e155a"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006d0001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006d"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "ac2926157808c63c6c666830078d62226faa49fbf1c894f4374d0c4f5389f157"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "tool": {
+      "name": "search.web",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b006d00010",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b006d00010": "7956f8b7732b9637434fb55297f7b6e030057a3a6e1a0b15bef83abc79be7f91"
+   }
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006d0002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006d"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "50e15d09ce0fdd3246768e33c9d5e2e388b53c24ba6d143abb52d6687e22a070"
+    },
+    "step": {
+     "type": "tool_result",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "tool": {
+      "name": "search.web",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b006d00020",
+      "role": "tool-result",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b006d00020": "4062edaf750fb8074e7e83e0c9028c94e32468a8b6f1614774328ef045150f93"
+   }
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006d0003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006d"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "21f2b069b5c0c0bc666a7b4c7bc9d783c1bc0f4e4d45d3cf2c54f0104455d936"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "finalSeq": 3,
+     "finalPrevSignatureSha256": "21f2b069b5c0c0bc666a7b4c7bc9d783c1bc0f4e4d45d3cf2c54f0104455d936",
+     "runDisposition": "completed"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  }
+ ],
+ "findings": []
+}

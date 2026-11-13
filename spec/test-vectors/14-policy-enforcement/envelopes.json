@@ -1,0 +1,2906 @@
+{
+ "description": "Each envelope is validated against the execution schema of its schemaVersion. `valid` must be accepted, `invalid` rejected.",
+ "valid": [
+  {
+   "name": "tool-call",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "approval-with-expiry",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21",
+      "expiresAt": "2026-11-02T10:15:00.250Z"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "approval-without-covers",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1"
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-without-use-id",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "tool-call-with-definition",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-14c000000001",
+      "role": "tool-definition",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "enforcement-record",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcement-consequential-false",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     },
+     "consequential": false
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcement-rules-256",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "r0",
+      "r1",
+      "r2",
+      "r3",
+      "r4",
+      "r5",
+      "r6",
+      "r7",
+      "r8",
+      "r9",
+      "r10",
+      "r11",
+      "r12",
+      "r13",
+      "r14",
+      "r15",
+      "r16",
+      "r17",
+      "r18",
+      "r19",
+      "r20",
+      "r21",
+      "r22",
+      "r23",
+      "r24",
+      "r25",
+      "r26",
+      "r27",
+      "r28",
+      "r29",
+      "r30",
+      "r31",
+      "r32",
+      "r33",
+      "r34",
+      "r35",
+      "r36",
+      "r37",
+      "r38",
+      "r39",
+      "r40",
+      "r41",
+      "r42",
+      "r43",
+      "r44",
+      "r45",
+      "r46",
+      "r47",
+      "r48",
+      "r49",
+      "r50",
+      "r51",
+      "r52",
+      "r53",
+      "r54",
+      "r55",
+      "r56",
+      "r57",
+      "r58",
+      "r59",
+      "r60",
+      "r61",
+      "r62",
+      "r63",
+      "r64",
+      "r65",
+      "r66",
+      "r67",
+      "r68",
+      "r69",
+      "r70",
+      "r71",
+      "r72",
+      "r73",
+      "r74",
+      "r75",
+      "r76",
+      "r77",
+      "r78",
+      "r79",
+      "r80",
+      "r81",
+      "r82",
+      "r83",
+      "r84",
+      "r85",
+      "r86",
+      "r87",
+      "r88",
+      "r89",
+      "r90",
+      "r91",
+      "r92",
+      "r93",
+      "r94",
+      "r95",
+      "r96",
+      "r97",
+      "r98",
+      "r99",
+      "r100",
+      "r101",
+      "r102",
+      "r103",
+      "r104",
+      "r105",
+      "r106",
+      "r107",
+      "r108",
+      "r109",
+      "r110",
+      "r111",
+      "r112",
+      "r113",
+      "r114",
+      "r115",
+      "r116",
+      "r117",
+      "r118",
+      "r119",
+      "r120",
+      "r121",
+      "r122",
+      "r123",
+      "r124",
+      "r125",
+      "r126",
+      "r127",
+      "r128",
+      "r129",
+      "r130",
+      "r131",
+      "r132",
+      "r133",
+      "r134",
+      "r135",
+      "r136",
+      "r137",
+      "r138",
+      "r139",
+      "r140",
+      "r141",
+      "r142",
+      "r143",
+      "r144",
+      "r145",
+      "r146",
+      "r147",
+      "r148",
+      "r149",
+      "r150",
+      "r151",
+      "r152",
+      "r153",
+      "r154",
+      "r155",
+      "r156",
+      "r157",
+      "r158",
+      "r159",
+      "r160",
+      "r161",
+      "r162",
+      "r163",
+      "r164",
+      "r165",
+      "r166",
+      "r167",
+      "r168",
+      "r169",
+      "r170",
+      "r171",
+      "r172",
+      "r173",
+      "r174",
+      "r175",
+      "r176",
+      "r177",
+      "r178",
+      "r179",
+      "r180",
+      "r181",
+      "r182",
+      "r183",
+      "r184",
+      "r185",
+      "r186",
+      "r187",
+      "r188",
+      "r189",
+      "r190",
+      "r191",
+      "r192",
+      "r193",
+      "r194",
+      "r195",
+      "r196",
+      "r197",
+      "r198",
+      "r199",
+      "r200",
+      "r201",
+      "r202",
+      "r203",
+      "r204",
+      "r205",
+      "r206",
+      "r207",
+      "r208",
+      "r209",
+      "r210",
+      "r211",
+      "r212",
+      "r213",
+      "r214",
+      "r215",
+      "r216",
+      "r217",
+      "r218",
+      "r219",
+      "r220",
+      "r221",
+      "r222",
+      "r223",
+      "r224",
+      "r225",
+      "r226",
+      "r227",
+      "r228",
+      "r229",
+      "r230",
+      "r231",
+      "r232",
+      "r233",
+      "r234",
+      "r235",
+      "r236",
+      "r237",
+      "r238",
+      "r239",
+      "r240",
+      "r241",
+      "r242",
+      "r243",
+      "r244",
+      "r245",
+      "r246",
+      "r247",
+      "r248",
+      "r249",
+      "r250",
+      "r251",
+      "r252",
+      "r253",
+      "r254",
+      "r255"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcement-tool-changed",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "tool_changed"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcement-halt-without-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcement-unavailable-with-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "unavailable"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcement-unavailable-without-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "unavailable"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcement-configuration-locked",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "configuration_locked"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "producer-authorization-open-vocabulary",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "allow_with_human_approval",
+     "rules": [
+      "r1"
+     ],
+     "detail": "policy engine of the producer"
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "run-end-halted",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040006",
+    "createdAt": "2026-11-02T10:00:06Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 6,
+     "prevSignatureSha256": "524419335802fd2bf008eea3f4ca31993d9242143870bcd43bbc7cec73c7e628"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:06.000Z",
+     "finalSeq": 6,
+     "finalPrevSignatureSha256": "524419335802fd2bf008eea3f4ca31993d9242143870bcd43bbc7cec73c7e628",
+     "runDisposition": "halted"
+    },
+    "objects": []
+   }
+  }
+ ],
+ "invalid": [
+  {
+   "name": "tool-call-without-use-id",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "tool-call-use-id-too-long",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "tool-call-name-too-long",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "tool-result-without-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "4d1f124ed6af6ba46ca4dd4bb536d118cd953174b5bbcb215df3e383701ad1ae"
+    },
+    "step": {
+     "type": "tool_result",
+     "eventTime": "2026-11-02T10:00:03.000Z"
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400030",
+      "role": "tool-result",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "tool-result-without-use-id",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "4d1f124ed6af6ba46ca4dd4bb536d118cd953174b5bbcb215df3e383701ad1ae"
+    },
+    "step": {
+     "type": "tool_result",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "tool": {
+      "name": "payments.refund"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400030",
+      "role": "tool-result",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "tool-result-status-not-in-v4",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "4d1f124ed6af6ba46ca4dd4bb536d118cd953174b5bbcb215df3e383701ad1ae"
+    },
+    "step": {
+     "type": "tool_result",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     },
+     "status": "ok"
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400030",
+      "role": "tool-result",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-on-tool-call",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     },
+     "covers": {
+      "tool": "payments.refund",
+      "argumentsSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-without-arguments",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-without-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-tool-too-long",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "tttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttttt",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-use-id-too-long",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "uuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuuu",
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-arguments-uppercase",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund",
+      "argumentsSha256": "2D711642B726B04401627CA9FBAC32F5C8530FB1903CC4DB02258717921A4881"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-unknown-member",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21",
+      "note": "ok by phone"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-expires-not-a-time",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21",
+      "expiresAt": "tomorrow"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-expires-not-utc",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21",
+      "expiresAt": "2026-11-02T11:15:00+01:00"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "covers-expires-microseconds",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21",
+      "expiresAt": "2026-11-02T10:15:00.123456Z"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "tool-definition-on-tool-result",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "4d1f124ed6af6ba46ca4dd4bb536d118cd953174b5bbcb215df3e383701ad1ae"
+    },
+    "step": {
+     "type": "tool_result",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400030",
+      "role": "tool-result",
+      "contentType": "application/json"
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-14c000000002",
+      "role": "tool-definition",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "two-tool-definitions",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-14c000000003",
+      "role": "tool-definition",
+      "contentType": "application/json"
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-14c000000004",
+      "role": "tool-definition",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "enforcer-on-tool-call",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     },
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "rules-on-tool-call",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "85ad681cad47e6e59d76ca804d09ed65a36866a8e06f79df899053a0dfe6b263"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-1"
+     },
+     "rules": [
+      "r1"
+     ]
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400020",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "run-start-with-directive",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z",
+     "directive": {
+      "serial": 7,
+      "signatureSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+     }
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "aac360718224711b4941150212d5a86689531ace7eb73e2a6d9c3f08877e91c9"
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-allowed",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "allowed",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-open-decision",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "allow_with_human_approval",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-consequential-true",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     },
+     "consequential": true
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-with-detail",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     },
+     "detail": "denied by policy"
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-with-policy-id",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     },
+     "policyId": "p1"
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-rule-without-rules",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-rule-empty-rules",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-rule-error-without-rules",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule_error"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-rule-error-without-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule_error"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-unknown-tool-with-rules",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "unknown_tool"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-unknown-tool-without-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "unknown_tool"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-tool-changed-without-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "tool_changed"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-tool-changed-empty-rules",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "tool_changed"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-configuration-locked-with-tool",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "configuration_locked"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-unavailable-with-rules",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "unavailable"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-tool-without-use-id",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-facts-version-1",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "1",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-unknown-reason",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "manual"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-reason-suspended-not-in-v4",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "suspended"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-reason-denial-limit-not-in-v4",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "decision": "denied",
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "denial_limit"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-directive-not-in-v4",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule",
+      "directive": {
+       "serial": 7,
+       "signatureSha256": "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881"
+      }
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "enforcer-engine-free-text",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "enforcer": {
+      "engine": "my policy engine",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "rules-duplicate",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "a",
+      "a"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "rules-bad-id",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "no web search"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "rules-257",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040005",
+    "createdAt": "2026-11-02T10:00:05Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 5,
+     "prevSignatureSha256": "2608849ff1dbc034c48d8b439d19c65e77139b09941005268aba3082674f8ea3"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:05.000Z",
+     "tool": {
+      "name": "payments.refund",
+      "useId": "call-2"
+     },
+     "decision": "denied",
+     "rules": [
+      "r0",
+      "r1",
+      "r2",
+      "r3",
+      "r4",
+      "r5",
+      "r6",
+      "r7",
+      "r8",
+      "r9",
+      "r10",
+      "r11",
+      "r12",
+      "r13",
+      "r14",
+      "r15",
+      "r16",
+      "r17",
+      "r18",
+      "r19",
+      "r20",
+      "r21",
+      "r22",
+      "r23",
+      "r24",
+      "r25",
+      "r26",
+      "r27",
+      "r28",
+      "r29",
+      "r30",
+      "r31",
+      "r32",
+      "r33",
+      "r34",
+      "r35",
+      "r36",
+      "r37",
+      "r38",
+      "r39",
+      "r40",
+      "r41",
+      "r42",
+      "r43",
+      "r44",
+      "r45",
+      "r46",
+      "r47",
+      "r48",
+      "r49",
+      "r50",
+      "r51",
+      "r52",
+      "r53",
+      "r54",
+      "r55",
+      "r56",
+      "r57",
+      "r58",
+      "r59",
+      "r60",
+      "r61",
+      "r62",
+      "r63",
+      "r64",
+      "r65",
+      "r66",
+      "r67",
+      "r68",
+      "r69",
+      "r70",
+      "r71",
+      "r72",
+      "r73",
+      "r74",
+      "r75",
+      "r76",
+      "r77",
+      "r78",
+      "r79",
+      "r80",
+      "r81",
+      "r82",
+      "r83",
+      "r84",
+      "r85",
+      "r86",
+      "r87",
+      "r88",
+      "r89",
+      "r90",
+      "r91",
+      "r92",
+      "r93",
+      "r94",
+      "r95",
+      "r96",
+      "r97",
+      "r98",
+      "r99",
+      "r100",
+      "r101",
+      "r102",
+      "r103",
+      "r104",
+      "r105",
+      "r106",
+      "r107",
+      "r108",
+      "r109",
+      "r110",
+      "r111",
+      "r112",
+      "r113",
+      "r114",
+      "r115",
+      "r116",
+      "r117",
+      "r118",
+      "r119",
+      "r120",
+      "r121",
+      "r122",
+      "r123",
+      "r124",
+      "r125",
+      "r126",
+      "r127",
+      "r128",
+      "r129",
+      "r130",
+      "r131",
+      "r132",
+      "r133",
+      "r134",
+      "r135",
+      "r136",
+      "r137",
+      "r138",
+      "r139",
+      "r140",
+      "r141",
+      "r142",
+      "r143",
+      "r144",
+      "r145",
+      "r146",
+      "r147",
+      "r148",
+      "r149",
+      "r150",
+      "r151",
+      "r152",
+      "r153",
+      "r154",
+      "r155",
+      "r156",
+      "r157",
+      "r158",
+      "r159",
+      "r160",
+      "r161",
+      "r162",
+      "r163",
+      "r164",
+      "r165",
+      "r166",
+      "r167",
+      "r168",
+      "r169",
+      "r170",
+      "r171",
+      "r172",
+      "r173",
+      "r174",
+      "r175",
+      "r176",
+      "r177",
+      "r178",
+      "r179",
+      "r180",
+      "r181",
+      "r182",
+      "r183",
+      "r184",
+      "r185",
+      "r186",
+      "r187",
+      "r188",
+      "r189",
+      "r190",
+      "r191",
+      "r192",
+      "r193",
+      "r194",
+      "r195",
+      "r196",
+      "r197",
+      "r198",
+      "r199",
+      "r200",
+      "r201",
+      "r202",
+      "r203",
+      "r204",
+      "r205",
+      "r206",
+      "r207",
+      "r208",
+      "r209",
+      "r210",
+      "r211",
+      "r212",
+      "r213",
+      "r214",
+      "r215",
+      "r216",
+      "r217",
+      "r218",
+      "r219",
+      "r220",
+      "r221",
+      "r222",
+      "r223",
+      "r224",
+      "r225",
+      "r226",
+      "r227",
+      "r228",
+      "r229",
+      "r230",
+      "r231",
+      "r232",
+      "r233",
+      "r234",
+      "r235",
+      "r236",
+      "r237",
+      "r238",
+      "r239",
+      "r240",
+      "r241",
+      "r242",
+      "r243",
+      "r244",
+      "r245",
+      "r246",
+      "r247",
+      "r248",
+      "r249",
+      "r250",
+      "r251",
+      "r252",
+      "r253",
+      "r254",
+      "r255",
+      "r256"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "run-end-unknown-disposition",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000040006",
+    "createdAt": "2026-11-02T10:00:06Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 6,
+     "prevSignatureSha256": "524419335802fd2bf008eea3f4ca31993d9242143870bcd43bbc7cec73c7e628"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:06.000Z",
+     "finalSeq": 6,
+     "finalPrevSignatureSha256": "524419335802fd2bf008eea3f4ca31993d9242143870bcd43bbc7cec73c7e628",
+     "runDisposition": "stopped"
+    },
+    "objects": []
+   }
+  },
+  {
+   "name": "v4-member-in-v3",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a000040001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "222d56fb00a30a1a4ed910b40dfa02683e5ab2306ff3f64e9432926edf3bc474"
+    },
+    "step": {
+     "type": "human_approval",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "decision": "approved",
+     "approver": "urn:example:approver:1",
+     "covers": {
+      "useId": "call-1",
+      "tool": "payments.refund",
+      "argumentsSha256": "b6238fe681fb9cb1718e5b869d1f5c93f0d2799bd827d64db6aeeb123aa51f21"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b000400010",
+      "role": "approval-receipt",
+      "contentType": "application/json"
+     }
+    ]
+   }
+  },
+  {
+   "name": "halted-in-v3",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a000040006",
+    "createdAt": "2026-11-02T10:00:06Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000004"
+    },
+    "chain": {
+     "seq": 6,
+     "prevSignatureSha256": "524419335802fd2bf008eea3f4ca31993d9242143870bcd43bbc7cec73c7e628"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:06.000Z",
+     "finalSeq": 6,
+     "finalPrevSignatureSha256": "524419335802fd2bf008eea3f4ca31993d9242143870bcd43bbc7cec73c7e628",
+     "runDisposition": "halted"
+    },
+    "objects": []
+   }
+  }
+ ]
+}

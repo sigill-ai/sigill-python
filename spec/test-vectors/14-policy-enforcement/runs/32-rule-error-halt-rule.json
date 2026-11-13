@@ -1,0 +1,160 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000020",
+ "enforcement": {
+  "mode": "enforce",
+  "defaultEffect": "deny",
+  "lockedConfiguration": {
+   "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11"
+  },
+  "unknownTools": "deny",
+  "onRuleError": "deny",
+  "haltAfterDenials": 0
+ },
+ "configuration": {
+  "instruction-set": "d500e43e3d8c29f6590507e9b19b5bff68c86e9e8e06151c3e05ce8f36ff6555",
+  "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11",
+  "execution-policy": "96fcd574f85a62bfb50d71ddc91156a191097d3464f204745675175b30fd6d51"
+ },
+ "events": [
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000200000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000020"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z"
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "fb273b7fe68c032bc1f6fb2de5e1cbe5fbc4bdb88c18be7044dacd3eea79b990"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000200001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000020"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "8af7805b184d7433ac0e21baaa25f9b524a322e9407d49fee155ae2dbf0bc9ec"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "consequential": true,
+     "tool": {
+      "name": "ledger.export",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b002000010",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b002000010": "83a9ab49a6133ab7aa6b4cfbe2443e5e6a671b34572575173e8315fc2d93e7d8"
+   }
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000200002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000020"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "72ad6b921977bafb5afca309605a3d243a743accf29c93e5b49356020d351a19"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "tool": {
+      "name": "ledger.export",
+      "useId": "call-1"
+     },
+     "decision": "denied",
+     "rules": [
+      "export-weight"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule_error"
+     }
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a000200003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000020"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "32d431a0e8bedce59048a389923869e7ab8628fc6513e93b5cf3baef7c783ddf"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "finalSeq": 3,
+     "finalPrevSignatureSha256": "32d431a0e8bedce59048a389923869e7ab8628fc6513e93b5cf3baef7c783ddf",
+     "runDisposition": "halted"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  }
+ ]
+}

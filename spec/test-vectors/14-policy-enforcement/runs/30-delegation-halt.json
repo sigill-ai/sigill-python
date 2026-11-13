@@ -1,0 +1,155 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000001e",
+ "enforcement": {
+  "mode": "enforce",
+  "defaultEffect": "deny",
+  "lockedConfiguration": {
+   "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11"
+  },
+  "unknownTools": "deny",
+  "onRuleError": "deny",
+  "haltAfterDenials": 0
+ },
+ "configuration": {
+  "instruction-set": "d500e43e3d8c29f6590507e9b19b5bff68c86e9e8e06151c3e05ce8f36ff6555",
+  "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11",
+  "execution-policy": "96fcd574f85a62bfb50d71ddc91156a191097d3464f204745675175b30fd6d51"
+ },
+ "events": [
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0001e0000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000001e"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z"
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "4c936adf04aad9a616ee03a5ed4de117b1eae15d57ed3ca617f101f3f23ad24f"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0001e0001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000001e"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "4e94c2a5f8cbd1342d882858d58545926807a5249d2536f388dc20d23f50ce1e"
+    },
+    "step": {
+     "type": "delegation",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "delegation": {
+      "childCorrelationId": "urn:uuid:00000000-0000-4000-8000-14d00000001e",
+      "childAgentId": "urn:example:agent:reviewer"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b001e00010",
+      "role": "delegation-input",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b001e00010": "b6bd7716590080313f39cf62b6867584109cd484ac4c78a48d8a4160ecac4785"
+   }
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0001e0002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000001e"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "27af40b89cee1109093bcd1d87f971b7deeb4f339d92b337e8fe39f7ac9c73af"
+    },
+    "step": {
+     "type": "authorization",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "decision": "denied",
+     "rules": [
+      "no-delegation"
+     ],
+     "enforcer": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "reason": "rule"
+     }
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "guard",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "4",
+    "evidenceId": "00000000-0000-4000-8000-14a0001e0003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000001e"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "d8fa9a2b5da3d9a3d346623d07e1304e834978b38d507aaef4ec2b7592f25d15"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "finalSeq": 3,
+     "finalPrevSignatureSha256": "d8fa9a2b5da3d9a3d346623d07e1304e834978b38d507aaef4ec2b7592f25d15",
+     "runDisposition": "halted"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  }
+ ]
+}

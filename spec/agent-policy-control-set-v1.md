@@ -5,6 +5,8 @@ Status: **draft**. Defines a declared agent policy carried in the Control Artifa
 Nothing here changes the Control Artifact, Execution Evidence or Control Evaluation
 schemas.
 
+> **Version 2 (draft):** [Agent Policy Control Set v2](./agent-policy-control-set-v2.md) adds enforcement (deny and halt before the action) and facts v2.
+
 ## 1. Recognition
 
 A `control-set` object is a policy control set when its object `contentType` is
@@ -84,7 +86,7 @@ Context (all attributes always present):
 | `consequentialCount` | consequential events up to and including this seq | total |
 | `unpairedConsequential` | 0 | consequential `tool_call`s without a later (higher seq) `tool_result` of the same `useId`; a call without `useId`, or whose `useId` another `tool_call` also uses, counts as unpaired |
 
-`approval` gains `bound` and `rejected` with `covers` in Execution Evidence v3.
+`approval` gains `bound` and `rejected` with `covers` in Execution Evidence v4.
 
 ## 6. Results
 

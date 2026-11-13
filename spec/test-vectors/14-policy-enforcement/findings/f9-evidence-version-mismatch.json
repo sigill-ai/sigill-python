@@ -1,0 +1,155 @@
+{
+ "agentId": "urn:example:agent:support",
+ "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006c",
+ "controlSetContentType": "application/vnd.sigill.control-set+json",
+ "events": [
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006c0000",
+    "createdAt": "2026-11-02T10:00:00Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006c"
+    },
+    "chain": {
+     "seq": 0
+    },
+    "step": {
+     "type": "run_start",
+     "eventTime": "2026-11-02T10:00:00.000Z"
+    },
+    "binds": {
+     "controlArtifactSignatureSha256": "b8dcf1813f10750ed73b0d5a5251e73d05a20cd0456c7231c6a11a57e6971629"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006c0001",
+    "createdAt": "2026-11-02T10:00:01Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006c"
+    },
+    "chain": {
+     "seq": 1,
+     "prevSignatureSha256": "eb9bcb513f54cd92da6cd0a7065913bfcf7e47df67321add29efc28acf0df3e8"
+    },
+    "step": {
+     "type": "tool_call",
+     "eventTime": "2026-11-02T10:00:01.000Z",
+     "tool": {
+      "name": "search.web",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b006c00010",
+      "role": "tool-arguments",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b006c00010": "7956f8b7732b9637434fb55297f7b6e030057a3a6e1a0b15bef83abc79be7f91"
+   }
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006c0002",
+    "createdAt": "2026-11-02T10:00:02Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006c"
+    },
+    "chain": {
+     "seq": 2,
+     "prevSignatureSha256": "0d6cc73829e2e2eed6bb6639fa5724d7ae7a0ce5dc7d4c6c356c9beb8c9e2ae5"
+    },
+    "step": {
+     "type": "tool_result",
+     "eventTime": "2026-11-02T10:00:02.000Z",
+     "tool": {
+      "name": "search.web",
+      "useId": "call-1"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-14b006c00020",
+      "role": "tool-result",
+      "contentType": "application/json"
+     }
+    ]
+   },
+   "objectDigests": {
+    "objects/00000000-0000-4000-8000-14b006c00020": "4062edaf750fb8074e7e83e0c9028c94e32468a8b6f1614774328ef045150f93"
+   }
+  },
+  {
+   "sealedBy": "producer",
+   "envelope": {
+    "schemaName": "AgentExecutionEvidence",
+    "schemaVersion": "3",
+    "evidenceId": "00000000-0000-4000-8000-14a0006c0003",
+    "createdAt": "2026-11-02T10:00:03Z",
+    "actor": {
+     "type": "agent",
+     "id": "urn:example:agent:support"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-14000000006c"
+    },
+    "chain": {
+     "seq": 3,
+     "prevSignatureSha256": "d6505482cc15f0462affd855e88a22098ce6ac5fd997ea320372407b510409df"
+    },
+    "step": {
+     "type": "run_end",
+     "eventTime": "2026-11-02T10:00:03.000Z",
+     "finalSeq": 3,
+     "finalPrevSignatureSha256": "d6505482cc15f0462affd855e88a22098ce6ac5fd997ea320372407b510409df",
+     "runDisposition": "completed"
+    },
+    "objects": []
+   },
+   "objectDigests": {}
+  }
+ ],
+ "findings": [
+  {
+   "code": "evidence_version_mismatch",
+   "seqs": [
+    0,
+    1,
+    2,
+    3
+   ]
+  }
+ ]
+}
