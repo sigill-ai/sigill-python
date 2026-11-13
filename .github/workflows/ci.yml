@@ -19,7 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        # ubuntu-24.04, not ubuntu-latest: the newer runner image has no Python 3.9 build.
+        os: [ubuntu-24.04, windows-latest]
         python: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
@@ -47,7 +48,9 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install jcs and jsonschema references
-        run: pip install jcs jsonschema
+        # jcs is pinned: the vectors were generated with 0.2.1, and 0.3.0 refuses the integer beyond 2^53 that
+        # agent-run scenario 20 puts in an envelope on purpose (the verifier must report it, not the generator).
+        run: pip install "jcs==0.2.1" jsonschema
       - name: Verify committed canonical bytes match regeneration
         run: |
           set -euo pipefail
