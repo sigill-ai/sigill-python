@@ -157,7 +157,8 @@ function evaluate(r) {
 function findings(envs, controlSet) {
   const f = [], at = s => envs.find(e => e.chain.seq === s)
   const results = envs.filter(x => x.step.type === 'tool_result'), records = envs.filter(isRecord), first = new Map()
-  for (const e of results) if (!envs.some(c => c.step.type === 'tool_call' && c.chain.seq < e.chain.seq && c.step.tool.useId === e.step.tool.useId))
+  for (const e of results) if (!envs.some(c => c.step.type === 'tool_call' && c.chain.seq < e.chain.seq
+    && c.step.tool.useId === e.step.tool.useId && c.step.tool.name === e.step.tool.name))
     f.push({ code: 'orphan_result', seqs: [e.chain.seq] })
   for (const e of results) { const u = e.step.tool.useId; if (first.has(u)) f.push({ code: 'conflicting_result', seqs: [first.get(u), e.chain.seq] }); else first.set(u, e.chain.seq) }
   for (const e of results) { const d = records.find(r => r.step.tool?.useId === e.step.tool.useId)

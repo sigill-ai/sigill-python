@@ -87,6 +87,7 @@ reports every rule error in this vector as `integer overflow`.
 | f12-record-after-record | `misplaced_decision` (a record directly after a record) |
 | f13-version-mismatch-control-set-not-strict | `evidence_version_mismatch`: v3 events, policy content type, bytes with a repeated member — they do not parse strictly, so the check fails closed |
 | f14-v1-policy-control-set-with-v3-events | none: vector 11's v1 control set (strict object without `schemaVersion`) with v3 events |
+| f15-result-names-another-tool | `orphan_result`: the `tool_result` has the call's `useId` but names another tool |
 
 A findings run with a supplied control set carries `controlSetContentType` and the exact bytes
 as `controlSetBase64`.

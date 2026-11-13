@@ -164,7 +164,10 @@ events (Control Set v2 §7.3).
 1. Seal the `tool_call` before deciding it, the enforcement record before refusing, and
    the `tool_result` only for an executed call (Control Set v2 §7.2).
 2. A denied call is never executed and gets no `tool_result`. A retry is a new `tool_call`
-   with a new `useId` (§3.2).
+   with a new `useId` (§3.2). After the run is halted the producer starts no tool: a call
+   that was allowed but whose execution had not started when the halt was sealed is not
+   executed and gets no `tool_result`. A tool already executing when the halt is sealed is
+   outside the guard's control; its result is not sealed.
 3. The guard's events are part of the run's chain like any other: same signer, same
    `seq` rules, same timestamp policy. A sealing failure stops the run (common rules §6
    rule 3); nothing is sealed late.
@@ -191,7 +194,7 @@ run's set of checks is unchanged. The check is `bad` when any of these findings 
 
 | Finding | When |
 |---|---|
-| `orphan_result` | A `tool_result` whose `useId` no earlier `tool_call` of the run used. |
+| `orphan_result` | A `tool_result` for which no earlier `tool_call` of the run has the same `useId` and the same `tool.name`. |
 | `conflicting_result` | A second `tool_result` for the same `useId`. |
 | `executed_after_denial` | A `tool_result` for a `useId` that an enforcement record names in `step.tool.useId`. |
 | `duplicate_use_id` | Two or more `tool_call` events share a `useId` (one finding per `useId`, listing every such call). |

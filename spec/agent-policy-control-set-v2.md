@@ -134,7 +134,8 @@ An **enforcement record** is an `authorization` event with an `enforcer` member 
 Enforcement v1 §3.4); every enforcement record is a denial (`decision: "denied"`). The guard
 seals at most one per decided event, directly after it. A **halt** is the guard sealing
 `run_end` with `runDisposition: "halted"` directly after an enforcement record; a halt is
-never a second record.
+never a second record. After a halt the producer starts no tool (Agent Enforcement v1 §4
+rule 2).
 
 ### 7.1 Every event
 
@@ -214,11 +215,17 @@ action.
 
 When the guard cannot evaluate an event's request — the Cedar core fails to load or
 returns a failure for the request — the decision is reason `unavailable` and the run is
-halted (§7.2–§7.4). There is no setting for this.
+halted (§7.2–§7.4). There is no setting for this. An answer that names a policy not in the
+call — in `diagnostics.reason` or as a `policyId` in `diagnostics.errors`, where the call
+holds the control set's rules plus the baseline permit — is malformed and counts as such a
+failure: reason `unavailable`.
 
 A sealing failure is governed by common rules §6 rule 3 unchanged: the producer MUST NOT
 continue the chain and nothing is sealed later; a `tool_call` that could not be sealed MUST
-NOT be executed. The run then verifies as `run_open` or `run_invalid`.
+NOT be executed. The run then verifies as `run_open` or `run_invalid`. In an enforced run
+a producer's own instrumentation (model-call recording, agent-model-calls-v1.md) MUST NOT
+let the agent go on after a sealing failure: it sends no further model request, and a
+failure to record a model call is raised to the caller instead of being ignored.
 
 ## 8. Facts (factsVersion 2)
 

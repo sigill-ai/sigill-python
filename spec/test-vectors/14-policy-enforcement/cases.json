@@ -510,6 +510,15 @@
         { "type": "run_end" }
       ],
       "findings": []
+    },
+    {
+      "name": "f15-result-names-another-tool",
+      "events": [
+        { "type": "tool_call", "tool": "crm.read_customer", "useId": "call-1", "args": "C" },
+        { "type": "tool_result", "tool": "search.web", "useId": "call-1" },
+        { "type": "run_end" }
+      ],
+      "findings": [ { "code": "orphan_result", "seqs": [2] } ]
     }
   ]
 }
