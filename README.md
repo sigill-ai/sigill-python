@@ -546,7 +546,10 @@ pip install "sigill-sdk[policy]"
 `CedarEngine` checks the module's sha256 and version before it runs it, gives it no
 filesystem, network, clock, environment or stdio and at most 256 MiB of memory, and can
 be shared between threads. Any object with `version`, `authorize(call)` and
-`validate(call)` (the `PolicyEngine` protocol) can stand in for it.
+`validate(call)` (the `PolicyEngine` protocol) can stand in for it. The licences and notices
+of Cedar and the other Rust crates compiled into the module are in
+[`THIRD-PARTY-NOTICES.md`](https://github.com/sigill-ai/sigill-python/blob/main/THIRD-PARTY-NOTICES.md),
+which the wheel and sdist also carry.
 
 ```python
 from sigill_sdk import AgentPolicy, CedarEngine, verify_agent_run
