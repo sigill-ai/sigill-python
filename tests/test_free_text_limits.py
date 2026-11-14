@@ -26,6 +26,8 @@ def _refused(index: Index, act, text: str) -> None:  # noqa: ANN001
 DETAIL = "step.detail is longer than 512 characters; the SDK refuses it (common rules §9)."
 APPROVER = "step.approver is longer than 255 characters; the SDK refuses it (common rules §9)."
 ACTIVITY = "activity.name is longer than 255 characters; the SDK refuses it (common rules §9)."
+DECISION = "step.decision is longer than 255 characters; the SDK refuses it (common rules §9)."
+CONTENT_TYPE = "objects[].contentType is longer than 255 characters; the SDK refuses it (common rules §9)."
 
 
 @pytest.mark.parametrize("deliver", [False, True])
@@ -77,3 +79,25 @@ def test_metadata_and_extensions_are_measured_in_bytes_of_their_json(member: str
             _check_free_text(envelope)
         assert str(e.value) == f"{member} is longer than 2048 bytes as JSON; the SDK refuses it (common rules §9)."
 
+
+
+@pytest.mark.parametrize("fill", ["x", ASTRAL])
+def test_a_decision_and_a_content_type_are_at_most_255_characters(fill: str) -> None:
+    from sigill_sdk import AgentRunObject
+    index = Index()
+    run = _run(index)
+    run.record_authorization(AgentAuthorization(fill * 255))
+    run.record_retrieval(b"r", content_type=fill * 255)
+    _refused(index, lambda: run.record_authorization(AgentAuthorization(fill * 256)), DECISION)
+    _refused(index, lambda: run.record_retrieval(b"r", content_type=fill * 256), CONTENT_TYPE)
+    _refused(index, lambda: run.record("model_output", [AgentRunObject("model-output", b"o", fill * 256)]),
+             CONTENT_TYPE)
+
+
+def test_a_str_subclass_cannot_report_a_shorter_length() -> None:
+    class Short(str):
+        def __len__(self) -> int:
+            return 1
+    index = Index()
+    run = _run(index)
+    _refused(index, lambda: run.finish(detail=Short("q" * 5000)), DETAIL)

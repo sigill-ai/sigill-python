@@ -221,7 +221,8 @@ ends. Delivery is optional and opt-in; a run that is never delivered is complete
 on its own.
 
 - Each artifact is delivered in the form of §7: its signed envelope, its signature and its
-  `objectDigests`. Payload bytes are never delivered.
+  `objectDigests`. Payload bytes are never delivered, except that a policy document the
+  producer chooses to disclose travels with the Control Artifact.
 - A producer delivers in chain order: the Control Artifact, then the events by `seq`. An
   index can still receive artifacts out of order or with gaps (a retry, a later catch-up);
   a gap is a verification finding (§8) until it is filled.
@@ -384,15 +385,17 @@ verification by digest needs only their hashes. An envelope delivered to an
 index (§6.1) reveals everything it carries in clear — identifiers, step types and
 times, tool names, rule ids, provider request ids, token counts, object URIs, content
 types and sizes, and any `detail` or extension member as the producer wrote it — but
-never payload bytes.
+never payload bytes, except a policy document the producer chooses to disclose, which
+travels with the Control Artifact.
 
 Free text is bounded. A producer MUST NOT seal a step's `detail` longer than 512
-characters, an `activity.name` or a `step.approver` longer than 255 characters
-(characters are Unicode code points, as JSON Schema `maxLength` counts), or an object's
-`metadata` or the envelope's `extensions` whose JSON in the envelope is longer than 2,048
-bytes of UTF-8. It refuses such a value before sealing and never shortens it. An index MAY
-refuse an artifact that exceeds these limits. The schemas are unchanged: these are
-producer rules, and artifacts sealed before them keep verifying.
+characters, an `activity.name`, a `step.approver`, a `step.decision` or an object's
+`contentType` longer than 255 characters (characters are Unicode code points, as JSON
+Schema `maxLength` counts), or an object's `metadata` or the envelope's `extensions`
+whose JSON in the envelope is longer than 2,048 bytes of UTF-8. It refuses such a value
+before sealing and never shortens it. An index MAY refuse an artifact that exceeds these
+limits. The schemas are unchanged: these are producer rules, and artifacts sealed before
+them keep verifying.
 
 ## 10. Test vectors
 

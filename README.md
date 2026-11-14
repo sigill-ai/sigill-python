@@ -508,34 +508,45 @@ print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pend
 ```
 
 - **What leaves the machine:** each artifact's signed envelope, signature and object
-  digests. That is the agent id and version, the activity name and run id, step types and
-  times, tool names, operations and use ids, rule ids and guard reasons, model and provider
-  request ids, token counts, approver references, sub-agent ids, object URIs, content types
-  and sizes, and any `detail` text — that, and the names and identifiers you chose, are your
-  own text, uploaded as written. Never arguments, results, prompts, outputs or receipts; the policy document
-  only with `disclose_policy=True` (then it travels on the Control Artifact's upload, and
-  `run.policy_disclosure` is that upload's result).
+  digests. That is the agent id and version, its tenant id and identity reference, the
+  activity name and run id, the control set's id and version, step types and times, tool
+  names, operations and use ids, authorization decisions and policy ids, rule ids and guard
+  reasons, approver references, sub-agent ids, model names, deployments and regions, provider
+  request ids, token counts and stop reasons, object URIs, content types and sizes, any
+  `detail` text, and the signing certificate inside each signature. The names, identifiers
+  and texts among them are your own values, uploaded as written. Never arguments, results,
+  prompts, outputs or receipts; the policy document only with `disclose_policy=True` (then it
+  travels on the Control Artifact's upload, and `run.policy_disclosure` is that upload's
+  result).
 - **It never stops the run.** Each upload runs after `on_artifact_sealed` in the same
-  ordered turn, with a 10 s timeout. A failure never raises, never breaks or halts the run,
-  and is not a sealing failure ([common rules §6.1](spec/agent-profiles-common-v1.md)). A
-  temporary failure (408, 429, 5xx, no connection) holds the uploads as `pending` and they
-  are tried again at a later step after a back-off (5 s, doubling to 5 min); `run_end` makes
-  one last attempt within 30 s. Any other refusal is `rejected`: nothing more is sent, and
-  the index keeps a true prefix of the run. In an enforced run the guard's `PolicyDenied` /
-  `RunHalted` is raised after the upload, as it is after the callbacks.
+  ordered turn. A failure never raises, never breaks or halts the run, and is not a sealing
+  failure ([common rules §6.1](spec/agent-profiles-common-v1.md)). Only an answer that
+  accepts the artifact counts: 200 or 201 with status `indexed` or `exists`; redirects are
+  not followed. A temporary failure (408, 429, 5xx, no answer in time) holds the uploads as
+  `pending` and they are tried again at a later step after a back-off (5 s, doubling to
+  5 min). Any other answer is `rejected`: nothing more is sent, and the index keeps a true
+  prefix of the run. In an enforced run the guard's `PolicyDenied` / `RunHalted` is raised
+  after the upload, as it is after the callbacks.
+- **The worst case, plainly:** each turn's uploads share 10 s (at most 10 s per upload), and
+  `run_end` makes one last attempt within 30 s. So with the index unreachable a step can take
+  up to 10 s longer and the run's end up to 30 s; a guard refusal still blocks the call at
+  once, but its exception is raised after that wait. What does not fit stays `pending` for a
+  later turn.
 - **`run.delivery`** is `None` when delivery was not requested, else an `AgentRunDelivery`:
   `status` (`delivered`, `pending` or `rejected`), how many artifacts are `delivered` and
-  `pending`, the index's `run_id` and the last `error` (which artifact, the status code and
-  the index's code).
+  `pending`, the index's `run_id` and the last `error` (which artifact, then the status code
+  and the index's code, or the kind of failure — never the index's message text).
 - **Catch up later:** `client.deliver_agent_run(bundle)` uploads a bundle — the Control
   Artifact, then the events by seq; evaluations are not uploaded, and neither is the policy
   document. Re-delivering is safe, a partial bundle is fine, and it stops at the first
   failure and says where.
 - **Free text is bounded,** with or without `deliver_run`: a step's `detail` at most 512
-  characters, the activity name and an approver reference at most 255, an object's
-  `metadata` at most 2,048 bytes of JSON. A longer value is refused with `ValueError`
-  before anything is sealed — never shortened. (New in 0.15.0: 0.14 accepted longer
-  values.)
+  characters; the activity name, an approver reference, a decision and an object's content
+  type at most 255; an object's `metadata` and the envelope's `extensions` at most 2,048
+  bytes of JSON (neither can be set through this SDK; the bound is there for envelopes built
+  by other means). A longer value is refused with `ValueError` before anything is sealed —
+  never shortened. (New in 0.15.0: 0.14 accepted longer values.) No other value is
+  length-bounded.
 - `deliver_run` needs a `SigillClient`; any other client is refused before anything is
   sealed.
 
