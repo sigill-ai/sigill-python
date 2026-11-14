@@ -18,6 +18,7 @@ import asyncio
 import copy
 import json
 import threading
+import time
 import uuid
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
@@ -51,6 +52,7 @@ from sigill_sdk._agent_types import (
     AgentRunActor,
     AgentRunArtifact,
     AgentRunBundle,
+    AgentRunDelivery,
     AgentRunObject,
     AgentTimestampPolicy,
     ApprovalCovers,
@@ -147,6 +149,34 @@ def _validate_control_set(control_set: AgentControlSet, disclose_policy: bool) -
         raise ValueError("control_set id and version must equal the document's id and version.")
 
 
+# Common rules §9: the caller's free text is bounded at record time (a producer rule; the schemas are unchanged).
+_MAX_DETAIL, _MAX_NAME, _MAX_JSON_BYTES = 512, 255, 2048  # _MAX_NAME: activity name, approver, decision, contentType
+
+
+def _check_free_text(envelope: dict) -> None:
+    """Refuses, before sealing, a ``detail``, activity name, approver reference, decision, object content type,
+    object ``metadata`` or the envelope's ``extensions`` over its limit. Characters are Unicode code points (counted
+    with ``str.__len__``, so a str subclass cannot report less); metadata and extensions are the UTF-8 length of their
+    JSON in the envelope. The error names the field and the limit, never the value; nothing is shortened."""
+    step = envelope.get("step") if isinstance(envelope.get("step"), dict) else {}
+    activity = envelope.get("activity") if isinstance(envelope.get("activity"), dict) else {}
+    objects = [o for o in envelope.get("objects") or [] if isinstance(o, dict)]
+    for name, value, limit in (("activity.name", activity.get("name"), _MAX_NAME),
+                               ("step.detail", step.get("detail"), _MAX_DETAIL),
+                               ("step.approver", step.get("approver"), _MAX_NAME),
+                               ("step.decision", step.get("decision"), _MAX_NAME),
+                               *(("objects[].contentType", o.get("contentType"), _MAX_NAME) for o in objects)):
+        if isinstance(value, str) and str.__len__(value) > limit:
+            raise ValueError(f"{name} is longer than {limit} characters; the SDK refuses it (common rules §9).")
+    members = [("objects[].metadata", o["metadata"]) for o in objects if "metadata" in o]
+    if "extensions" in envelope:
+        members.append(("extensions", envelope["extensions"]))
+    for name, value in members:
+        if len(canonicalize(value)) > _MAX_JSON_BYTES:
+            raise ValueError(f"{name} is longer than {_MAX_JSON_BYTES} bytes as JSON; the SDK refuses it "
+                             f"(common rules §9).")
+
+
 def _tool_block(name: str, operation: Optional[str], use_id: Optional[str]) -> dict:
     if not name:
         raise ValueError("tool name is required.")
@@ -171,6 +201,28 @@ class _Delivery:
     sealed: list = field(default_factory=list)
     event: Optional[EnforcementEvent] = None
     error: Optional[BaseException] = None
+
+
+class _IndexCursor:
+    """``deliver_run``: the next artifact to upload to the evidence index (0 is the Control Artifact, k + 1 the event
+    at seq k) and how the last attempt went. Uploads run in the callbacks' ordered turns; the lock keeps them in
+    chain order, also for an event recorded inside a callback."""
+
+    def __init__(self, document: Optional[bytes], clock: Callable[[], float]) -> None:
+        self.lock = threading.RLock()
+        self.next = 0
+        self.rejected = False  # the index refused an artifact: no further automatic attempts
+        self.run_id: Optional[str] = None
+        self.error: Optional[str] = None
+        self.document = document  # the policy document, with disclose_policy: it travels on the Control Artifact
+        self.clock = clock
+        self.backoff = 0.0
+        self.not_before = 0.0
+
+
+# Per upload, per ordinary turn, per final turn (run_end); the back-off after a temporary failure.
+_INDEX_TIMEOUT, _INDEX_TURN_BUDGET, _INDEX_FINAL_BUDGET = 10.0, 10.0, 30.0
+_INDEX_BACKOFF_FIRST, _INDEX_BACKOFF_MAX = 5.0, 300.0
 
 
 class AgentRun:
@@ -239,6 +291,7 @@ class AgentRun:
         """The run's Control Artifact, sealed before ``run_start``."""
         self.policy_disclosure: Optional[AgentIndexResult] = None
         """Outcome of ``disclose_policy=True``; None when the policy was not shared."""
+        self._index: Optional[_IndexCursor] = None  # deliver_run
 
     @classmethod
     def start(cls, client: Any, agent: AgentDefinition, *, certificate_id: str, activity: str,
@@ -250,8 +303,9 @@ class AgentRun:
               qualified: bool = False, on_artifact_sealed: Optional[Callable[[AgentRunArtifact], None]] = None,
               delegating: bool = False, qualified_for: QualifiedArtifacts = QualifiedArtifacts.NONE,
               disclose_policy: bool = False, records_model_calls: bool = False,
-              enforcement: Optional[Enforcement] = None, _clock: Optional[Callable[[], datetime]] = None,
-              _parent: Optional[AgentDelegation] = None) -> "AgentRun":
+              enforcement: Optional[Enforcement] = None, deliver_run: bool = False,
+              _clock: Optional[Callable[[], datetime]] = None, _parent: Optional[AgentDelegation] = None,
+              _index_clock: Optional[Callable[[], float]] = None) -> "AgentRun":
         """Opens a run: seals the Control Artifact (always timestamped), then
         ``run_start`` binding it.
 
@@ -287,14 +341,34 @@ class AgentRun:
             after the Control Artifact is sealed, upload its signed envelope (metadata and digests, no
             content) together with the control-set document, so the organisation can review, approve and
             track the policy. Requires an :class:`AgentPolicy` control set. Off by default. The upload never
-            fails the run; its outcome is :attr:`policy_disclosure`. Execution events are not uploaded.
+            fails the run; its outcome is :attr:`policy_disclosure`. Execution events are not uploaded — unless
+            ``deliver_run`` is also set: then the document travels on the Control Artifact's upload, and
+            :attr:`policy_disclosure` is that upload's outcome.
+        :param deliver_run: upload each artifact, as it is sealed, to your Sigill organisation's evidence index, so
+            the run is shown there: its steps, the guard's refusals, alerts. Off by default, and decided per run: a
+            child run delivers only when it is started with ``deliver_run=True`` itself. What leaves the machine,
+            exactly: each artifact's signed envelope, signature and object digests. That is: the agent id and
+            version, its tenant id and identity reference, the activity name and run id, the control set's id and
+            version, step types and times, tool names, operations and use ids, authorization decisions and policy
+            ids, rule ids and guard reasons, approver references, sub-agent ids, model names, deployments and
+            regions, provider request ids, token counts and stop reasons, object URIs, content types and sizes, any
+            ``detail`` text, and the signing certificate inside each signature. The names, identifiers and texts
+            among them are your own values, uploaded as written; only ``detail``, the activity name, the approver,
+            the decision and the content type are length-bounded. Never arguments, results, prompts, outputs or
+            receipts; the policy document only with ``disclose_policy``. Each upload runs in the artifact's callback
+            turn, after ``on_artifact_sealed`` (and ``on_event``), in chain order. A delivery failure never raises,
+            never breaks or halts the run: a temporary failure is retried at a later step after a back-off,
+            ``run_end`` makes one last attempt, and :attr:`delivery` says where it stands;
+            :meth:`SigillClient.deliver_agent_run` delivers a bundle later. With the index unreachable a step can
+            take up to 10 s longer and ``run_end`` up to 30 s; a guard refusal still blocks the call at once, but
+            its exception is raised after that wait. Requires a :class:`SigillClient`.
         :param enforcement: the guard (``spec/agent-policy-control-set-v2.md`` §7): required by a v2 policy control
             set with ``enforcement.mode: "enforce"``, which it then validates strictly before anything is sealed. Each
             event is decided after it is sealed: a denied tool call raises :class:`PolicyDenied`, a halt
             :class:`RunHalted`, a refused start :class:`StartRefused` — each after the decision is sealed. With
             any other control set the engine only reports matching rules to ``on_event``.
-        :raises ValueError: an enforcing control set without ``enforcement``, or one that fails strict validation;
-            nothing was sealed.
+        :raises ValueError: an enforcing control set without ``enforcement``, or one that fails strict validation, or
+            ``deliver_run`` with a client other than :class:`SigillClient`; nothing was sealed.
         :raises StartRefused: the guard refused the start (§7.4); the closed run is its ``run``.
         """
         if control_set is None:
@@ -305,6 +379,11 @@ class AgentRun:
         policy = timestamp_policy or AgentTimestampPolicy()
         _validate_policy(policy)
         _validate_control_set(control_set, disclose_policy)
+        if deliver_run:
+            from sigill_sdk._client import SigillClient  # here: the client module imports this one
+            if not isinstance(client, SigillClient):
+                raise ValueError("deliver_run requires a SigillClient: only the SDK's own client delivers to the "
+                                 "evidence index.")
         if _parent is not None and getattr(_parent, "_parent_run", None) is not None and _parent._parent_run.halted:
             raise _parent._parent_run._halted_error()  # §7.3: the child of a halted parent is never started
         guard = _guard_for(control_set, enforcement, agent.agent_id, _parent is not None)
@@ -330,6 +409,8 @@ class AgentRun:
                   _qualified_for=QualifiedArtifacts(qualified_for))
         run._guard = guard
         run._on_event = enforcement.on_event if enforcement is not None else None
+        if deliver_run:
+            run._index = _IndexCursor(control_set.content if disclose_policy else None, _index_clock or time.monotonic)
 
         now = _truncate(clock())
         config = agent.configuration
@@ -365,6 +446,7 @@ class AgentRun:
             "timestampPolicy": policy.to_json(),
             "objects": _objects_block(objects),
         }
+        _check_free_text(envelope)
         _prevalidate(envelope, CONTROL_ARTIFACT_SCHEMA)
         digests = _digests(objects)
 
@@ -384,7 +466,7 @@ class AgentRun:
 
         # Seal run_start before any callback runs, so a failing callback cannot strand a sealed control basis.
         start = run._seal_event("run_start", list(start_objects or []), {}, consequential=False)
-        if disclose_policy:
+        if disclose_policy and not deliver_run:  # with deliver_run, the document travels on the first upload
             # Sharing is a side channel: it never fails the run (the evidence is in the producer's bundle either way).
             try:
                 upload = getattr(client, "_index_agent_artifact", None)
@@ -430,6 +512,17 @@ class AgentRun:
     def is_finished(self) -> bool:
         """``run_end`` has been sealed."""
         return self._finished
+
+    @property
+    def delivery(self) -> Optional[AgentRunDelivery]:
+        """Where delivery to the evidence index stands (``deliver_run=True``); None when it was not requested."""
+        cursor = self._index
+        if cursor is None:
+            return None
+        delivered = cursor.next
+        pending = (self.control_artifact is not None) + len(self._artifacts) - delivered
+        status = "rejected" if cursor.rejected else "pending" if pending else "delivered"  # derived, never stored
+        return AgentRunDelivery(status, delivered, pending, cursor.run_id, cursor.error)
 
     @property
     def halted(self) -> bool:
@@ -711,24 +804,30 @@ class AgentRun:
     def finish(self, disposition: str = "completed", detail: Optional[str] = None) -> AgentRunBundle:
         """Seals ``run_end`` (always timestamped), closing the run, and returns
         the bundle. ``disposition``: completed | failed | aborted. A run the guard halted is closed already: its
-        bundle is returned and nothing more is sealed."""
+        bundle is returned and nothing more is sealed. With ``deliver_run``, the ``run_end`` turn (or, on a halted run,
+        this call) makes one last delivery attempt that ignores the back-off, at most 30 s in total (unless the index
+        keeps sending header bytes with short pauses); the outcome is :attr:`delivery`."""
         if disposition not in _DISPOSITIONS:
             raise ValueError("disposition must be completed, failed or aborted.")
         with self._lock:
-            if self._halted.is_set():
-                return self.to_bundle()
-            self._ensure_open()
-            if disposition == "completed" and self._outstanding:
-                raise RuntimeError(f"{len(self._outstanding)} delegation(s) have no result: record them first, or close "
-                                   f"the run as aborted or failed (delegation §4 rule 5).")
-            # finalSeq is run_end's own seq, finalPrev its own chain link (§11): closure is checkable on its own.
-            step = {
-                "finalSeq": len(self._artifacts),
-                "finalPrevSignatureSha256": self._prev_signature_sha256,
-                "runDisposition": disposition,
-            }
-            artifact = self._seal_event("run_end", [], _detail(step, detail), consequential=False)
+            halted = self._halted.is_set()
+            if not halted:
+                self._ensure_open()
+                if disposition == "completed" and self._outstanding:
+                    raise RuntimeError(f"{len(self._outstanding)} delegation(s) have no result: record them first, or "
+                                       f"close the run as aborted or failed (delegation §4 rule 5).")
+                # finalSeq is run_end's own seq, finalPrev its own chain link (§11): closure is checkable on its own.
+                step = {
+                    "finalSeq": len(self._artifacts),
+                    "finalPrevSignatureSha256": self._prev_signature_sha256,
+                    "runDisposition": disposition,
+                }
+                artifact = self._seal_event("run_end", [], _detail(step, detail), consequential=False)
             bundle = self.to_bundle()
+        if halted:
+            if self._index is not None:  # one last attempt, past any back-off; its outcome is run.delivery
+                self._index_upto(len(bundle.artifacts), final=True)
+            return bundle
         self._notify_all(artifact)
         return bundle
 
@@ -864,6 +963,7 @@ class AgentRun:
         envelope["objects"] = _objects_block(objects)
         digests = _digests(objects)
         self._check_uri_reuse(digests)
+        _check_free_text(envelope)
         _prevalidate(envelope, _execution_schema_for(envelope))  # raises before anything is sealed
         try:
             result = _seal(self._client, envelope, _signed_digests(objects), EXECUTION_EVIDENCE_CONTENT_TYPE,
@@ -1020,15 +1120,73 @@ class AgentRun:
                 self._notify_cond.wait_for(lambda: self._next_notify >= seq)
         try:
             try:
-                if self._on_sealed is not None:
-                    self._callback(self._on_sealed, artifact, nested)
-            finally:
-                if event is not None and self._on_event is not None:
-                    self._callback(self._on_event, event, nested)
+                try:
+                    if self._on_sealed is not None:
+                        self._callback(self._on_sealed, artifact, nested)
+                finally:
+                    if event is not None and self._on_event is not None:
+                        self._callback(self._on_event, event, nested)
+            finally:  # deliver_run: after the callbacks, upload up to this artifact (never raises)
+                if self._index is not None:
+                    self._index_upto(seq + 1, final=artifact.step_type == "run_end")
         finally:
             with self._notify_cond:
                 self._next_notify = max(self._next_notify, seq + 1)
                 self._notify_cond.notify_all()
+
+    def _index_upto(self, upto: int, final: bool) -> None:
+        """Uploads the artifacts from the cursor up to position ``upto`` in chain order, unless the index rejected one
+        or a back-off is running. All uploads of a turn share one budget: 10 s, or 30 s for the final turn (run_end, or
+        finish() on a halted run), which ignores the back-off; each upload gets at most 10 s of it. Never raises."""
+        cursor = self._index
+        try:
+            with cursor.lock:
+                if cursor.rejected or (cursor.backoff and not final and cursor.clock() < cursor.not_before):
+                    return
+                budget = _INDEX_FINAL_BUDGET if final else _INDEX_TURN_BUDGET
+                deadline = cursor.clock() + budget
+                first = True  # the turn's first attempt gets the full limit, never a clock-shaved one
+                while cursor.next <= upto:
+                    position = cursor.next
+                    where = "control artifact" if position == 0 else f"seq {position - 1}"
+
+                    def left() -> float:
+                        return min(_INDEX_TIMEOUT, deadline - cursor.clock())
+                    if left() <= 0:
+                        cursor.error = f"{where}: time budget used up"  # the rest waits for a later turn
+                        return
+                    artifact = self.control_artifact if position == 0 else self._artifacts[position - 1]
+                    document = cursor.document if position == 0 else None
+                    timeout = min(_INDEX_TIMEOUT, budget) if first else left()
+                    first = False
+                    answer = self._client._index_send(artifact, document, timeout)
+                    if document is not None:
+                        self.policy_disclosure = AgentIndexResult(answer.status, run_id=answer.run_id) \
+                            if answer.outcome == "ok" else AgentIndexResult("failed", error=f"{where}: {answer.error}")
+                        if answer.outcome == "rejected" and (answer.code or "").startswith("control_set_"):
+                            cursor.document = None  # a refused policy does not block the steps: once without it
+                            if left() <= 0:
+                                cursor.error = f"{where}: time budget used up"
+                                return
+                            timeout = left()
+                            answer = self._client._index_send(artifact, None, timeout)
+                    if answer.outcome == "ok":
+                        cursor.next, cursor.error, cursor.backoff = position + 1, None, 0.0
+                        cursor.run_id = answer.run_id or cursor.run_id
+                        continue
+                    if not answer.answered and timeout < _INDEX_TIMEOUT:
+                        # Cut short by what was left of the turn, not a full attempt: no back-off, a later turn goes on.
+                        cursor.error = f"{where}: time budget used up"
+                        return
+                    cursor.error = f"{where}: {answer.error}"
+                    if answer.outcome == "rejected":
+                        cursor.rejected = True  # no further automatic attempts: the index keeps a true prefix
+                        return
+                    cursor.backoff = min(_INDEX_BACKOFF_MAX, cursor.backoff * 2 or _INDEX_BACKOFF_FIRST)
+                    cursor.not_before = cursor.clock() + cursor.backoff
+                    return
+        except Exception:  # noqa: BLE001 — a delivery failure never raises
+            pass
 
     def _callback(self, callback: Callable[[Any], None], arg: Any, nested: bool) -> None:
         self._in_callback.active = True

@@ -213,6 +213,24 @@ their `urn:uuid:` forms (§1, §7).
    content types reach the sealing service (v2 §8); producers SHOULD NOT send
    operation labels derived from event types.
 
+### 6.1 Delivery to an index (informative)
+
+A producer MAY also deliver a run's artifacts to an evidence index — for example its
+organisation's Sigill — so that the run can be shown there while it runs and after it
+ends. Delivery is optional and opt-in; a run that is never delivered is complete evidence
+on its own.
+
+- Each artifact is delivered in the form of §7: its signed envelope, its signature and its
+  `objectDigests`. Payload bytes are never delivered, except that a policy document the
+  producer chooses to disclose travels with the Control Artifact.
+- A producer delivers in chain order: the Control Artifact, then the events by `seq`. An
+  index can still receive artifacts out of order or with gaps (a retry, a later catch-up);
+  a gap is a verification finding (§8) until it is filled.
+- Delivering an artifact the index already holds changes nothing, so a producer may
+  retry, and may deliver a stored bundle later.
+- A delivery failure is not a sealing failure: it is not a failure under §6 rule 3, the
+  chain goes on, and the sealed artifacts remain the evidence.
+
 ## 7. The bundle
 
 The portable form of a controlled run:
@@ -363,7 +381,21 @@ It is undefined (null) when any envelope or signature is not valid I-JSON.
 Object URIs, `actor.id`, `correlationId` and approver references are opaque;
 none carries personal data. Payload bytes never reach Sigill. Configuration
 objects (instructions, tool manifest, policy) are often confidential:
-verification by digest needs only their hashes.
+verification by digest needs only their hashes. An envelope delivered to an
+index (§6.1) reveals everything it carries in clear — identifiers, step types and
+times, tool names, rule ids, provider request ids, token counts, object URIs, content
+types and sizes, and any `detail` or extension member as the producer wrote it — but
+never payload bytes, except a policy document the producer chooses to disclose, which
+travels with the Control Artifact.
+
+Free text is bounded. A producer MUST NOT seal a step's `detail` longer than 512
+characters, an `activity.name`, a `step.approver`, a `step.decision` or an object's
+`contentType` longer than 255 characters (characters are Unicode code points, as JSON
+Schema `maxLength` counts), or an object's `metadata` or the envelope's `extensions`
+whose JSON in the envelope is longer than 2,048 bytes of UTF-8. It refuses such a value
+before sealing and never shortens it. An index MAY refuse an artifact that exceeds these
+limits. The schemas are unchanged: these are producer rules, and artifacts sealed before
+them keep verifying.
 
 ## 10. Test vectors
 

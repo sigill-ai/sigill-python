@@ -7,9 +7,13 @@ from __future__ import annotations
 
 import base64
 import copy
+import json
+import re
+import time
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Mapping, Protocol
+from typing import Mapping, NamedTuple, Optional, Protocol
 
 import httpx
 
@@ -27,6 +31,7 @@ from sigill_sdk._agent_types import (
     AgentIndexResult,
     AgentRunArtifact,
     AgentRunBundle,
+    AgentRunDelivery,
     ControlEvaluationRequest,
 )
 from sigill_sdk._agent_verify import AgentRunVerificationResult, remote_verifier, verify_agent_run
@@ -284,6 +289,19 @@ class ISigillAiEvidenceClient(Protocol):
         envelope: SealedAiEvidenceEnvelope,
         external_payloads: Mapping[str, bytes] | None = None,
     ) -> AiEvidenceVerificationResult: ...
+
+
+_INDEX_MAX_BODY = 64 * 1024
+_INDEX_CODE = re.compile(r"[a-z0-9_]{1,64}")  # an index error code is reported only when it is a plain identifier
+
+
+class _IndexAnswer(NamedTuple):
+    outcome: str            # ok | pending | rejected
+    run_id: Optional[str]
+    error: Optional[str]    # built from the status, a plain error code, or an exception type name only
+    code: Optional[str]
+    status: Optional[str]   # indexed | exists, when accepted
+    answered: bool = True   # False: no answer (a transport failure, or the deadline passed)
 
 
 class SigillClient:
@@ -832,24 +850,111 @@ class SigillClient:
 
     def _index_agent_artifact(self, artifact: AgentRunArtifact,
                               control_set_document: bytes | None = None) -> AgentIndexResult:
-        """Uploads a sealed Control Artifact (with its policy control-set document) to the organisation's
-        evidence index — the transport of ``disclose_policy``. Private on purpose: a general upload of
-        execution events is sharing with the index, which waits for its data-processing terms.
-        Returns a failed result instead of raising when the index refuses the upload."""
+        """Uploads a sealed Control Artifact with its policy control-set document to the organisation's evidence
+        index — the transport of ``disclose_policy`` alone. It sends the artifact's signed envelope, signature and
+        object digests, and the document. Returns a failed result instead of raising when the index refuses the
+        upload or its answer is not an acceptance."""
+        answer = self._index_send(artifact, control_set_document)
+        return AgentIndexResult(answer.status, run_id=answer.run_id) if answer.outcome == "ok" else \
+            AgentIndexResult("failed", error=answer.error)
+
+    def _index_send(self, artifact: AgentRunArtifact, control_set_document: Optional[bytes] = None,
+                    timeout: float = 10.0) -> "_IndexAnswer":
+        """One artifact to the organisation's evidence index: its signed envelope, signature and object digests (and
+        the policy document when given), within ``timeout`` seconds (see :meth:`_index_post` for what that bounds).
+        Never raises.
+
+        Accepted (``ok``) only for 200 or 201 with a JSON body whose ``status`` is ``indexed`` or ``exists`` and whose
+        ``runId`` is a UUID. ``pending``: 408, 429, 5xx, a second 409 ``conflict``, no answer in time, or a failure
+        while sending or reading. ``rejected``: any other answer — another 2xx, a 3xx (redirects are never followed, even by a client that would), a
+        4xx. A first 409 ``conflict`` — a concurrent upload won — is retried at once, within the
+        same time. The status decides; the body only refines it: 408, 429 and 5xx are pending whatever the body, any
+        2xx that is not an acceptance (including a body over 64 KiB or one that does not parse) and any 3xx are
+        rejected as ``unexpected_response``. The error is ``<status> unexpected_response`` for those, else the status
+        followed by the index's code when the body was read whole and the code is a plain identifier
+        (``^[a-z0-9_]{1,64}$``), else the status alone; for a failure while sending or reading, the name of the
+        exception type."""
         body: dict = {"envelope": artifact.envelope, "signature": artifact.signature,
                       "objectDigests": dict(artifact.object_digests)}
         if control_set_document is not None:
             body["controlSet"] = base64.b64encode(control_set_document).decode("ascii")
-        resp = self._http.post("/api/agent-evidence/artifacts", json=body)
-        try:
-            data = resp.json()
-        except ValueError:  # a non-JSON error page: the status code says enough
-            data = {}
-        if not isinstance(data, dict):
-            data = {}
-        if resp.status_code >= 400:
-            return AgentIndexResult("failed", error=f"{resp.status_code} {data.get('code') or resp.reason_phrase}")
-        return AgentIndexResult(data.get("status") or "indexed", run_id=data.get("runId"))
+        deadline = time.monotonic() + timeout
+        for attempt in (1, 2):
+            try:
+                status, raw = self._index_post(body, deadline)
+            except Exception as e:  # noqa: BLE001 — a delivery failure never raises
+                return _IndexAnswer("pending", None, type(e).__name__, None, None, answered=False)
+            # The status decides; the body (when it was read whole, within 64 KiB) only refines it.
+            unexpected = f"{status} unexpected_response"
+            try:
+                data = json.loads(raw) if raw is not None else None
+            except Exception:  # noqa: BLE001 — a body that does not parse is no acceptance and carries no code
+                data = None
+            data = data if isinstance(data, dict) else {}
+            if 200 <= status < 300:
+                run_id = data.get("runId")
+                try:
+                    run_id = str(uuid.UUID(run_id)) if isinstance(run_id, str) else None
+                except ValueError:
+                    run_id = None
+                if status in (200, 201) and data.get("status") in ("indexed", "exists") and run_id is not None:
+                    return _IndexAnswer("ok", run_id, None, None, data["status"])
+                return _IndexAnswer("rejected", None, unexpected, None, None)
+            if status < 400:
+                return _IndexAnswer("rejected", None, unexpected, None, None)
+            code = data.get("code") if isinstance(data.get("code"), str) and _INDEX_CODE.fullmatch(data["code"]) \
+                else None
+            conflict = status == 409 and code == "conflict"
+            if conflict and attempt == 1:
+                continue
+            transient = conflict or status in (408, 429) or status >= 500
+            return _IndexAnswer("pending" if transient else "rejected", None,
+                                f"{status} {code}" if code else str(status), code, None)
+        raise AssertionError("unreachable")
+
+    def _index_post(self, body: dict, deadline: float) -> tuple[int, Optional[bytes]]:
+        """(status, body) of one POST, read as a stream against a monotonic ``deadline``; the body is None when it is
+        over 64 KiB or content-encoded. Each wait for the server (connecting, sending, every read) is bounded by the time
+        left, and the body as a whole by the deadline plus at most one read wait (TimeoutError). Not bounded as a
+        whole: the response headers — a server that keeps sending header bytes with pauses shorter than the time left
+        is not cut at the deadline."""
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise TimeoutError("deadline")
+        # follow_redirects=False whatever the caller's client says: an envelope never goes to another host.
+        with self._http.stream("POST", "/api/agent-evidence/artifacts", json=body, timeout=left,
+                               headers={"Accept-Encoding": "identity"}, follow_redirects=False) as resp:
+            if resp.headers.get("content-encoding", "identity").lower() != "identity":
+                return resp.status_code, None
+            raw = bytearray()
+            for chunk in resp.iter_bytes():  # identity-encoded, so these are the bytes as they arrive
+                raw += chunk
+                if len(raw) > _INDEX_MAX_BODY:
+                    return resp.status_code, None
+                if time.monotonic() > deadline:
+                    raise TimeoutError("deadline")
+            return resp.status_code, bytes(raw)
+
+    def deliver_agent_run(self, bundle: AgentRunBundle) -> AgentRunDelivery:
+        """Uploads a run's artifacts to the organisation's evidence index, so the run can be shown in Sigill: the
+        Control Artifact, then the events by seq — each artifact's signed envelope, signature and object digests,
+        never payloads, and not the policy document. Control Evaluations are not uploaded. Safe to repeat (an
+        artifact already in the index is accepted again), works on a partial bundle, and stops at the first
+        failure, which the result names. At most 10 s per artifact, except against a server that keeps sending
+        header bytes with short pauses. Never raises for a refused or failed upload.
+
+        :param bundle: the run, e.g. ``run.to_bundle()`` or a stored bundle."""
+        if bundle is None:
+            raise ValueError("bundle is required.")
+        items = ([("control artifact", bundle.control_artifact)] if bundle.control_artifact is not None else []) + \
+            [(f"seq {a.seq}", a) for a in sorted(bundle.artifacts, key=lambda a: (a.seq is None, a.seq or 0))]
+        run_id: Optional[str] = None
+        for done, (where, artifact) in enumerate(items):
+            answer = self._index_send(artifact)
+            if answer.outcome != "ok":
+                return AgentRunDelivery(answer.outcome, done, len(items) - done, run_id, f"{where}: {answer.error}")
+            run_id = answer.run_id or run_id
+        return AgentRunDelivery("delivered", len(items), 0, run_id, None)
 
     def seal_control_evaluation(self, request: ControlEvaluationRequest) -> AgentRunArtifact:
         """Seals a Control Evaluation of a finished run. See :class:`ControlEvaluation`."""
