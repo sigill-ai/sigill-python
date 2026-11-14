@@ -532,7 +532,8 @@ print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pend
   up to 10 s longer and the run's end up to 30 s; a guard refusal still blocks the call at
   once, but its exception is raised after that wait. What does not fit stays `pending` for a
   later turn. Bounded are each wait for the index (connecting, sending, every read) and the
-  response body as a whole; not bounded as a whole are the response headers, so an index that
+  response body as a whole (by the deadline plus at most one read wait); not bounded as a
+  whole are the response headers, so an index that
   keeps sending header bytes with short pauses can make an upload take longer.
 - **`run.delivery`** is `None` when delivery was not requested, else an `AgentRunDelivery`:
   `status` (`delivered`, `pending` or `rejected`), how many artifacts are `delivered` and

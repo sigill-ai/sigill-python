@@ -805,8 +805,8 @@ class AgentRun:
         """Seals ``run_end`` (always timestamped), closing the run, and returns
         the bundle. ``disposition``: completed | failed | aborted. A run the guard halted is closed already: its
         bundle is returned and nothing more is sealed. With ``deliver_run``, the ``run_end`` turn (or, on a halted run,
-        this call) makes one last delivery attempt that ignores the back-off, at most 30 s in total; the outcome is
-        :attr:`delivery`."""
+        this call) makes one last delivery attempt that ignores the back-off, at most 30 s in total (unless the index
+        keeps sending header bytes with short pauses); the outcome is :attr:`delivery`."""
         if disposition not in _DISPOSITIONS:
             raise ValueError("disposition must be completed, failed or aborted.")
         with self._lock:

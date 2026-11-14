@@ -861,7 +861,8 @@ class SigillClient:
     def _index_send(self, artifact: AgentRunArtifact, control_set_document: Optional[bytes] = None,
                     timeout: float = 10.0) -> "_IndexAnswer":
         """One artifact to the organisation's evidence index: its signed envelope, signature and object digests (and
-        the policy document when given), within ``timeout`` seconds of wall-clock time in all. Never raises.
+        the policy document when given), within ``timeout`` seconds (see :meth:`_index_post` for what that bounds).
+        Never raises.
 
         Accepted (``ok``) only for 200 or 201 with a JSON body whose ``status`` is ``indexed`` or ``exists`` and whose
         ``runId`` is a UUID. ``pending``: 408, 429, 5xx, a second 409 ``conflict``, no answer in time, or a failure
@@ -914,8 +915,9 @@ class SigillClient:
     def _index_post(self, body: dict, deadline: float) -> tuple[int, Optional[bytes]]:
         """(status, body) of one POST, read as a stream against a monotonic ``deadline``; the body is None when it is
         over 64 KiB or content-encoded. Each wait for the server (connecting, sending, every read) is bounded by the time
-        left, and the body as a whole by the deadline (TimeoutError). Not bounded as a whole: the response headers — a
-        server that keeps sending header bytes with pauses shorter than the time left is not cut at the deadline."""
+        left, and the body as a whole by the deadline plus at most one read wait (TimeoutError). Not bounded as a
+        whole: the response headers — a server that keeps sending header bytes with pauses shorter than the time left
+        is not cut at the deadline."""
         left = deadline - time.monotonic()
         if left <= 0:
             raise TimeoutError("deadline")
@@ -938,7 +940,8 @@ class SigillClient:
         Control Artifact, then the events by seq — each artifact's signed envelope, signature and object digests,
         never payloads, and not the policy document. Control Evaluations are not uploaded. Safe to repeat (an
         artifact already in the index is accepted again), works on a partial bundle, and stops at the first
-        failure, which the result names. At most 10 s per artifact. Never raises for a refused or failed upload.
+        failure, which the result names. At most 10 s per artifact, except against a server that keeps sending
+        header bytes with short pauses. Never raises for a refused or failed upload.
 
         :param bundle: the run, e.g. ``run.to_bundle()`` or a stored bundle."""
         if bundle is None:
