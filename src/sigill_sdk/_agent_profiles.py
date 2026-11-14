@@ -41,8 +41,10 @@ EXECUTION_EVIDENCE_SCHEMA_V4 = "AgentExecutionEvidence/4"
 """The schema key of ``AgentExecutionEvidence`` ``schemaVersion "4"``: v3 plus policy enforcement
 (``spec/agent-enforcement-v1.md``). Every run under a v2 policy control set uses it."""
 CONTROL_EVALUATION_SCHEMA_V2 = "ControlEvaluation/2"
-CONTROL_EVALUATION_SCHEMA_V3 = "ControlEvaluation/3"
 """The schema key of Control Evaluation v2 (``spec/control-evaluation-v2.md``): state, policy or attested."""
+CONTROL_EVALUATION_SCHEMA_V3 = "ControlEvaluation/3"
+"""The schema key of Control Evaluation v3 (``spec/control-evaluation-v3.md``): v2 plus the enforcement comparison, for
+a v2 policy control set."""
 
 CONTROL_ARTIFACT_CONTENT_TYPE = "application/vnd.sigill.agent-control+json"
 """The Control Artifact's content type, signed as ``sigD.ctys[0]``."""

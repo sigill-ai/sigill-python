@@ -12,8 +12,10 @@ from typing import Any, Callable, Mapping, Optional, Sequence
 
 from sigill_sdk._agent_guard import _configuration_locked, _due
 from sigill_sdk._agent_policy import AgentPolicy, _build_facts, _is_record, _parse
-from sigill_sdk._agent_profiles import _int, _obj, _str
+from sigill_sdk._agent_profiles import CONTROL_EVALUATION_SCHEMA_V3, _int, _obj, _str
 from sigill_sdk._agent_types import AgentRunArtifact
+from sigill_sdk._policy_engine import PolicyEngineError
+from sigill_sdk._schema import profile_schema, validate
 from sigill_sdk._canonical import hash_bytes
 
 _CHAIN_FINDINGS = ("executed_after_denial", "misplaced_decision", "unrecorded_halt", "duplicate_use_id",
@@ -29,14 +31,18 @@ def _step(e: dict) -> dict:
 
 
 class _Prefix:
-    """The evaluated prefix: the events seq 0…T in order (the first at each seq), and whether it holds run_end."""
+    """The evaluated prefix: the events seq 0…T in order, and whether it holds run_end. Each seq is taken at most
+    once: a repeated seq or an event without one is an input error (as for the facts), never a finding."""
 
     def __init__(self, events: Sequence[tuple[dict, Mapping[str, str]]]) -> None:
         by_seq: dict[int, tuple[dict, Mapping[str, str]]] = {}
         for env, digests in events:
             s = _int((_obj(env.get("chain")) or {}).get("seq"))
-            if s is not None:
-                by_seq.setdefault(s, (env, digests))
+            if s is None:
+                raise ValueError("an event has no chain.seq")
+            if s in by_seq:
+                raise ValueError(f"two events claim seq {s}")
+            by_seq[s] = (env, digests)
         t = -1
         while t + 1 in by_seq:
             t += 1
@@ -75,6 +81,9 @@ def _recorded_engines(p: _Prefix) -> list:
     for e in p.events:
         if _is_record(_step(e)):
             name = (_obj(_step(e).get("enforcer")) or {}).get("engine")
+            if not isinstance(name, str):
+                raise ValueError(f"the enforcement record at seq {_int((_obj(e.get('chain')) or {}).get('seq'))} has no "
+                                 f"enforcer.engine")
             if name not in engines:
                 engines.append(name)
     return engines
@@ -97,7 +106,7 @@ def _expected_state(p: _Prefix, evaluator_engine: Callable[[], str]) -> tuple[Op
     """(notPerformed reason or None, recordedEngine or None): what follows from the chain without a core (§5.1).
     ``evaluator_engine`` is asked only when the records name one core."""
     engines = _recorded_engines(p)
-    recorded = engines[0] if len(engines) == 1 and isinstance(engines[0], str) else None
+    recorded = engines[0] if len(engines) == 1 else None
     if _chain_inconsistent(p):
         return "chain_inconsistent", recorded
     if len(engines) > 1:
@@ -173,6 +182,16 @@ def _result(decisions: Sequence[dict]) -> str:
     return next((r for r in _RESULTS if r in outcomes), "as_required")
 
 
+def _check_control_roles(control: AgentRunArtifact) -> None:
+    """A role ``lockedConfiguration`` can lock appears at most once in the Control Artifact: otherwise which digest the
+    start gate compares would depend on the reader."""
+    objects = control.envelope.get("objects") if isinstance(control.envelope.get("objects"), list) else []
+    roles = [o.get("role") for o in objects if isinstance(o, dict)]
+    for role in ("instruction-set", "tool-manifest", "execution-policy", "model-config"):
+        if roles.count(role) > 1:
+            raise ValueError(f"The Control Artifact carries more than one {role} object.")
+
+
 def compare(control: AgentRunArtifact, events: Sequence[AgentRunArtifact], document: bytes, engine: Any) -> dict:
     """The ``enforcement`` member (§6) for the contiguous prefix of ``events``. ``engine`` is the evaluator's core."""
     problems = AgentPolicy.validate(document)
@@ -185,10 +204,48 @@ def compare(control: AgentRunArtifact, events: Sequence[AgentRunArtifact], docum
     objects = control.envelope.get("objects") if isinstance(control.envelope.get("objects"), list) else []
     sealed = [control.object_digests.get(o.get("uri")) for o in objects
               if isinstance(o, dict) and o.get("role") == "control-set"]
+    if len(sealed) != 1:
+        raise ValueError("The Control Artifact must carry exactly one control-set object.")
     if sealed != [hash_bytes(document)]:
         raise ValueError("The control set is not the one the Control Artifact seals.")
+    agent_id = _str((_obj(control.envelope.get("agent")) or {}).get("id"))
+    correlation_id = _str((_obj(control.envelope.get("activity")) or {}).get("correlationId"))
+    if agent_id is None or correlation_id is None:
+        raise ValueError("The Control Artifact names no agent or correlationId.")
+    _check_control_roles(control)
     p = _Prefix([(a.envelope, a.object_digests) for a in events])
+    engine = _Surfaced(engine)
     not_performed, recorded = _expected_state(p, lambda: f"cedar-policy@{engine.version}")
+    return _compare(p, control, document, engine, not_performed, recorded, agent_id, correlation_id)
+
+
+class _Surfaced:
+    """The engine, with whatever it raises surfaced as :class:`PolicyEngineError` — the run-level request included."""
+
+    def __init__(self, engine: Any) -> None:
+        self._engine = engine
+
+    def _call(self, f: Callable[[], Any]) -> Any:
+        try:
+            return f()
+        except PolicyEngineError:
+            raise
+        except Exception as e:  # noqa: BLE001
+            raise PolicyEngineError(f"The policy engine failed: {e}") from e
+
+    @property
+    def version(self) -> str:
+        return self._call(lambda: self._engine.version)
+
+    def authorize(self, call: dict) -> dict:
+        return self._call(lambda: self._engine.authorize(call))
+
+    def validate(self, call: dict) -> dict:
+        return self._call(lambda: self._engine.validate(call))
+
+
+def _compare(p: _Prefix, control: AgentRunArtifact, document: bytes, engine: Any, not_performed: Optional[str],
+             recorded: Optional[str], agent_id: str, correlation_id: str) -> dict:
     member: dict = {"comparison": "not_performed" if not_performed else "performed"}
     if not_performed:
         member["notPerformed"] = not_performed
@@ -196,10 +253,6 @@ def compare(control: AgentRunArtifact, events: Sequence[AgentRunArtifact], docum
         member["recordedEngine"] = recorded
     if not_performed:
         return member
-    agent_id = _str((_obj(control.envelope.get("agent")) or {}).get("id"))
-    correlation_id = _str((_obj(control.envelope.get("activity")) or {}).get("correlationId"))
-    if agent_id is None or correlation_id is None:
-        raise ValueError("The Control Artifact names no agent or correlationId.")
     doc = _parse(document)
     entities = (_obj(doc.get("cedar")) or {}).get("entities") or []
     facts = _build_facts(agent_id, correlation_id, p.events, None, (dict(enumerate(p.digests)), entities))
@@ -221,6 +274,11 @@ def member_problems(member: Any, control: AgentRunArtifact, events: Sequence[tup
     m = _obj(member)
     if m is None:
         return ["policy.enforcement is missing"]
+    schema = profile_schema(CONTROL_EVALUATION_SCHEMA_V3)
+    shape = validate(m, schema["properties"]["policy"]["properties"]["enforcement"], schema, "policy.enforcement")
+    if shape:  # a malformed member is reported, never read further (it must not raise)
+        return shape
+    _check_control_roles(control)
     p = _Prefix(events)
     not_performed, recorded = _expected_state(p, lambda: evaluator_engine or "")
     if _str(m.get("recordedEngine")) != recorded:
@@ -253,6 +311,16 @@ def member_problems(member: Any, control: AgentRunArtifact, events: Sequence[tup
         let = any(f in _LET_THROUGH for f in findings)
         if (d.get("outcome") == "let_through" and not let) or (d.get("outcome") == "over_enforced" and let):
             out.append(f"decision {s}: its findings do not fit its outcome")
+        rec_out, rec_reason, rec_rules = _recorded(p, s)
+        if d.get("outcome") == "not_checkable" and (rec_out == "none" or rec_reason != "unavailable"):
+            out.append(f"decision {s}: not_checkable, but the record after it does not say unavailable")
+        if d.get("outcome") == "as_required" and (
+                d.get("due") != rec_out or d.get("dueReason") != rec_reason
+                or set(d.get("dueRules") or ()) != set(rec_rules)):
+            out.append(f"decision {s}: as_required, but what is due is not what the chain records")
+    for s in range(p.through + 1):  # a decision for every event the chain records an outcome after
+        if not (p.open(s) and s == p.through) and _recorded(p, s)[0] != "none" and s not in seqs:
+            out.append(f"the event at seq {s} has a recorded outcome but no decision")
     if m.get("result") != _result(decisions):
         out.append("policy.enforcement.result does not follow from its decisions")
     return out

@@ -290,9 +290,16 @@ class AgentEvaluationVerdict:
     note says so). A request
     the named engine refuses makes the evaluation invalid."""
     enforcement_recomputed: bool = False
-    """ControlEvaluation v3: ``policy.enforcement`` (the enforcement comparison) was recomputed from the run with the
-    Cedar engine given to :func:`verify_agent_run` and equals the evaluation's (``spec/control-evaluation-v3.md`` §7).
-    Its core-free rules are checked either way; without the named engine a note says it was not recomputed."""
+    """ControlEvaluation v3: the comparison was ``performed`` and recomputed from the run with the Cedar engine given to
+    :func:`verify_agent_run`, which is the core the evaluation names, and equals the evaluation's
+    (``spec/control-evaluation-v3.md`` §7). Always False for a ``not_performed`` comparison. Its core-free rules are
+    checked either way."""
+    enforcement_comparison: Optional[str] = None
+    """ControlEvaluation v3: ``performed`` or ``not_performed``, as the evaluation's ``policy.enforcement`` says; None
+    for other evaluations. ``not_performed`` is not a pass: nothing was compared."""
+    enforcement_result: Optional[str] = None
+    """ControlEvaluation v3: the comparison's ``result`` (``as_required``, ``let_through``, ``over_enforced``,
+    ``not_checkable``, ``pending``); None when it was not performed. Read it together with :attr:`valid`."""
     sealed_for: Optional[str] = None
     """The role in the seal's ``srAts.claimed`` "sealed for" attribute (§8), e.g.
     ``urn:sigill:role:policy-evaluator``. Meaningful only together with the signer: a shared service
@@ -856,10 +863,15 @@ def _check_enforcement(policy: dict, cs_bytes: bytes, ctl: _Signed, prefix_event
     named = _str((_obj(policy.get("evaluator")) or {}).get("engine"))
     events = [(e.env, signed.get(e.seq, {})) for e in prefix_events]
     control = AgentRunArtifact(ctl.env, {}, dict(signed.get("control", {})))
-    problems = member_problems(member, control, events, named)
+    try:
+        problems = member_problems(member, control, events, named)
+    except ValueError as e:  # the run cannot be compared at all (e.g. a record without enforcer.engine)
+        problems = [f"its enforcement comparison cannot be checked: {str(e).rstrip('.')}"]
     for m in problems:
         bad(m)
     if problems:
+        return
+    if _obj(member).get("comparison") != "performed":  # a not_performed member says nothing to reproduce (§7)
         return
     if engine is None:
         note("its enforcement comparison was not recomputed: no engine was given")
@@ -870,18 +882,17 @@ def _check_enforcement(policy: dict, cs_bytes: bytes, ctl: _Signed, prefix_event
             note(f"its enforcement comparison was not recomputed: it names the engine {_n(named)}, the verifier has "
                  f"{mine}")
             return
-        if _obj(member).get("comparison") == "performed":  # a not_performed member is fully checked above
-            cost = len(cs_bytes) * len(prefix_events)
-            if budget is not None:
-                if cost > budget[0]:
-                    note("its enforcement comparison was not recomputed: the recomputation budget of this verification "
-                         "is used up")
-                    return
-                budget[0] -= cost
-            again = compare(control, [AgentRunArtifact(env, {}, dict(d)) for env, d in events], cs_bytes, engine)
-            if not _json_equal(again, member):
-                bad(f"its enforcement comparison does not recompute with {mine}")
+        cost = len(cs_bytes) * len(prefix_events)
+        if budget is not None:
+            if cost > budget[0]:
+                note("its enforcement comparison was not recomputed: the recomputation budget of this verification is "
+                     "used up")
                 return
+            budget[0] -= cost
+        again = compare(control, [AgentRunArtifact(env, {}, dict(d)) for env, d in events], cs_bytes, engine)
+        if not _json_equal(again, member):
+            bad(f"its enforcement comparison does not recompute with {mine}")
+            return
     except Exception as e:  # noqa: BLE001 — the verifier never raises because of an engine
         message = str(e).rstrip(".")
         if isinstance(e, PolicyEngineError) and e.refused:
@@ -1532,6 +1543,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
 
         subject = _obj(sa.env.get("subject")) or {}
         is_v2 = _str(sa.env.get("schemaVersion")) in ("2", "3")  # v3 is v2 plus the enforcement comparison
+        is_v3_policy = _str(sa.env.get("schemaVersion")) == "3" and _str(sa.env.get("kind")) == "policy"
         kind = _str(sa.env.get("kind")) if is_v2 else None
         if kind == "policy":
             subject_bound = (_policy_subject_bound(sa.env, subject, good, ctl_sig, run_end_sig)
@@ -1592,6 +1604,10 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             facts_match=v2.facts_match if v2 else None, policy_digests_match=v2.digests_match if v2 else None,
             results_recomputed=v2.results_recomputed if v2 else False,
             enforcement_recomputed=v2.enforcement_recomputed if v2 else False,
+            enforcement_comparison=_str((_obj((_obj(sa.env.get("policy")) or {}).get("enforcement")) or {})
+                                        .get("comparison")) if is_v3_policy else None,
+            enforcement_result=_str((_obj((_obj(sa.env.get("policy")) or {}).get("enforcement")) or {}).get("result"))
+            if is_v3_policy else None,
             sealed_for=_sealed_for_of(sa.jws),
             qualified_timestamps_required=v2.qualified_required if v2 else False,
             qualified_timestamps_met=v2.qualified_met if v2 else None,

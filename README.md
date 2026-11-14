@@ -738,19 +738,25 @@ prepared = ControlEvaluation.prepare_policy(PolicyEvaluationRequest(
     ..., rules=results.rules, engine=results.engine, enforcement=member))   # schemaVersion "3"
 ```
 
-`verify_agent_run(bundle, verifier, engine=engine)` checks a v3 evaluation's comparison
-(`evaluation.enforcement_recomputed`); its core-free rules are checked without an engine too.
+`verify_agent_run(bundle, verifier, engine=engine)` checks a v3 evaluation's comparison; its
+core-free rules are checked without an engine too. Read `evaluation.enforcement_result`, not
+only `evaluation.valid`: a valid evaluation whose `enforcement_comparison` is `not_performed`
+compared nothing, and that is not a pass. `enforcement_recomputed` is true only for a
+`performed` comparison that the verifier reproduced with the core the evaluation names.
 A v1 control set is evaluated as a ControlEvaluation v2, as before. Rule results and `overall`
 keep their meaning: a forbidden call that the guard refused is still `FAIL`; the comparison
 says it was refused.
 
 | Outcome of an event | Meaning | Findings |
 |---|---|---|
-| `as_required` | recorded exactly what was due | — |
-| `let_through` | the guard did less than required | `refusal_missing`, `unknown_tool_allowed`, `configuration_not_enforced`, `halt_missing` |
-| `over_enforced` | the guard did more, or recorded the wrong reason or rules; nothing forbidden happened | `unfounded_record`, `unfounded_halt`, `reason_mismatch`, `rules_mismatch` |
+| `as_required` | the chain records what was due | — |
+| `let_through` | the chain records less than was due | `refusal_missing`, `unknown_tool_allowed`, `configuration_not_enforced`, `halt_missing` |
+| `over_enforced` | the chain records more than was due, or the wrong reason or rules; it records no forbidden action | `unfounded_record`, `unfounded_halt`, `reason_mismatch`, `rules_mismatch` |
 | `not_checkable` | the record says the guard's core was `unavailable` | — |
-| `pending` | the run has not ended, or events are missing: what follows is not known | — |
+| `pending` | the evaluated prefix ends on this event or its record: what follows is not known | — |
+
+The `result` speaks for the evaluated prefix only: a run with a gap is compared up to the gap,
+and can be `as_required` with `state: "partial"`.
 
 The comparison is `not_performed` — never `as_required` — when the chain contradicts its own
 records (`chain_inconsistent`), the records name two cores (`engine_inconsistent`) or a core the
@@ -760,8 +766,9 @@ What it does not show: which tool was in fact run under a name; that the argumen
 digests are those of what was sent; an action recorded as another step type; that a human
 approved; whether a record was sealed by the guard or other code of the producer; whether the
 core in fact failed where a record says `unavailable`; which core the guard ran when the run has
-no record; that the sealed configuration is the one the runtime used; anything after the
-evaluated prefix ([§8](spec/control-evaluation-v3.md)).
+no record; that the sealed configuration is the one the runtime used; that a refused tool was
+not run outside the recorded run; who the agent is (`agent.id` is the producer's own name);
+anything after the evaluated prefix ([§8](spec/control-evaluation-v3.md)).
 
 ### Sub-agents: run trees
 

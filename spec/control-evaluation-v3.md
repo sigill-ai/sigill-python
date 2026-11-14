@@ -112,6 +112,10 @@ seq *s*:
 An **enforcement record** is an `authorization` with an `enforcer` member (Agent Enforcement
 v1 §3.4), whoever sealed it. *T* is `prefix.throughSeq`.
 
+The comparison takes each seq at most once: two events with the same seq, or an event without
+a seq, are an input error, not a finding, and no comparison is made. Events after a `run_end`
+inside the prefix are compared as ordinary events.
+
 ### 5.1 When the comparison is performed
 
 `enforcement.comparison` is `not_performed`, with the first reason that applies:
@@ -226,7 +230,8 @@ Findings are reported only for outcomes 3 and 4. The list is closed:
 Several findings may apply to one event; they are listed in the order of the table. With
 `none` < `refused` < `halted`, a let-through finding applies exactly when the recorded outcome
 is less than the due one: the guard did less than required. An over-enforced finding never
-means an action took place that the control set forbids.
+means that the chain records an action the control set forbids; it says nothing of what the
+producer did outside the recorded run (§8).
 
 The record carries no effect. A wrong effect therefore shows only through these findings: a
 `halt` rule applied as `deny` is `halt_missing`, a `deny` rule applied as `halt` is
@@ -263,7 +268,7 @@ nothing is due.
 | `notPerformed` | exactly when `not_performed` | `chain_inconsistent`, `engine_inconsistent` or `engine_unavailable` (§5.1). |
 | `recordedEngine` | exactly when the prefix has a recorded engine (§4) | That `enforcer.engine`. Equal to `evaluator.engine` when `performed`; different from it when `engine_unavailable`. |
 | `decisions` | exactly when `performed` | One entry per listed event (§5.5), ascending `seq`. May be empty. |
-| `result` | exactly when `performed` | The first of `let_through`, `over_enforced`, `not_checkable`, `pending` that is the `outcome` of some decision; `as_required` when none is, or when `decisions` is empty. |
+| `result` | exactly when `performed` | The first of `let_through`, `over_enforced`, `not_checkable`, `pending` that is the `outcome` of some decision; `as_required` when none is, or when `decisions` is empty. It speaks for the evaluated prefix only: a prefix that stops at a gap can be `as_required` with `state: "partial"`. |
 
 A decision:
 
@@ -285,7 +290,10 @@ A v3 `policy` evaluation is valid when it is valid under v2 §9 with the changes
 facts of §3, and `policy.enforcement` equals, member for member, the comparison of §4–§6
 recomputed from the run. A verifier that has the core named in `evaluator.engine` MUST
 recompute `decisions` and `result`; a verifier without it MUST report the comparison as not
-recomputed, as for the results (v2 §4.6).
+recomputed, as for the results (v2 §4.6). The comparison counts as **recomputed** only when it
+is `performed` and a verifier holding the core that `evaluator.engine` names has reproduced it;
+a `not_performed` comparison is never recomputed — it states that nothing was compared, and a
+verifier reports it as such, not as a pass.
 
 Whether or not it has the core, a verifier checks what does not need it:
 
@@ -295,8 +303,12 @@ Whether or not it has the core, a verifier checks what does not need it:
 - `comparison` is `performed` only when the prefix holds no enforcement record or
   `evaluator.engine` is the recorded engine;
 - `engine_unavailable` is invalid when `recordedEngine` equals `evaluator.engine`;
-- each decision's `recorded` follows from the chain; `decisions` ascend by `seq`; `findings`
-  fit the `outcome`; `result` follows from `decisions`.
+- each decision's `recorded` follows from the chain; every event with a recorded outcome
+  other than `none` has a decision; `decisions` ascend by `seq`; `findings` fit the
+  `outcome`; `result` follows from `decisions`;
+- an `outcome` of `not_checkable` stands only where the record after the event has reason
+  `unavailable`, and an `outcome` of `as_required` only where `due`, `dueReason` and
+  `dueRules` are the recorded outcome, reason and rules (compared as §5.3 says).
 
 That the evaluator could not run the recorded engine is otherwise the evaluator's statement.
 
@@ -330,6 +342,9 @@ The comparison does not show:
 - whether the guard's core in fact failed where a record says `unavailable` (§5.6);
 - which core the guard ran, when the run holds no enforcement record (§4);
 - that the configuration whose digests the Control Artifact seals is the one the runtime used;
+- who the agent is: `agent.id` is the producer's own name for it, so a Control Artifact that
+  names the agent otherwise makes a rule scoped to an agent or agent group not match; only an
+  approval of the policy binds the agent;
 - anything a rule matches only at run level: the run-level request has no due outcome;
 - anything about events after the evaluated prefix (§5.4).
 
@@ -350,7 +365,8 @@ the v3 schema accepts and rejects; evaluations a verifier must reject.
 - **A rule's result keeps its meaning.** A matching rule is `FAIL` whether it was only
   observed, refused or let through; `decisions[]` says which. `overall` is not changed by the
   comparison.
-- **Over-enforcement is a lighter class.** Nothing forbidden happened; the record is wrong.
+- **Over-enforcement is a lighter class.** The chain records no forbidden action; the record
+  is wrong.
 - **`unavailable` is neither accepted nor a finding.** It always halts, so it can never hide
   an action that was let through.
 - **Never another core.** A comparison made with a different Cedar version would be a guess.

@@ -847,8 +847,12 @@ class AgentPolicy:
         :param events: the run's events, any order, each with the object digests its signature confirms.
         :param control_set_document: the v2 policy control set, the exact bytes the Control Artifact seals.
         :param engine: the evaluator's Cedar core.
-        :raises ValueError: the control set is not a valid v2 policy control set.
-        :raises PolicyEngineError: the engine failed or refused a request: there is no evaluation of this prefix."""
+        :raises ValueError: an input error, and no comparison is made: the control set is not a valid v2 policy control
+            set or not the one the Control Artifact seals; the Control Artifact names no agent or correlationId, carries
+            two control-set objects or a locked role twice; two events claim one seq or one has none; an enforcement
+            record has no ``enforcer.engine``.
+        :raises PolicyEngineError: the engine failed, raised or refused a request: there is no evaluation of this
+            prefix."""
         from sigill_sdk._agent_compare import compare  # the comparison needs the verifier's chain findings
         return compare(control_artifact, list(events), control_set_document, engine)
 

@@ -1,0 +1,18 @@
+{
+ "name": "x13-recorded-outcome-without-decision",
+ "run": "e11-unfounded-record",
+ "needsEngine": false,
+ "because": "an event with a recorded outcome has no decision",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/decisions",
+   "value": []
+  },
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/result",
+   "value": "as_required"
+  }
+ ]
+}

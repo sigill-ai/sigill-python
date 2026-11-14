@@ -1,0 +1,22 @@
+{
+ "name": "x15-as-required-where-due-is-not-recorded",
+ "run": "e01-refusal-missing",
+ "needsEngine": false,
+ "because": "`as_required` where what is due is not what the chain records",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/decisions/0/outcome",
+   "value": "as_required"
+  },
+  {
+   "op": "remove",
+   "path": "/policy/enforcement/decisions/0/findings"
+  },
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/result",
+   "value": "as_required"
+  }
+ ]
+}
