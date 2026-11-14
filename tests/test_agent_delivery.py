@@ -200,7 +200,8 @@ def test_a_refused_policy_document_does_not_block_the_steps() -> None:
     run.finish()
     assert index.order() == ["control", "control", 0, 1]
     assert "controlSet" in index.uploads[0] and "controlSet" not in index.uploads[1]
-    assert run.policy_disclosure.status == "failed" and "control_set_invalid" in run.policy_disclosure.error
+    assert run.policy_disclosure.status == "failed"
+    assert run.policy_disclosure.error == "control artifact: 422 control_set_invalid"
     assert run.delivery.status == "delivered"
 
 

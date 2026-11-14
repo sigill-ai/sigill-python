@@ -1115,7 +1115,7 @@ class AgentRun:
                     outcome, run_id, error, code = self._client._index_send(artifact, document, timeout)
                     if document is not None:
                         self.policy_disclosure = AgentIndexResult("indexed", run_id=run_id) if outcome == "ok" \
-                            else AgentIndexResult("failed", error=error)
+                            else AgentIndexResult("failed", error=f"control artifact: {error}")
                         if outcome == "rejected" and code is not None and code.startswith("control_set_"):
                             cursor.document = None  # a refused policy does not block the steps: once without it
                             outcome, run_id, error, code = self._client._index_send(artifact, None, timeout)
