@@ -6,6 +6,10 @@
 **Common rules:** [`agent-profiles-common-v1.md`](./agent-profiles-common-v1.md)
 **Builds on:** [ControlEvaluation v1](./control-evaluation-v1.md), [Agent Policy Control Set v1](./agent-policy-control-set-v1.md)
 
+> **Version 3 (draft):** [ControlEvaluation v3](./control-evaluation-v3.md) evaluates runs
+> under a v2 policy control set (facts v2) and adds the enforcement comparison. v2 stays the
+> format for v1 control sets.
+
 v1 can only carry what a verifier observed in a target system: it requires an
 `observed-state` object. A run checked against a declared policy has no such state;
 its evidence is the signed events themselves. v2 adds `kind`, with one kind per member

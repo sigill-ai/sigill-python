@@ -1,0 +1,109 @@
+{
+ "case": "e21-refused-call-consumes-approval",
+ "covers": "a refused call consumes the approval that binds it",
+ "controlSet": "13",
+ "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "59628639add1f3ea7a1baf6b407d08f320ce6d17c9c22d852f5a27318afca714",
+ "prefix": {
+  "throughSeq": 12,
+  "finalSeq": 12,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "FAIL",
+   "where": [
+    "8",
+    "10"
+   ]
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "FAIL",
+   "where": [
+    "10"
+   ]
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 8,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "halt-refund-loop"
+    ],
+    "recorded": "refused",
+    "outcome": "let_through",
+    "findings": [
+     "halt_missing"
+    ]
+   },
+   {
+    "seq": 10,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "halt-refund-loop",
+     "restricted-needs-bound-approval"
+    ],
+    "recorded": "halted",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "let_through"
+ }
+}

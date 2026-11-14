@@ -1,0 +1,100 @@
+{
+ "case": "e20-unfounded-record-advances-halt",
+ "covers": "haltAfterDenials: 2; a record that was not due brings the halt one denial earlier",
+ "controlSet": "13",
+ "approvalScopeDigest": "d2a35f16e40e28b06c174714216691c831346d7c38c234680da71ca75bf6e668",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "c53d60e15b70d07609d25d2329919a0bf26286b58933db962fda43cfe3f2a2c6",
+ "prefix": {
+  "throughSeq": 5,
+  "finalSeq": 5,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "FAIL",
+   "where": [
+    "3"
+   ]
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 1,
+    "due": "none",
+    "recorded": "refused",
+    "outcome": "over_enforced",
+    "findings": [
+     "unfounded_record"
+    ]
+   },
+   {
+    "seq": 3,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "halted",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "over_enforced"
+ }
+}

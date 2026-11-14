@@ -1,0 +1,27 @@
+{
+ "name": "x01-recorded-not-from-chain",
+ "run": "e01-refusal-missing",
+ "needsEngine": false,
+ "because": "`recorded` does not follow from the chain",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/decisions/0/recorded",
+   "value": "refused"
+  },
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/decisions/0/outcome",
+   "value": "as_required"
+  },
+  {
+   "op": "remove",
+   "path": "/policy/enforcement/decisions/0/findings"
+  },
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/result",
+   "value": "as_required"
+  }
+ ]
+}

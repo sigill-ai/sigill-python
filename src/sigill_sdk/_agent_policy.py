@@ -779,16 +779,19 @@ class AgentPolicy:
         :param document: the policy control set, exact bytes. Its version picks the Cedar schema.
         :param facts: :class:`PolicyFacts` or a facts document's bytes: factsVersion 1 for a v1 control set, 2 (with
             its ``entities``) for a v2 one.
-        :raises ValueError: the control set is invalid or has no Cedar rules, or the facts do not fit it.
+        :raises ValueError: the control set is invalid, or a v1 one without Cedar rules, or the facts do not fit it.
         :raises PolicyEngineError: the engine failed, or refused a request (``type: failure``): then there are no
             results, as with the reference evaluator."""
         errors = AgentPolicy.validate(document)
         if errors:
             raise ValueError("Invalid policy control set: " + "; ".join(errors))
         doc = _parse(document)
-        if not isinstance(doc.get("cedar"), dict):
-            raise ValueError("The control set carries no Cedar rules.")
         version = 2 if "schemaVersion" in doc else 1
+        # A v2 control set may enforce without rules: every request is then evaluated with the baseline permit alone,
+        # as the guard does (ControlEvaluation v3 §4).
+        cedar = doc.get("cedar") if isinstance(doc.get("cedar"), dict) else {} if version == 2 else None
+        if cedar is None:
+            raise ValueError("The control set carries no Cedar rules.")
         not_facts = ValueError(f"The facts are not a factsVersion {version} document (a v{version} control set).")
         try:
             f = json.loads(facts.data if isinstance(facts, PolicyFacts) else facts)
@@ -799,10 +802,10 @@ class AgentPolicy:
                 or not all(isinstance(r, dict) and (r.get("seq") == "run" or (
                     isinstance(r.get("seq"), int) and not isinstance(r.get("seq"), bool))) for r in requests):
             raise not_facts
-        entities = doc["cedar"].get("entities", []) if version == 2 else []
+        entities = cedar.get("entities", []) if version == 2 else []
         if version == 2 and not _json_equal(f.get("entities"), entities):  # v2 §8: the control set's entities
             raise ValueError("The facts carry other entities than the control set.")
-        rules = doc["cedar"]["policies"]["staticPolicies"]
+        rules = (cedar.get("policies") or {}).get("staticPolicies") or {}
         base = {"schema": _cedar_schema(version), "validateRequest": True,
                 "policies": {"staticPolicies": {**rules, BASELINE_PERMIT: _BASELINE}}, "entities": entities}
         results = {rid: ["PASS", []] for rid in rules}
@@ -827,6 +830,31 @@ class AgentPolicy:
                              for rid, (res, where) in results.items())
         overall = max((c.result for c in rule_results), key=_RANK.__getitem__, default="PASS")
         return PolicyEvaluationResult(f"cedar-policy@{engine.version}", rule_results, overall, tuple(out))
+
+    @staticmethod
+    def compare_enforcement(control_artifact: AgentRunArtifact, events: Iterable[AgentRunArtifact],
+                            control_set_document: bytes, engine: PolicyEngine) -> dict:
+        """The enforcement comparison of a run under a v2 control set (``spec/control-evaluation-v3.md`` §4–§6): for
+        each event of the contiguous prefix, what the control set required the guard to do against what the chain
+        records — the ``policy.enforcement`` member of a ControlEvaluation v3, as a JSON object. Deterministic: its
+        canonical form is the same for the same run.
+
+        It reads typed envelope fields and signed object digests only, never payload content: what an evidence index
+        holds is enough. When the run's enforcement records name a core other than ``engine``'s, or two cores, or the
+        chain contradicts its own records, the member says ``not_performed`` and why.
+
+        :param control_artifact: the run's Control Artifact, with the object digests its signature confirms.
+        :param events: the run's events, any order, each with the object digests its signature confirms.
+        :param control_set_document: the v2 policy control set, the exact bytes the Control Artifact seals.
+        :param engine: the evaluator's Cedar core.
+        :raises ValueError: an input error, and no comparison is made: the control set is not a valid v2 policy control
+            set or not the one the Control Artifact seals; the Control Artifact names no agent or correlationId, carries
+            two control-set objects or a locked role twice; two events claim one seq or one has none; an enforcement
+            record has no ``enforcer.engine``.
+        :raises PolicyEngineError: the engine failed, raised or refused a request: there is no evaluation of this
+            prefix."""
+        from sigill_sdk._agent_compare import compare  # the comparison needs the verifier's chain findings
+        return compare(control_artifact, list(events), control_set_document, engine)
 
     @staticmethod
     def compute_digests(document: bytes) -> PolicyDigests:

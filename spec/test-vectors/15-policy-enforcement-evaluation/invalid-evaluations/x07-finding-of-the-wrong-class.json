@@ -1,0 +1,15 @@
+{
+ "name": "x07-finding-of-the-wrong-class",
+ "run": "e13-unfounded-halt",
+ "needsEngine": false,
+ "because": "a let-through finding under `over_enforced`",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/decisions/0/findings",
+   "value": [
+    "halt_missing"
+   ]
+  }
+ ]
+}

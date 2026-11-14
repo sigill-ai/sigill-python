@@ -278,9 +278,51 @@ rule 2 and is not yet consumed. Consumption is a property of the facts — a cal
 exactly when its `approval` is `bound` — independent of what the guard decided for it. A
 second call with the same tool and arguments is therefore not `bound` by the same approval.
 
+### 8.2 Conventions
+
+This section changes no fact; it states what §8 and v1 §5 already fix.
+
+**Every event of the prefix is an event of the facts.** A refused `tool_call`, an enforcement
+record and the `run_end` of a halt each have a seq and a request, and each is a step:
+`stepsSoFar` is the event's `chain.seq`, whoever sealed it and whatever was decided. The
+Control Artifact is not an event.
+
+**What a counter includes.** For the event at seq *s*:
+
+| Attribute | Counts | The event itself |
+|---|---|---|
+| `stepsSoFar` | events with seq < *s* (so it equals *s*) | excluded |
+| `toolCallsSoFar`, `callsOfThisTool` | `tool_call` events with seq ≤ *s* | included |
+| `consequentialCount` | events with `step.consequential: true` and seq ≤ *s* | included |
+| `denialsSoFar` | enforcement records with seq < *s* | excluded |
+
+A refused call counts in `toolCallsSoFar`, in `callsOfThisTool` and, when consequential, in
+`consequentialCount`. A call's record has a higher seq than the call, so a call's
+`denialsSoFar` never counts its own refusal.
+
+**The facts are those of the recorded chain.** They count what was sealed, not what should
+have been: a call that was let through counts as a call, an enforcement record counts as a
+denial whether or not it was due, and a record that is missing is not counted. An approval is
+consumed by the call it binds whether that call was then allowed or refused (§8.1).
+
+**`haltAfterDenials`.** For a `tool_call` for which a denial is due (§7.2), "the number of
+enforcement records in the run, this one included" is its `denialsSoFar` + 1, and the guard
+halts when that equals `haltAfterDenials`. In a run in which each record was due and each due
+halt was sealed the number never passes `haltAfterDenials`, so "equals" and "is at least" say
+the same. They differ only on a chain that has stepped over the number without halting — a
+halt that was skipped, or a record that was not due. An evaluator therefore takes the halt as
+due when `denialsSoFar` + 1 is at least `haltAfterDenials` (ControlEvaluation v3 §5.2). A
+missing record delays the halt by one denial; a record that was not due brings it one denial
+earlier.
+
 ## 9. Results
 
 Unchanged from v1 §6: per rule from Cedar's diagnostics, FAIL > INDETERMINATE > PASS.
+
+A policy evaluation of a run under a v2 control set is a
+[ControlEvaluation v3](./control-evaluation-v3.md). Besides these results it carries the
+enforcement comparison (§5 there): what §7 required for each event against what the chain
+records.
 
 ## 10. Test vectors
 
@@ -288,6 +330,8 @@ Unchanged from v1 §6: per rule from Cedar's diagnostics, FAIL > INDETERMINATE >
   `cedar.entities`, its digests and `schemaSha256`, and invalid variants.
 - `test-vectors/14-policy-enforcement/`: v4 runs with, per event, the facts-v2 request,
   Cedar's diagnostics and the guard's outcome; runs with each verifier finding.
+- `test-vectors/15-policy-enforcement-evaluation/`: the expected enforcement comparison
+  (ControlEvaluation v3 §5) for vector 14's runs and for runs with each of its findings.
 
 ## 11. Decisions and open questions
 

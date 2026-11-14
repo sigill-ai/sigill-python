@@ -1,0 +1,1138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.sigill.ai/control-evaluation/v3.json",
+  "title": "ControlEvaluation",
+  "description": "ControlEvaluation v3 (draft): a state, policy or attested evaluation of one run, bound to its Control Artifact. See control-evaluation-v3.md.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaName",
+    "schemaVersion",
+    "evidenceId",
+    "createdAt",
+    "actor",
+    "activity",
+    "subject",
+    "controlSet",
+    "controls",
+    "overall",
+    "evaluatedAt",
+    "objects",
+    "kind"
+  ],
+  "properties": {
+    "schemaName": {
+      "type": "string",
+      "const": "ControlEvaluation"
+    },
+    "schemaVersion": {
+      "type": "string",
+      "const": "3"
+    },
+    "evidenceId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "A bare UUID, as the v2 family core requires. Verifiers also accept the urn:uuid: form (common rules §1)."
+    },
+    "createdAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Producer's clock, RFC 3339 UTC. Seal time is proven by sigTst."
+    },
+    "actor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id",
+        "version"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "verifier",
+            "producer"
+          ],
+          "description": "verifier for state and policy, producer for attested."
+        },
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Stable identifier. Not a display name, not PII."
+        },
+        "version": {
+          "type": "string",
+          "description": "Version of the producing component."
+        },
+        "tenantId": {
+          "type": "string"
+        },
+        "displayHint": {
+          "type": "string"
+        }
+      }
+    },
+    "activity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "correlationId"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "correlationId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The run identifier; identical in every artifact of one run."
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object"
+      },
+      "description": "Producer-private data, as AiEvidenceEnvelopeV2 §2."
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "controlArtifactSignatureSha256"
+      ],
+      "properties": {
+        "controlArtifactSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "runEndSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "throughSignatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "controlSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "controls": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "result"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "PASS",
+              "FAIL",
+              "INDETERMINATE"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          },
+          "where": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^(run|0|[1-9][0-9]*)$"
+            },
+            "description": "policy only: the requests (seq or run) that produced FAIL or INDETERMINATE; absent for PASS."
+          }
+        }
+      }
+    },
+    "overall": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "INDETERMINATE"
+      ]
+    },
+    "evaluatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "objects": {
+      "type": "array",
+      "description": "Closed role set; which roles a kind allows is fixed per kind (see allOf at the top level).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "uri",
+          "role"
+        ],
+        "properties": {
+          "uri": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Opaque, byte-exact match with sigD.pars; never 'sigill-envelope.json' or 'urn:sigill:envelope'. New output uses the AiEvidenceEnvelopeV2 §3.1 production profile (SDK default objects/<uuid>); historical urn: values stay valid."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "observed-state",
+              "control-set",
+              "baseline-state",
+              "evaluation-facts",
+              "policy-approval"
+            ]
+          },
+          "contentType": {
+            "type": "string"
+          },
+          "encoding": {
+            "type": "string",
+            "enum": [
+              "utf-8",
+              "binary"
+            ]
+          },
+          "sizeBytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "metadata": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "minItems": 1,
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "control-set"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "state",
+        "policy",
+        "attested"
+      ]
+    },
+    "supersedes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "evidenceId",
+        "signatureSha256"
+      ],
+      "properties": {
+        "evidenceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "signatureSha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approvalScopeDigest",
+        "policyStatus",
+        "evaluator",
+        "prefix",
+        "state",
+        "enforcement"
+      ],
+      "properties": {
+        "approvalScopeDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "cedarDigest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "policyStatus": {
+          "type": "string",
+          "enum": [
+            "approved_before_run",
+            "approved_after_start",
+            "unapproved"
+          ]
+        },
+        "evaluator": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "engine",
+            "factsVersion"
+          ],
+          "properties": {
+            "engine": {
+              "type": "string",
+              "pattern": "^cedar-policy@[0-9]+\\.[0-9]+\\.[0-9]+$"
+            },
+            "factsVersion": {
+              "type": "string",
+              "const": "2"
+            },
+            "schemaSha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        },
+        "prefix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "throughSeq",
+            "finalSeq",
+            "missingSeqs"
+          ],
+          "properties": {
+            "throughSeq": {
+              "type": "integer",
+              "minimum": -1,
+              "maximum": 9007199254740991
+            },
+            "finalSeq": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "missingSeqs": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "description": "Ascending, no repeats (checked by verifiers)."
+            }
+          }
+        },
+        "state": {
+          "type": "string",
+          "enum": [
+            "finalized",
+            "partial"
+          ]
+        },
+        "privateControlsReported": {
+          "type": "string",
+          "enum": [
+            "reported",
+            "missing",
+            "pending"
+          ]
+        },
+        "timestamps": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "required",
+            "met",
+            "where"
+          ],
+          "properties": {
+            "required": {
+              "type": "string",
+              "const": "qualified"
+            },
+            "met": {
+              "type": "boolean"
+            },
+            "where": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(approval|control|run_end|0|[1-9][0-9]*)$"
+              }
+            }
+          }
+        },
+        "enforcement": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "comparison"
+          ],
+          "properties": {
+            "comparison": {
+              "type": "string",
+              "enum": [
+                "performed",
+                "not_performed"
+              ]
+            },
+            "notPerformed": {
+              "type": "string",
+              "enum": [
+                "chain_inconsistent",
+                "engine_inconsistent",
+                "engine_unavailable"
+              ]
+            },
+            "recordedEngine": {
+              "type": "string",
+              "pattern": "^cedar-policy@[0-9]+\\.[0-9]+\\.[0-9]+$"
+            },
+            "decisions": {
+              "type": "array",
+              "maxItems": 2000,
+              "description": "One entry per listed event, ascending seq (checked by verifiers).",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "seq",
+                  "due",
+                  "outcome"
+                ],
+                "properties": {
+                  "seq": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 2147483647
+                  },
+                  "due": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "refused",
+                      "halted"
+                    ]
+                  },
+                  "dueReason": {
+                    "type": "string",
+                    "enum": [
+                      "rule",
+                      "rule_error",
+                      "unknown_tool",
+                      "tool_changed",
+                      "configuration_locked"
+                    ]
+                  },
+                  "dueRules": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 256,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z0-9._-]{1,64}$"
+                    }
+                  },
+                  "recorded": {
+                    "type": "string",
+                    "enum": [
+                      "none",
+                      "refused",
+                      "halted"
+                    ]
+                  },
+                  "outcome": {
+                    "type": "string",
+                    "enum": [
+                      "as_required",
+                      "let_through",
+                      "over_enforced",
+                      "not_checkable",
+                      "pending"
+                    ]
+                  },
+                  "findings": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "refusal_missing",
+                        "unknown_tool_allowed",
+                        "configuration_not_enforced",
+                        "halt_missing",
+                        "unfounded_record",
+                        "unfounded_halt",
+                        "reason_mismatch",
+                        "rules_mismatch"
+                      ]
+                    }
+                  }
+                },
+                "allOf": [
+                  {
+                    "if": {
+                      "properties": {
+                        "due": {
+                          "const": "none"
+                        }
+                      }
+                    },
+                    "then": {
+                      "not": {
+                        "required": [
+                          "dueReason"
+                        ]
+                      }
+                    },
+                    "else": {
+                      "required": [
+                        "dueReason"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "required": [
+                        "dueReason"
+                      ],
+                      "properties": {
+                        "dueReason": {
+                          "enum": [
+                            "rule",
+                            "rule_error"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "required": [
+                        "dueRules"
+                      ]
+                    },
+                    "else": {
+                      "not": {
+                        "required": [
+                          "dueRules"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "outcome": {
+                          "enum": [
+                            "let_through",
+                            "over_enforced"
+                          ]
+                        }
+                      }
+                    },
+                    "then": {
+                      "required": [
+                        "findings"
+                      ]
+                    },
+                    "else": {
+                      "not": {
+                        "required": [
+                          "findings"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "outcome": {
+                          "const": "pending"
+                        }
+                      }
+                    },
+                    "else": {
+                      "required": [
+                        "recorded"
+                      ]
+                    }
+                  }
+                ]
+              }
+            },
+            "result": {
+              "type": "string",
+              "enum": [
+                "as_required",
+                "let_through",
+                "over_enforced",
+                "not_checkable",
+                "pending"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "comparison": {
+                    "const": "performed"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "decisions",
+                  "result"
+                ],
+                "not": {
+                  "required": [
+                    "notPerformed"
+                  ]
+                }
+              },
+              "else": {
+                "required": [
+                  "notPerformed"
+                ],
+                "not": {
+                  "anyOf": [
+                    {
+                      "required": [
+                        "decisions"
+                      ]
+                    },
+                    {
+                      "required": [
+                        "result"
+                      ]
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "notPerformed"
+                ],
+                "properties": {
+                  "notPerformed": {
+                    "const": "engine_unavailable"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "recordedEngine"
+                ]
+              }
+            },
+            {
+              "if": {
+                "required": [
+                  "notPerformed"
+                ],
+                "properties": {
+                  "notPerformed": {
+                    "const": "engine_inconsistent"
+                  }
+                }
+              },
+              "then": {
+                "not": {
+                  "required": [
+                    "recordedEngine"
+                  ]
+                }
+              }
+            }
+          ]
+        }
+      }
+    },
+    "attested": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evaluatorId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evaluatorVersion": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "state"
+          }
+        }
+      },
+      "then": {
+        "allOf": [
+          {
+            "required": [
+              "subject"
+            ],
+            "properties": {
+              "subject": {
+                "required": [
+                  "runEndSignatureSha256"
+                ]
+              },
+              "actor": {
+                "properties": {
+                  "type": {
+                    "const": "verifier"
+                  }
+                }
+              },
+              "controls": {
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "policy"
+                  ]
+                },
+                {
+                  "required": [
+                    "attested"
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "properties": {
+              "objects": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "observed-state"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "baseline-state"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "evaluation-facts"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "policy-approval"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "policy"
+          }
+        }
+      },
+      "then": {
+        "allOf": [
+          {
+            "required": [
+              "policy"
+            ],
+            "properties": {
+              "subject": {
+                "required": [
+                  "throughSignatureSha256"
+                ]
+              },
+              "actor": {
+                "properties": {
+                  "type": {
+                    "const": "verifier"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "not": {
+              "required": [
+                "attested"
+              ]
+            }
+          },
+          {
+            "properties": {
+              "objects": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "evaluation-facts"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 1,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "policy-approval"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 1
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "observed-state"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "baseline-state"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  }
+                ]
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "policy": {
+                  "properties": {
+                    "state": {
+                      "const": "finalized"
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "subject": {
+                  "required": [
+                    "runEndSignatureSha256"
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "subject": {
+                  "not": {
+                    "required": [
+                      "runEndSignatureSha256"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "policy": {
+                  "properties": {
+                    "policyStatus": {
+                      "const": "unapproved"
+                    }
+                  }
+                }
+              }
+            },
+            "then": {
+              "properties": {
+                "objects": {
+                  "allOf": [
+                    {
+                      "contains": {
+                        "type": "object",
+                        "properties": {
+                          "role": {
+                            "const": "policy-approval"
+                          }
+                        },
+                        "required": [
+                          "role"
+                        ]
+                      },
+                      "minContains": 0,
+                      "maxContains": 0
+                    }
+                  ]
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "objects": {
+                  "allOf": [
+                    {
+                      "contains": {
+                        "type": "object",
+                        "properties": {
+                          "role": {
+                            "const": "policy-approval"
+                          }
+                        },
+                        "required": [
+                          "role"
+                        ]
+                      },
+                      "minContains": 1,
+                      "maxContains": 1
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
+            "const": "attested"
+          }
+        }
+      },
+      "then": {
+        "allOf": [
+          {
+            "properties": {
+              "subject": {
+                "required": [
+                  "runEndSignatureSha256"
+                ]
+              },
+              "actor": {
+                "properties": {
+                  "type": {
+                    "const": "producer"
+                  }
+                }
+              },
+              "controls": {
+                "minItems": 1
+              }
+            }
+          },
+          {
+            "not": {
+              "required": [
+                "policy"
+              ]
+            }
+          },
+          {
+            "properties": {
+              "objects": {
+                "allOf": [
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "observed-state"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "baseline-state"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "evaluation-facts"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  },
+                  {
+                    "contains": {
+                      "type": "object",
+                      "properties": {
+                        "role": {
+                          "const": "policy-approval"
+                        }
+                      },
+                      "required": [
+                        "role"
+                      ]
+                    },
+                    "minContains": 0,
+                    "maxContains": 0
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

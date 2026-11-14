@@ -1,0 +1,26 @@
+{
+  "schemaVersion": "2",
+  "id": "acme-support-agent-controls",
+  "version": "4",
+  "controls": [],
+  "privateControls": [
+    {
+      "id": "no-card-numbers-in-replies"
+    }
+  ],
+  "coverage": {
+    "sourceProfile": "urn:sigill:recorder:producer-declared",
+    "scope": "all instrumented SDK tool calls",
+    "idleSeconds": 1800
+  },
+  "enforcement": {
+    "mode": "enforce",
+    "defaultEffect": "deny",
+    "lockedConfiguration": {
+      "tool-manifest": "e3858a469acbc9ddbec0953bcd71b20c0340b2b8f36601f3b235e3a6e7dc2b11"
+    },
+    "unknownTools": "deny",
+    "onRuleError": "deny",
+    "haltAfterDenials": 0
+  }
+}

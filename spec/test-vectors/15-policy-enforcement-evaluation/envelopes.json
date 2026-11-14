@@ -1,0 +1,4095 @@
+{
+ "description": "Each envelope is validated against control-evaluation-v3.schema.json. `valid` must be accepted, `invalid` rejected.",
+ "valid": [
+  {
+   "name": "example-a-as-required",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "example-b-let-through",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000001"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "none",
+        "outcome": "let_through",
+        "findings": [
+         "refusal_missing"
+        ]
+       }
+      ],
+      "result": "let_through"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3218
+     }
+    ]
+   }
+  },
+  {
+   "name": "example-c-chain-inconsistent",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000033"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 4,
+      "finalSeq": 4,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "chain_inconsistent",
+      "recordedEngine": "cedar-policy@4.14.0"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3595
+     }
+    ]
+   }
+  },
+  {
+   "name": "example-d-no-rules",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-15000000001c"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [],
+    "overall": "PASS",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "1f8413e1866d8d6fd5001aee87e28d1f6ef3f99d1cdff2eaf330c7a9464de1a0",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "unknown_tool",
+        "recorded": "none",
+        "outcome": "let_through",
+        "findings": [
+         "unknown_tool_allowed"
+        ]
+       }
+      ],
+      "result": "let_through"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 2033
+     }
+    ]
+   }
+  },
+  {
+   "name": "not-performed-engine-unavailable",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000026"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "engine_unavailable",
+      "recordedEngine": "cedar-policy@99.0.0"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "not-performed-engine-inconsistent",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000027"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1",
+       "3"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 5,
+      "finalSeq": 5,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "engine_inconsistent"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3970
+     }
+    ]
+   }
+  },
+  {
+   "name": "pending-without-recorded",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000028"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 1,
+      "finalSeq": null,
+      "missingSeqs": []
+     },
+     "state": "partial",
+     "enforcement": {
+      "comparison": "performed",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "outcome": "pending"
+       }
+      ],
+      "result": "pending"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 2050
+     }
+    ]
+   }
+  },
+  {
+   "name": "pending-with-recorded",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000029"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "FAIL",
+      "where": [
+       "5"
+      ]
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "PASS"
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "FAIL",
+      "where": [
+       "1",
+       "3",
+       "5"
+      ]
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 6,
+      "finalSeq": null,
+      "missingSeqs": []
+     },
+     "state": "partial",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "restricted-needs-bound-approval"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required"
+       },
+       {
+        "seq": 3,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "restricted-needs-bound-approval"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required"
+       },
+       {
+        "seq": 5,
+        "due": "halted",
+        "dueReason": "rule",
+        "dueRules": [
+         "halt-refund-loop",
+         "restricted-needs-bound-approval"
+        ],
+        "recorded": "refused",
+        "outcome": "pending"
+       }
+      ],
+      "result": "pending"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3957
+     }
+    ]
+   }
+  },
+  {
+   "name": "controls-empty",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-15000000001b"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [],
+    "overall": "PASS",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "1f8413e1866d8d6fd5001aee87e28d1f6ef3f99d1cdff2eaf330c7a9464de1a0",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "unknown_tool",
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 2019
+     }
+    ]
+   }
+  },
+  {
+   "name": "v3-state",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "state",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "ticket-closed",
+      "result": "PASS"
+     }
+    ],
+    "overall": "PASS",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000003",
+      "role": "observed-state",
+      "contentType": "application/json",
+      "sizeBytes": 40
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/json",
+      "sizeBytes": 64
+     }
+    ]
+   }
+  },
+  {
+   "name": "v3-attested",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "attested",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "producer",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "ticket-closed",
+      "result": "PASS"
+     }
+    ],
+    "overall": "PASS",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     }
+    ]
+   }
+  }
+ ],
+ "invalid": [
+  {
+   "name": "facts-version-1",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "1",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "policy-without-enforcement",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized"
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "performed-without-decisions",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "performed-without-result",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ]
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "not-performed-with-decisions",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000026"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "engine_unavailable",
+      "recordedEngine": "cedar-policy@99.0.0",
+      "decisions": []
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "not-performed-with-result",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000026"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "engine_unavailable",
+      "recordedEngine": "cedar-policy@99.0.0",
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "not-performed-without-reason",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000026"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "recordedEngine": "cedar-policy@99.0.0"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "not-performed-unknown-reason",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000026"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "engine_missing",
+      "recordedEngine": "cedar-policy@99.0.0"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "engine-unavailable-without-recorded-engine",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000026"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "engine_unavailable"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "engine-inconsistent-with-recorded-engine",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000027"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1",
+       "3"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 5,
+      "finalSeq": 5,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "not_performed",
+      "notPerformed": "engine_inconsistent",
+      "recordedEngine": "cedar-policy@4.14.0"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3970
+     }
+    ]
+   }
+  },
+  {
+   "name": "due-reason-unavailable",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "unavailable",
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "due-none-with-reason",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "none",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "refused-without-reason",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "rule-without-rules",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "unknown-tool-with-rules",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "unknown_tool",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "rules-empty",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [],
+        "recorded": "refused",
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "let-through-without-findings",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "let_through"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "as-required-with-findings",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required",
+        "findings": [
+         "refusal_missing"
+        ]
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "unknown-finding",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-150000000001"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "none",
+        "outcome": "let_through",
+        "findings": [
+         "ran_anyway"
+        ]
+       }
+      ],
+      "result": "let_through"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3218
+     }
+    ]
+   }
+  },
+  {
+   "name": "unknown-outcome",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "fine"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "decision-unknown-member",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "recorded": "refused",
+        "outcome": "as_required",
+        "recordedReason": "rule"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "as-required-without-recorded",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "policy",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "throughSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [
+     {
+      "id": "export-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-consequential-export",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-fs-wipe",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-refund-loop",
+      "result": "PASS"
+     },
+     {
+      "id": "halt-retrieval-after-denial",
+      "result": "PASS"
+     },
+     {
+      "id": "no-delegation",
+      "result": "PASS"
+     },
+     {
+      "id": "no-unpaired-consequential",
+      "result": "PASS"
+     },
+     {
+      "id": "no-web-search",
+      "result": "FAIL",
+      "where": [
+       "1"
+      ]
+     },
+     {
+      "id": "preview-weight",
+      "result": "PASS"
+     },
+     {
+      "id": "read-loop-limit",
+      "result": "PASS"
+     },
+     {
+      "id": "rejected-is-final",
+      "result": "PASS"
+     },
+     {
+      "id": "restricted-needs-bound-approval",
+      "result": "PASS"
+     },
+     {
+      "id": "shadow-repeat-read",
+      "result": "PASS"
+     }
+    ],
+    "overall": "FAIL",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "policy": {
+     "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+     "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+     "policyStatus": "unapproved",
+     "evaluator": {
+      "engine": "cedar-policy@4.14.0",
+      "factsVersion": "2",
+      "schemaSha256": "69b76d3d758c0850b0a549c246f15e6d4602e3d349f2384e35bda13b1a389825"
+     },
+     "prefix": {
+      "throughSeq": 3,
+      "finalSeq": 3,
+      "missingSeqs": []
+     },
+     "state": "finalized",
+     "enforcement": {
+      "comparison": "performed",
+      "recordedEngine": "cedar-policy@4.14.0",
+      "decisions": [
+       {
+        "seq": 1,
+        "due": "refused",
+        "dueReason": "rule",
+        "dueRules": [
+         "no-web-search"
+        ],
+        "outcome": "as_required"
+       }
+      ],
+      "result": "as_required"
+     }
+    },
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000002",
+      "role": "evaluation-facts",
+      "contentType": "application/json",
+      "sizeBytes": 3211
+     }
+    ]
+   }
+  },
+  {
+   "name": "state-with-empty-controls",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "state",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "verifier",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [],
+    "overall": "PASS",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000003",
+      "role": "observed-state",
+      "contentType": "application/json",
+      "sizeBytes": 40
+     },
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/json",
+      "sizeBytes": 64
+     }
+    ]
+   }
+  },
+  {
+   "name": "attested-with-empty-controls",
+   "envelope": {
+    "schemaName": "ControlEvaluation",
+    "schemaVersion": "3",
+    "kind": "attested",
+    "evidenceId": "00000000-0000-4000-8000-15f000000000",
+    "createdAt": "2026-11-02T10:20:00.000Z",
+    "actor": {
+     "type": "producer",
+     "id": "urn:example:policy-evaluator",
+     "version": "1.0.0"
+    },
+    "activity": {
+     "name": "support-session",
+     "correlationId": "urn:uuid:00000000-0000-4000-8000-140000000002"
+    },
+    "subject": {
+     "controlArtifactSignatureSha256": "0fcd568a5cb9bdb4677b69354b11ee415af8f784519cff3da49a26f84eaee7f2",
+     "runEndSignatureSha256": "9c6725dc269a48ce4b5bc78b580ccab2efbe6f3ccae64b1d44839f0cebd92fbe"
+    },
+    "controlSet": {
+     "id": "acme-support-agent-controls",
+     "version": "4"
+    },
+    "controls": [],
+    "overall": "PASS",
+    "evaluatedAt": "2026-11-02T10:19:58.000Z",
+    "objects": [
+     {
+      "uri": "objects/00000000-0000-4000-8000-15c000000001",
+      "role": "control-set",
+      "contentType": "application/vnd.sigill.control-set+json",
+      "sizeBytes": 4096
+     }
+    ]
+   }
+  }
+ ]
+}

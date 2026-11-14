@@ -1,0 +1,85 @@
+{
+ "case": "e42-locked-role-absent",
+ "covers": "a locked role the Control Artifact has no object for refuses the start",
+ "controlSet": "13",
+ "approvalScopeDigest": "18548aba03371486ea94f46ff84a237307d93242bac7ce8c5220a9523aa32c4d",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "5ccc404d441b2df2135bcec037be52c8a9a814efe7c5aefff3ace4d086a632a6",
+ "prefix": {
+  "throughSeq": 2,
+  "finalSeq": 2,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "PASS",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 0,
+    "due": "halted",
+    "dueReason": "configuration_locked",
+    "recorded": "halted",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "as_required"
+ }
+}

@@ -624,8 +624,8 @@ result = verify_agent_run(bundle, verifier, engine=engine)
 # result.evaluations[i].results_recomputed: a policy evaluation's results, recomputed and equal
 ```
 
-With an engine, the verifier recomputes the results of a policy evaluation of a v1 control
-set from its sealed facts; results that differ make that evaluation invalid, naming the first
+With an engine, the verifier recomputes the results of a policy evaluation (of a v1 or a v2
+control set) from its sealed facts; results that differ make that evaluation invalid, naming the first
 rule that differs, and so does a request the engine refuses. An evaluation made with another
 Cedar version, an engine failure, or a verification past its recomputation budget
 (a fixed number of control-set bytes × facts requests) is not recomputed (a note says so). Without an engine nothing changes: the results are the evaluator's.
@@ -716,6 +716,63 @@ What enforcement does and does not show:
   its result is not sealed.
 - A child run is refused after its parent halted only when it is started from the delegation
   object the parent returned in the same process.
+
+### Evaluating enforcement: did the guard do what the control set required?
+
+A verifier checks that the guard's records hang together; it cannot tell whether a due denial
+or halt was skipped. The enforcement comparison of a
+[ControlEvaluation v3](spec/control-evaluation-v3.md) can: from the Control Artifact, the signed
+events with their signed object digests and the control-set bytes — no payloads, so what an
+evidence index holds is enough — it recomputes, for every event, what was **due**, and compares
+it with what the chain **records**.
+
+```python
+member = AgentPolicy.compare_enforcement(bundle.control_artifact, bundle.artifacts, document, engine)
+# {"comparison": "performed", "recordedEngine": "cedar-policy@4.14.0", "result": "let_through",
+#  "decisions": [{"seq": 1, "due": "refused", "dueReason": "rule", "dueRules": ["no-web-search"],
+#                 "recorded": "none", "outcome": "let_through", "findings": ["refusal_missing"]}]}
+
+facts = AgentPolicy.build_facts_v2(agent_id, correlation_id, bundle.artifacts, document)
+results = AgentPolicy.evaluate(document, facts, engine)
+prepared = ControlEvaluation.prepare_policy(PolicyEvaluationRequest(
+    ..., rules=results.rules, engine=results.engine, enforcement=member))   # schemaVersion "3"
+```
+
+`verify_agent_run(bundle, verifier, engine=engine)` checks a v3 evaluation's comparison; its
+core-free rules are checked without an engine too. Read `evaluation.enforcement_result`, not
+only `evaluation.valid`: a valid evaluation whose `enforcement_comparison` is `not_performed`
+compared nothing, and that is not a pass. `enforcement_recomputed` is true only for a
+`performed` comparison that the verifier reproduced with the core the evaluation names.
+Conclude that the guard did what was due only when `evaluation.valid`,
+`evaluation.enforcement_recomputed`, `evaluation.enforcement_result == "as_required"` and
+`evaluation.policy_state == "finalized"` all hold: without `enforcement_recomputed` the result
+is the evaluator's unconfirmed word, and a partial prefix says nothing about the events after it.
+A v1 control set is evaluated as a ControlEvaluation v2, as before. Rule results and `overall`
+keep their meaning: a forbidden call that the guard refused is still `FAIL`; the comparison
+says it was refused.
+
+| Outcome of an event | Meaning | Findings |
+|---|---|---|
+| `as_required` | the chain records what was due | — |
+| `let_through` | the chain records less than was due | `refusal_missing`, `unknown_tool_allowed`, `configuration_not_enforced`, `halt_missing` |
+| `over_enforced` | the chain records more than was due, or the wrong reason or rules; it records no forbidden action | `unfounded_record`, `unfounded_halt`, `reason_mismatch`, `rules_mismatch` |
+| `not_checkable` | the record says the guard's core was `unavailable` | — |
+| `pending` | the evaluated prefix ends on this event or its record: what follows is not known | — |
+
+The `result` speaks for the evaluated prefix only: a run with a gap is compared up to the gap,
+and can be `as_required` with `state: "partial"`.
+
+The comparison is `not_performed` — never `as_required` — when the chain contradicts its own
+records (`chain_inconsistent`), the records name two cores (`engine_inconsistent`) or a core the
+evaluator does not have (`engine_unavailable`); it is never computed with another Cedar version.
+
+What it does not show: which tool was in fact run under a name; that the argument and definition
+digests are those of what was sent; an action recorded as another step type; that a human
+approved; whether a record was sealed by the guard or other code of the producer; whether the
+core in fact failed where a record says `unavailable`; which core the guard ran when the run has
+no record; that the sealed configuration is the one the runtime used; that a refused tool was
+not run outside the recorded run; who the agent is (`agent.id` is the producer's own name);
+anything after the evaluated prefix ([§8](spec/control-evaluation-v3.md)).
 
 ### Sub-agents: run trees
 

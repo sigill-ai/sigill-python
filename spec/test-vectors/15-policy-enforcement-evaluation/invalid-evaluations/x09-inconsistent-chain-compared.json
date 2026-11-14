@@ -1,0 +1,38 @@
+{
+ "name": "x09-inconsistent-chain-compared",
+ "run": "c01-executed-after-denial",
+ "needsEngine": false,
+ "because": "the chain is `chain_inconsistent`",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/comparison",
+   "value": "performed"
+  },
+  {
+   "op": "remove",
+   "path": "/policy/enforcement/notPerformed"
+  },
+  {
+   "op": "add",
+   "path": "/policy/enforcement/decisions",
+   "value": [
+    {
+     "seq": 1,
+     "due": "refused",
+     "dueReason": "rule",
+     "dueRules": [
+      "no-web-search"
+     ],
+     "recorded": "refused",
+     "outcome": "as_required"
+    }
+   ]
+  },
+  {
+   "op": "add",
+   "path": "/policy/enforcement/result",
+   "value": "as_required"
+  }
+ ]
+}

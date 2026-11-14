@@ -1,0 +1,13 @@
+{
+ "name": "x04-performed-with-another-core",
+ "run": "14-02-denied-by-rule",
+ "needsEngine": false,
+ "because": "performed with a core other than the recorded engine",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/evaluator/engine",
+   "value": "cedar-policy@4.13.0"
+  }
+ ]
+}
