@@ -486,3 +486,19 @@ def test_a_redirect_is_not_followed_even_by_a_client_that_follows_redirects(stat
     with http:
         answer = SigillClient("k", http_client=http)._index_send(run.control_artifact)
     assert (answer.outcome, answer.error) == ("rejected", f"{status} unexpected_response") and received == []
+
+
+def test_with_the_real_clock_an_index_that_never_answers_costs_one_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+    import time
+
+    from sigill_sdk import _agent_run
+    monkeypatch.setattr(_agent_run, "_INDEX_TIMEOUT", 0.3)
+    monkeypatch.setattr(_agent_run, "_INDEX_TURN_BUDGET", 0.3)
+    index = Index()
+    run = _start(_client(index), deliver_run=True, _index_clock=time.monotonic)
+    index.script = [httpx.ReadTimeout("no answer")] * 10
+    before = len(index.uploads)
+    for _ in range(4):
+        run.record_model_output(b"x")
+    assert len(index.uploads) - before == 1, "the first attempt had the full limit: a back-off runs"
+    assert run.delivery.error == "seq 1: ReadTimeout" and run._index.backoff > 0

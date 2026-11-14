@@ -1143,7 +1143,9 @@ class AgentRun:
             with cursor.lock:
                 if cursor.rejected or (cursor.backoff and not final and cursor.clock() < cursor.not_before):
                     return
-                deadline = cursor.clock() + (_INDEX_FINAL_BUDGET if final else _INDEX_TURN_BUDGET)
+                budget = _INDEX_FINAL_BUDGET if final else _INDEX_TURN_BUDGET
+                deadline = cursor.clock() + budget
+                first = True  # the turn's first attempt gets the full limit, never a clock-shaved one
                 while cursor.next <= upto:
                     position = cursor.next
                     where = "control artifact" if position == 0 else f"seq {position - 1}"
@@ -1155,7 +1157,8 @@ class AgentRun:
                         return
                     artifact = self.control_artifact if position == 0 else self._artifacts[position - 1]
                     document = cursor.document if position == 0 else None
-                    timeout = left()
+                    timeout = min(_INDEX_TIMEOUT, budget) if first else left()
+                    first = False
                     answer = self._client._index_send(artifact, document, timeout)
                     if document is not None:
                         self.policy_disclosure = AgentIndexResult(answer.status, run_id=answer.run_id) \
