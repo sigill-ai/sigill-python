@@ -226,6 +226,8 @@ NOT be executed. The run then verifies as `run_open` or `run_invalid`. In an enf
 a producer's own instrumentation (model-call recording, agent-model-calls-v1.md) MUST NOT
 let the agent go on after a sealing failure: it sends no further model request, and a
 failure to record a model call is raised to the caller instead of being ignored.
+Delivering artifacts to an index (common rules §6.1) is not part of the chain: a delivery
+failure is not a sealing failure, and it neither stops nor halts an enforced run.
 
 ## 8. Facts (factsVersion 2)
 

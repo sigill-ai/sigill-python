@@ -9,7 +9,7 @@ import base64
 import copy
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Mapping, Protocol
+from typing import Mapping, Optional, Protocol
 
 import httpx
 
@@ -27,6 +27,7 @@ from sigill_sdk._agent_types import (
     AgentIndexResult,
     AgentRunArtifact,
     AgentRunBundle,
+    AgentRunDelivery,
     ControlEvaluationRequest,
 )
 from sigill_sdk._agent_verify import AgentRunVerificationResult, remote_verifier, verify_agent_run
@@ -832,10 +833,10 @@ class SigillClient:
 
     def _index_agent_artifact(self, artifact: AgentRunArtifact,
                               control_set_document: bytes | None = None) -> AgentIndexResult:
-        """Uploads a sealed Control Artifact (with its policy control-set document) to the organisation's
-        evidence index — the transport of ``disclose_policy``. Private on purpose: a general upload of
-        execution events is sharing with the index, which waits for its data-processing terms.
-        Returns a failed result instead of raising when the index refuses the upload."""
+        """Uploads a sealed Control Artifact with its policy control-set document to the organisation's evidence
+        index — the transport of ``disclose_policy`` alone. It sends the artifact's signed envelope, signature and
+        object digests, and the document. Returns a failed result instead of raising when the index refuses the
+        upload."""
         body: dict = {"envelope": artifact.envelope, "signature": artifact.signature,
                       "objectDigests": dict(artifact.object_digests)}
         if control_set_document is not None:
@@ -850,6 +851,59 @@ class SigillClient:
         if resp.status_code >= 400:
             return AgentIndexResult("failed", error=f"{resp.status_code} {data.get('code') or resp.reason_phrase}")
         return AgentIndexResult(data.get("status") or "indexed", run_id=data.get("runId"))
+
+    def _index_send(self, artifact: AgentRunArtifact, control_set_document: Optional[bytes] = None,
+                    timeout: float = 10.0) -> tuple[str, Optional[str], Optional[str], Optional[str]]:
+        """One artifact to the organisation's evidence index: its signed envelope, signature and object digests (and
+        the policy document when given). Returns (outcome, run id, error, error code); never raises. Outcome ``ok``
+        (201, or 200 for an artifact already there), ``pending`` (408, 429, 5xx, a transport failure, or a second 409
+        ``conflict``) or ``rejected`` (any other answer). A first 409 ``conflict`` — a concurrent upload won — is
+        retried at once."""
+        body: dict = {"envelope": artifact.envelope, "signature": artifact.signature,
+                      "objectDigests": dict(artifact.object_digests)}
+        if control_set_document is not None:
+            body["controlSet"] = base64.b64encode(control_set_document).decode("ascii")
+        for attempt in (1, 2):
+            try:
+                resp = self._http.post("/api/agent-evidence/artifacts", json=body, timeout=timeout)
+            except Exception as e:  # noqa: BLE001 — a delivery failure never raises
+                return "pending", None, f"{type(e).__name__}: {e}", None
+            try:
+                data = resp.json()
+            except ValueError:  # a non-JSON page: the status code says enough
+                data = None
+            data = data if isinstance(data, dict) else {}
+            code = data.get("code") if isinstance(data.get("code"), str) else None
+            if 200 <= resp.status_code < 300:
+                run_id = data.get("runId")
+                return "ok", run_id if isinstance(run_id, str) else None, None, None
+            error = f"{resp.status_code} {code or resp.reason_phrase}"
+            conflict = resp.status_code == 409 and code == "conflict"
+            if conflict and attempt == 1:
+                continue
+            transient = conflict or resp.status_code in (408, 429) or resp.status_code >= 500
+            return ("pending" if transient else "rejected"), None, error, code
+        raise AssertionError("unreachable")
+
+    def deliver_agent_run(self, bundle: AgentRunBundle) -> AgentRunDelivery:
+        """Uploads a run's artifacts to the organisation's evidence index, so the run can be shown in Sigill: the
+        Control Artifact, then the events by seq — each artifact's signed envelope, signature and object digests,
+        never payloads, and not the policy document. Control Evaluations are not uploaded. Safe to repeat (an
+        artifact already in the index is accepted again), works on a partial bundle, and stops at the first
+        failure, which the result names. Never raises for a refused or failed upload.
+
+        :param bundle: the run, e.g. ``run.to_bundle()`` or a stored bundle."""
+        if bundle is None:
+            raise ValueError("bundle is required.")
+        items = ([("control artifact", bundle.control_artifact)] if bundle.control_artifact is not None else []) + \
+            [(f"seq {a.seq}", a) for a in sorted(bundle.artifacts, key=lambda a: (a.seq is None, a.seq or 0))]
+        run_id: Optional[str] = None
+        for done, (where, artifact) in enumerate(items):
+            outcome, rid, error, _ = self._index_send(artifact)
+            if outcome != "ok":
+                return AgentRunDelivery(outcome, done, len(items) - done, run_id, f"{where}: {error}")
+            run_id = rid or run_id
+        return AgentRunDelivery("delivered", len(items), 0, run_id, None)
 
     def seal_control_evaluation(self, request: ControlEvaluationRequest) -> AgentRunArtifact:
         """Seals a Control Evaluation of a finished run. See :class:`ControlEvaluation`."""

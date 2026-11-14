@@ -105,6 +105,25 @@ class AgentIndexResult:
 
 
 @dataclass(frozen=True)
+class AgentRunDelivery:
+    """Where delivery of a run's artifacts to the organisation's evidence index stands (``deliver_run=True``, or
+    :meth:`SigillClient.deliver_agent_run`)."""
+
+    status: str
+    """``delivered`` (everything so far is in the index), ``pending`` (held after a temporary failure; tried again
+    later) or ``rejected`` (the index refused an artifact; no further automatic attempts)."""
+    delivered: int
+    """Artifacts in the index, counted from the Control Artifact in chain order."""
+    pending: int
+    """Artifacts sealed (or in the bundle) but not yet in the index."""
+    run_id: Optional[str] = None
+    """The index's id for the run, once an upload succeeded."""
+    error: Optional[str] = None
+    """The last failure: which artifact (``control artifact`` or ``seq <n>``), then the status code and the index's
+    error code."""
+
+
+@dataclass(frozen=True)
 class AgentRunActor:
     """Who seals the Control Artifact (its ``actor``), e.g. the harness that starts the agent."""
 

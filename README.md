@@ -493,6 +493,47 @@ What to know:
   callable `(signature, digests) -> BlindObjectsVerdict`; `remote_verifier(client)`
   is the blind endpoint used above.
 
+### Showing a run in Sigill
+
+Sealing sends Sigill digests only, so a run is not shown in your organisation's Sigill
+unless you also deliver it. `deliver_run=True` uploads each artifact to the organisation's
+evidence index as it is sealed, in chain order:
+
+```python
+run = client.start_agent_run(agent, certificate_id=cert_id, activity="refund",
+                             control_set=controls, deliver_run=True)
+...
+bundle = run.finish("completed")
+print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pending=0, run_id=…, error=None)
+```
+
+- **What leaves the machine:** each artifact's signed envelope, signature and object
+  digests. That is the agent id and version, the activity name and run id, step types and
+  times, tool names, operations and use ids, rule ids and guard reasons, model and provider
+  request ids, token counts, approver references, sub-agent ids, object URIs, content types
+  and sizes, and any `detail` text or extension members you set — your own text, uploaded
+  as written. Never arguments, results, prompts, outputs or receipts; the policy document
+  only with `disclose_policy=True` (then it travels on the Control Artifact's upload, and
+  `run.policy_disclosure` is that upload's result).
+- **It never stops the run.** Each upload runs after `on_artifact_sealed` in the same
+  ordered turn, with a 10 s timeout. A failure never raises, never breaks or halts the run,
+  and is not a sealing failure ([common rules §6.1](spec/agent-profiles-common-v1.md)). A
+  temporary failure (408, 429, 5xx, no connection) holds the uploads as `pending` and they
+  are tried again at a later step after a back-off (5 s, doubling to 5 min); `run_end` makes
+  one last attempt within 30 s. Any other refusal is `rejected`: nothing more is sent, and
+  the index keeps a true prefix of the run. In an enforced run the guard's `PolicyDenied` /
+  `RunHalted` is raised after the upload, as it is after the callbacks.
+- **`run.delivery`** is `None` when delivery was not requested, else an `AgentRunDelivery`:
+  `status` (`delivered`, `pending` or `rejected`), how many artifacts are `delivered` and
+  `pending`, the index's `run_id` and the last `error` (which artifact, the status code and
+  the index's code).
+- **Catch up later:** `client.deliver_agent_run(bundle)` uploads a bundle — the Control
+  Artifact, then the events by seq; evaluations are not uploaded, and neither is the policy
+  document. Re-delivering is safe, a partial bundle is fine, and it stops at the first
+  failure and says where.
+- `deliver_run` needs a `SigillClient`; any other client is refused before anything is
+  sealed.
+
 ### Tool calls and bound approvals (Execution Evidence v4, draft)
 
 A run whose control set is a [policy control set v2](spec/agent-policy-control-set-v2.md)
@@ -705,6 +746,8 @@ print(result.scope)
   `AgentRunTreeOptions(expected_signers={agent_id: [thumbprint]}, expected_root_correlation_id=...)`
   to bind the tree to what you expected; without it a shared certificate
   proves consistency, not who ran each sub-agent.
+- **Delivery is per run.** A child run is shown in Sigill only when it is started with
+  `deliver_run=True` itself; it does not inherit the parent's choice.
 
 ## Error handling
 
