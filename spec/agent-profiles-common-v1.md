@@ -386,6 +386,14 @@ times, tool names, rule ids, provider request ids, token counts, object URIs, co
 types and sizes, and any `detail` or extension member as the producer wrote it — but
 never payload bytes.
 
+Free text is bounded. A producer MUST NOT seal a step's `detail` longer than 512
+characters, an `activity.name` or a `step.approver` longer than 255 characters
+(characters are Unicode code points, as JSON Schema `maxLength` counts), or an object's
+`metadata` or the envelope's `extensions` whose JSON in the envelope is longer than 2,048
+bytes of UTF-8. It refuses such a value before sealing and never shortens it. An index MAY
+refuse an artifact that exceeds these limits. The schemas are unchanged: these are
+producer rules, and artifacts sealed before them keep verifying.
+
 ## 10. Test vectors
 
 - [`test-vectors/agent-run/`](./test-vectors/agent-run/README.md):

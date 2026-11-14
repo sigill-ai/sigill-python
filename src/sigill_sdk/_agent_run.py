@@ -149,6 +149,31 @@ def _validate_control_set(control_set: AgentControlSet, disclose_policy: bool) -
         raise ValueError("control_set id and version must equal the document's id and version.")
 
 
+# Common rules §9: the caller's free text is bounded at record time (a producer rule; the schemas are unchanged).
+_MAX_DETAIL, _MAX_ACTIVITY_NAME, _MAX_APPROVER, _MAX_JSON_BYTES = 512, 255, 255, 2048
+
+
+def _check_free_text(envelope: dict) -> None:
+    """Refuses, before sealing, a ``detail``, activity name, approver reference, object ``metadata`` or the envelope's
+    ``extensions`` over its limit. Characters are Unicode code points; metadata and extensions are the UTF-8 length of
+    their JSON in the envelope. The error names the field and the limit, never the value; nothing is shortened."""
+    step = envelope.get("step") if isinstance(envelope.get("step"), dict) else {}
+    activity = envelope.get("activity") if isinstance(envelope.get("activity"), dict) else {}
+    for name, value, limit in (("activity.name", activity.get("name"), _MAX_ACTIVITY_NAME),
+                               ("step.detail", step.get("detail"), _MAX_DETAIL),
+                               ("step.approver", step.get("approver"), _MAX_APPROVER)):
+        if isinstance(value, str) and len(value) > limit:
+            raise ValueError(f"{name} is longer than {limit} characters; the SDK refuses it (common rules §9).")
+    members = [("objects[].metadata", o["metadata"]) for o in envelope.get("objects") or []
+               if isinstance(o, dict) and "metadata" in o]
+    if "extensions" in envelope:
+        members.append(("extensions", envelope["extensions"]))
+    for name, value in members:
+        if len(canonicalize(value)) > _MAX_JSON_BYTES:
+            raise ValueError(f"{name} is longer than {_MAX_JSON_BYTES} bytes as JSON; the SDK refuses it "
+                             f"(common rules §9).")
+
+
 def _tool_block(name: str, operation: Optional[str], use_id: Optional[str]) -> dict:
     if not name:
         raise ValueError("tool name is required.")
@@ -320,12 +345,12 @@ class AgentRun:
             exactly: each artifact's signed envelope, signature and object digests. That is: the agent id and
             version, the activity name and run id, step types and times, tool names, operations and use ids, rule
             ids and guard reasons, model and provider request ids, token counts, approver references, sub-agent
-            ids, object URIs, content types and sizes, and any ``detail`` text or extension members you set — those
-            are your own text and are uploaded as written. Never arguments, results, prompts, outputs or receipts;
-            the policy document only with ``disclose_policy``. Each upload runs in the artifact's callback turn,
-            after ``on_artifact_sealed`` (and ``on_event``), in chain order. A delivery failure never raises, never
-            breaks or halts the run: a temporary failure is retried at a later step after a back-off, ``run_end``
-            makes one last attempt, and :attr:`delivery` says where it stands;
+            ids, object URIs, content types and sizes, and any ``detail`` text — that, and the names and identifiers
+            you chose, are your own text and are uploaded as written. Never arguments, results, prompts, outputs or
+            receipts; the policy document only with ``disclose_policy``. Each upload runs in the artifact's callback
+            turn, after ``on_artifact_sealed`` (and ``on_event``), in chain order. A delivery failure never raises,
+            never breaks or halts the run: a temporary failure is retried at a later step after a back-off,
+            ``run_end`` makes one last attempt, and :attr:`delivery` says where it stands;
             :meth:`SigillClient.deliver_agent_run` delivers a bundle later. Requires a :class:`SigillClient`.
         :param enforcement: the guard (``spec/agent-policy-control-set-v2.md`` §7): required by a v2 policy control
             set with ``enforcement.mode: "enforce"``, which it then validates strictly before anything is sealed. Each
@@ -411,6 +436,7 @@ class AgentRun:
             "timestampPolicy": policy.to_json(),
             "objects": _objects_block(objects),
         }
+        _check_free_text(envelope)
         _prevalidate(envelope, CONTROL_ARTIFACT_SCHEMA)
         digests = _digests(objects)
 
@@ -925,6 +951,7 @@ class AgentRun:
         envelope["objects"] = _objects_block(objects)
         digests = _digests(objects)
         self._check_uri_reuse(digests)
+        _check_free_text(envelope)
         _prevalidate(envelope, _execution_schema_for(envelope))  # raises before anything is sealed
         try:
             result = _seal(self._client, envelope, _signed_digests(objects), EXECUTION_EVIDENCE_CONTENT_TYPE,

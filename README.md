@@ -511,8 +511,8 @@ print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pend
   digests. That is the agent id and version, the activity name and run id, step types and
   times, tool names, operations and use ids, rule ids and guard reasons, model and provider
   request ids, token counts, approver references, sub-agent ids, object URIs, content types
-  and sizes, and any `detail` text or extension members you set — your own text, uploaded
-  as written. Never arguments, results, prompts, outputs or receipts; the policy document
+  and sizes, and any `detail` text — that, and the names and identifiers you chose, are your
+  own text, uploaded as written. Never arguments, results, prompts, outputs or receipts; the policy document
   only with `disclose_policy=True` (then it travels on the Control Artifact's upload, and
   `run.policy_disclosure` is that upload's result).
 - **It never stops the run.** Each upload runs after `on_artifact_sealed` in the same
@@ -531,6 +531,11 @@ print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pend
   Artifact, then the events by seq; evaluations are not uploaded, and neither is the policy
   document. Re-delivering is safe, a partial bundle is fine, and it stops at the first
   failure and says where.
+- **Free text is bounded,** with or without `deliver_run`: a step's `detail` at most 512
+  characters, the activity name and an approver reference at most 255, an object's
+  `metadata` at most 2,048 bytes of JSON. A longer value is refused with `ValueError`
+  before anything is sealed — never shortened. (New in 0.15.0: 0.14 accepted longer
+  values.)
 - `deliver_run` needs a `SigillClient`; any other client is refused before anything is
   sealed.
 
