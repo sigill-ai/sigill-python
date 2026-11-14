@@ -295,11 +295,13 @@ class AgentEvaluationVerdict:
     (``spec/control-evaluation-v3.md`` §7). Always False for a ``not_performed`` comparison. Its core-free rules are
     checked either way."""
     enforcement_comparison: Optional[str] = None
-    """ControlEvaluation v3: ``performed`` or ``not_performed``, as the evaluation's ``policy.enforcement`` says; None
-    for other evaluations. ``not_performed`` is not a pass: nothing was compared."""
+    """ControlEvaluation v3: ``performed`` or ``not_performed``, as the evaluation's ``policy.enforcement`` says — only
+    when the evaluation is :attr:`valid`; None for an invalid one and for other evaluations. ``not_performed`` is not a
+    pass: nothing was compared."""
     enforcement_result: Optional[str] = None
     """ControlEvaluation v3: the comparison's ``result`` (``as_required``, ``let_through``, ``over_enforced``,
-    ``not_checkable``, ``pending``); None when it was not performed. Read it together with :attr:`valid`."""
+    ``not_checkable``, ``pending``) of a :attr:`valid` evaluation; None when it was not performed or the evaluation is
+    invalid."""
     sealed_for: Optional[str] = None
     """The role in the seal's ``srAts.claimed`` "sealed for" attribute (§8), e.g.
     ``urn:sigill:role:policy-evaluator``. Meaningful only together with the signer: a shared service
@@ -809,7 +811,7 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
                 rule_ids = list(_obj((_obj(cedar.get("policies")) or {}).get("staticPolicies")) or {})
                 cost = len(cs_bytes) * (len(requests) if isinstance(requests, list) else 0)
                 _recompute(env, cs_bytes, facts_bytes, rule_ids, cost, engine, budget, r, bad, note)
-    if v3 and ctl is not None and contiguous:
+    if v3 and ctl is not None and contiguous and not sa.conformance:  # a non-conforming member: schema findings only
         _check_enforcement(policy, cs_bytes, ctl, prefix_events, signed, engine, budget, r, bad, note)
 
     # Approval (§4.4) and required qualified time (§4.7).
@@ -1589,14 +1591,17 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
         controls = [ControlResult(_str(x.get("id")) or "", _str(x.get("result")) or "", _str(x.get("detail")))
                     for x in (sa.env.get("controls") if isinstance(sa.env.get("controls"), list) else [])
                     if isinstance(x, dict)]
+        valid = (signature_valid and c.timestamp_ok and c.objects_complete and not sa.conformance
+                 and subject_bound and control_set_matches and baseline_matches is not False
+                 and (v2 is None or not v2.findings))
+        # The comparison's facts are reported only for an evaluation found valid (v3 §7): a rejected one says nothing.
+        member = (_obj((_obj(sa.env.get("policy")) or {}).get("enforcement")) or {}) if is_v3_policy and valid else {}
         evaluations.append(AgentEvaluationVerdict(
             evidence_id=sa.evidence_id, verifier_id=sa.actor_id, verifier_version=sa.actor_version,
             subject_bound=subject_bound, control_set_digest_matches=control_set_matches,
             baseline_digest_matches=baseline_matches, signature_valid=signature_valid,
             timestamp_valid=c.timestamp_ok, timestamp_gen_time=c.gen_time, objects_complete=c.objects_complete,
-            valid=(signature_valid and c.timestamp_ok and c.objects_complete and not sa.conformance
-                   and subject_bound and control_set_matches and baseline_matches is not False
-                   and (v2 is None or not v2.findings)),
+            valid=valid,
             well_formed=not sa.conformance, signer=signer, certificate=c.certificate,
             overall=_str(sa.env.get("overall")), controls=controls, findings=ef,
             schema_version=_str(sa.env.get("schemaVersion")), kind=kind,
@@ -1604,10 +1609,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             facts_match=v2.facts_match if v2 else None, policy_digests_match=v2.digests_match if v2 else None,
             results_recomputed=v2.results_recomputed if v2 else False,
             enforcement_recomputed=v2.enforcement_recomputed if v2 else False,
-            enforcement_comparison=_str((_obj((_obj(sa.env.get("policy")) or {}).get("enforcement")) or {})
-                                        .get("comparison")) if is_v3_policy else None,
-            enforcement_result=_str((_obj((_obj(sa.env.get("policy")) or {}).get("enforcement")) or {}).get("result"))
-            if is_v3_policy else None,
+            enforcement_comparison=_str(member.get("comparison")), enforcement_result=_str(member.get("result")),
             sealed_for=_sealed_for_of(sa.jws),
             qualified_timestamps_required=v2.qualified_required if v2 else False,
             qualified_timestamps_met=v2.qualified_met if v2 else None,

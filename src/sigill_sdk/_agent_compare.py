@@ -182,10 +182,16 @@ def _result(decisions: Sequence[dict]) -> str:
     return next((r for r in _RESULTS if r in outcomes), "as_required")
 
 
-def _check_control_roles(control: AgentRunArtifact) -> None:
-    """A role ``lockedConfiguration`` can lock appears at most once in the Control Artifact: otherwise which digest the
-    start gate compares would depend on the reader."""
+def _check_control(control: AgentRunArtifact) -> None:
+    """The Control Artifact the comparison reads: one control-set object, an agent and a correlationId, and each role
+    ``lockedConfiguration`` can lock at most once (otherwise which digest the start gate compares would depend on the
+    reader). Raises ValueError: an input error."""
     objects = control.envelope.get("objects") if isinstance(control.envelope.get("objects"), list) else []
+    if sum(1 for o in objects if isinstance(o, dict) and o.get("role") == "control-set") != 1:
+        raise ValueError("The Control Artifact must carry exactly one control-set object.")
+    if _str((_obj(control.envelope.get("agent")) or {}).get("id")) is None \
+            or _str((_obj(control.envelope.get("activity")) or {}).get("correlationId")) is None:
+        raise ValueError("The Control Artifact names no agent or correlationId.")
     roles = [o.get("role") for o in objects if isinstance(o, dict)]
     for role in ("instruction-set", "tool-manifest", "execution-policy", "model-config"):
         if roles.count(role) > 1:
@@ -201,21 +207,18 @@ def compare(control: AgentRunArtifact, events: Sequence[AgentRunArtifact], docum
         raise ValueError("The enforcement comparison needs a v2 policy control set (schemaVersion \"2\").")
     if control is None:
         raise ValueError("control_artifact is required.")
-    objects = control.envelope.get("objects") if isinstance(control.envelope.get("objects"), list) else []
+    _check_control(control)
+    objects = control.envelope.get("objects")
     sealed = [control.object_digests.get(o.get("uri")) for o in objects
               if isinstance(o, dict) and o.get("role") == "control-set"]
-    if len(sealed) != 1:
-        raise ValueError("The Control Artifact must carry exactly one control-set object.")
     if sealed != [hash_bytes(document)]:
         raise ValueError("The control set is not the one the Control Artifact seals.")
-    agent_id = _str((_obj(control.envelope.get("agent")) or {}).get("id"))
-    correlation_id = _str((_obj(control.envelope.get("activity")) or {}).get("correlationId"))
-    if agent_id is None or correlation_id is None:
-        raise ValueError("The Control Artifact names no agent or correlationId.")
-    _check_control_roles(control)
+    agent_id = _str(control.envelope["agent"]["id"])
+    correlation_id = _str(control.envelope["activity"]["correlationId"])
     p = _Prefix([(a.envelope, a.object_digests) for a in events])
     engine = _Surfaced(engine)
-    not_performed, recorded = _expected_state(p, lambda: f"cedar-policy@{engine.version}")
+    mine = f"cedar-policy@{engine.version}"  # read up front: an engine whose version fails fails the comparison
+    not_performed, recorded = _expected_state(p, lambda: mine)
     return _compare(p, control, document, engine, not_performed, recorded, agent_id, correlation_id)
 
 
@@ -278,7 +281,7 @@ def member_problems(member: Any, control: AgentRunArtifact, events: Sequence[tup
     shape = validate(m, schema["properties"]["policy"]["properties"]["enforcement"], schema, "policy.enforcement")
     if shape:  # a malformed member is reported, never read further (it must not raise)
         return shape
-    _check_control_roles(control)
+    _check_control(control)
     p = _Prefix(events)
     not_performed, recorded = _expected_state(p, lambda: evaluator_engine or "")
     if _str(m.get("recordedEngine")) != recorded:

@@ -290,10 +290,14 @@ A v3 `policy` evaluation is valid when it is valid under v2 §9 with the changes
 facts of §3, and `policy.enforcement` equals, member for member, the comparison of §4–§6
 recomputed from the run. A verifier that has the core named in `evaluator.engine` MUST
 recompute `decisions` and `result`; a verifier without it MUST report the comparison as not
-recomputed, as for the results (v2 §4.6). The comparison counts as **recomputed** only when it
+recomputed, as for the results (v2 §4.6). Until a comparison is recomputed, what was due is
+the evaluator's statement, not the verifier's: a member that passes every check below can
+still be false. The comparison counts as **recomputed** only when it
 is `performed` and a verifier holding the core that `evaluator.engine` names has reproduced it;
 a `not_performed` comparison is never recomputed — it states that nothing was compared, and a
-verifier reports it as such, not as a pass.
+verifier reports it as such, not as a pass. A verifier reports what the comparison says (`comparison`,
+`result`) only for an evaluation it found valid; of an evaluation it rejects, for whatever
+reason, it reports neither.
 
 Whether or not it has the core, a verifier checks what does not need it:
 

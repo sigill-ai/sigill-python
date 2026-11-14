@@ -743,6 +743,10 @@ core-free rules are checked without an engine too. Read `evaluation.enforcement_
 only `evaluation.valid`: a valid evaluation whose `enforcement_comparison` is `not_performed`
 compared nothing, and that is not a pass. `enforcement_recomputed` is true only for a
 `performed` comparison that the verifier reproduced with the core the evaluation names.
+Conclude that the guard did what was due only when `evaluation.valid`,
+`evaluation.enforcement_recomputed`, `evaluation.enforcement_result == "as_required"` and
+`evaluation.policy_state == "finalized"` all hold: without `enforcement_recomputed` the result
+is the evaluator's unconfirmed word, and a partial prefix says nothing about the events after it.
 A v1 control set is evaluated as a ControlEvaluation v2, as before. Rule results and `overall`
 keep their meaning: a forbidden call that the guard refused is still `FAIL`; the comparison
 says it was refused.

@@ -388,3 +388,53 @@ def test_a_non_string_engine_is_an_input_error(engine: CedarEngine) -> None:
     events[2].envelope["step"]["enforcer"]["engine"] = 4
     with pytest.raises(ValueError, match="has no enforcer.engine"):
         AgentPolicy.compare_enforcement(control, events, doc, engine)
+
+
+@pytest.mark.parametrize("patch", [
+    [{"op": "replace", "path": "/policy/enforcement/decisions/0/outcome", "value": "as_required"},
+     {"op": "remove", "path": "/policy/enforcement/decisions/0/findings"},
+     {"op": "replace", "path": "/policy/enforcement/result", "value": "as_required"}],
+    [{"op": "replace", "path": "/policy/enforcement/decisions", "value": "oops"}],
+    [{"op": "replace", "path": "/policy/enforcement/decisions", "value": []},  # caught by recomputation only
+     {"op": "replace", "path": "/policy/enforcement/result", "value": "as_required"}],
+], ids=["relabelled", "malformed", "recomputation"])
+def test_a_rejected_evaluation_reports_no_comparison(patch: list, engine: CedarEngine) -> None:
+    bundle, _ = _evaluated("e01-refusal-missing", engine, patch)
+    e = verify_agent_run(bundle, stub_verify, engine=engine).evaluations[0]
+    assert not e.valid and (e.enforcement_comparison, e.enforcement_result) == (None, None)
+
+
+def test_an_engine_whose_version_fails_fails_the_comparison() -> None:
+    class Broken(_Engine):
+        @property
+        def version(self) -> str:
+            raise RuntimeError("no module")
+
+        @version.setter
+        def version(self, v: str) -> None:
+            pass
+    control, events, doc = _e01()
+    with pytest.raises(PolicyEngineError, match="^The policy engine failed: no module$"):
+        AgentPolicy.compare_enforcement(control, events, doc, Broken("4.14.0"))
+
+
+def test_the_core_free_path_refuses_what_compare_refuses() -> None:
+    from sigill_sdk._agent_compare import member_problems
+    control, events, _ = _e01()
+    pairs = [(a.envelope, a.object_digests) for a in events]
+    member = {"comparison": "performed", "decisions": [], "result": "as_required"}
+    twice = AgentRunArtifact(copy.deepcopy(control.envelope), {}, dict(control.object_digests))
+    twice.envelope["objects"].append({"uri": "objects/extra", "role": "control-set", "contentType": "application/json"})
+    nameless = AgentRunArtifact(copy.deepcopy(control.envelope), {}, dict(control.object_digests))
+    del nameless.envelope["activity"]["correlationId"]
+    for bad, text in ((twice, "exactly one control-set object"), (nameless, "no agent or correlationId")):
+        with pytest.raises(ValueError, match=text):  # the verifier turns these into findings
+            member_problems(member, bad, pairs, "cedar-policy@4.14.0")
+
+
+def test_a_non_conforming_member_is_reported_once(engine: CedarEngine) -> None:
+    bundle, _ = _evaluated("e01-refusal-missing", engine, [{"op": "replace", "path": "/policy/enforcement/decisions",
+                                                           "value": 5}])
+    e = verify_agent_run(bundle, stub_verify, engine=engine).evaluations[0]
+    about = [f for f in e.findings if "decisions" in f]
+    assert not e.valid and len(about) == 1, about
