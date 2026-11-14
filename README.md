@@ -522,7 +522,7 @@ print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pend
   ordered turn. A failure never raises, never breaks or halts the run, and is not a sealing
   failure ([common rules §6.1](spec/agent-profiles-common-v1.md)). Only an answer that
   accepts the artifact counts: 200 or 201 with status `indexed` or `exists`; redirects are
-  not followed. A temporary failure (408, 429, 5xx, no answer in time) holds the uploads as
+  never followed, even with an `http_client` of yours that follows them. A temporary failure (408, 429, 5xx, no answer in time) holds the uploads as
   `pending` and they are tried again at a later step after a back-off (5 s, doubling to
   5 min). Any other answer is `rejected`: nothing more is sent, and the index keeps a true
   prefix of the run. In an enforced run the guard's `PolicyDenied` / `RunHalted` is raised
@@ -531,7 +531,9 @@ print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pend
   `run_end` makes one last attempt within 30 s. So with the index unreachable a step can take
   up to 10 s longer and the run's end up to 30 s; a guard refusal still blocks the call at
   once, but its exception is raised after that wait. What does not fit stays `pending` for a
-  later turn.
+  later turn. Bounded are each wait for the index (connecting, sending, every read) and the
+  response body as a whole; not bounded as a whole are the response headers, so an index that
+  keeps sending header bytes with short pauses can make an upload take longer.
 - **`run.delivery`** is `None` when delivery was not requested, else an `AgentRunDelivery`:
   `status` (`delivered`, `pending` or `rejected`), how many artifacts are `delivered` and
   `pending`, the index's `run_id` and the last `error` (which artifact, then the status code

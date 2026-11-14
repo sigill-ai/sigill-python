@@ -1155,7 +1155,8 @@ class AgentRun:
                         return
                     artifact = self.control_artifact if position == 0 else self._artifacts[position - 1]
                     document = cursor.document if position == 0 else None
-                    answer = self._client._index_send(artifact, document, left())
+                    timeout = left()
+                    answer = self._client._index_send(artifact, document, timeout)
                     if document is not None:
                         self.policy_disclosure = AgentIndexResult(answer.status, run_id=answer.run_id) \
                             if answer.outcome == "ok" else AgentIndexResult("failed", error=f"{where}: {answer.error}")
@@ -1164,11 +1165,16 @@ class AgentRun:
                             if left() <= 0:
                                 cursor.error = f"{where}: time budget used up"
                                 return
-                            answer = self._client._index_send(artifact, None, left())
+                            timeout = left()
+                            answer = self._client._index_send(artifact, None, timeout)
                     if answer.outcome == "ok":
                         cursor.next, cursor.error, cursor.backoff = position + 1, None, 0.0
                         cursor.run_id = answer.run_id or cursor.run_id
                         continue
+                    if not answer.answered and timeout < _INDEX_TIMEOUT:
+                        # Cut short by what was left of the turn, not a full attempt: no back-off, a later turn goes on.
+                        cursor.error = f"{where}: time budget used up"
+                        return
                     cursor.error = f"{where}: {answer.error}"
                     if answer.outcome == "rejected":
                         cursor.rejected = True  # no further automatic attempts: the index keeps a true prefix

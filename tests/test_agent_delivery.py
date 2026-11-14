@@ -42,8 +42,8 @@ class Index:
             return self.sealer(request)
         body = json.loads(request.content)
         self.uploads.append({**body, "_timeout": request.extensions["timeout"]["read"]})
-        if self.script:
-            answer = self.script.pop(0)
+        answer = self.script.pop(0) if self.script else None  # None: the ordinary answer
+        if answer is not None:
             if isinstance(answer, Exception):
                 raise answer
             status, payload = answer
@@ -428,7 +428,8 @@ def test_a_trickling_index_is_cut_off_at_the_deadline() -> None:
     server = RawServer(trickle)
     run = _start(_client(Index()))
     started = time.monotonic()
-    answer = SigillClient("k", base_url=server.url)._index_send(run.control_artifact, None, 1.0)
+    with SigillClient("k", base_url=server.url) as client:  # closed: no socket is left open
+        answer = client._index_send(run.control_artifact, None, 1.0)
     assert time.monotonic() - started < 2.5
     assert (answer.outcome, answer.error) == ("pending", "TimeoutError")
 
@@ -440,5 +441,48 @@ def test_a_body_over_64_kib_is_not_read_on() -> None:
             conn.sendall(b" " * (1024 * 1024))
     server = RawServer(big)
     run = _start(_client(Index()))
-    answer = SigillClient("k", base_url=server.url)._index_send(run.control_artifact, None, 10.0)
+    with SigillClient("k", base_url=server.url) as client:
+        answer = client._index_send(run.control_artifact, None, 10.0)
     assert (answer.outcome, answer.error) == ("rejected", "201 unexpected_response")
+
+
+def test_an_index_that_never_answers_costs_one_attempt_until_the_back_off_passes() -> None:
+    index = Index()
+    run = _run(index)
+    index.script = [httpx.ReadTimeout("no answer")] * 10
+    before = len(index.uploads)
+    for _ in range(4):
+        run.record_model_output(b"x")
+    assert len(index.uploads) - before == 1 and run.delivery.error == "seq 1: ReadTimeout"
+
+
+def test_an_attempt_cut_short_by_the_turn_budget_starts_no_back_off() -> None:
+    clock = Clock()
+    index = SlowIndex(clock, 0.0)
+    run = _run(index, clock)
+    index.script = [(503, {"code": "unavailable"})]
+    run.record_model_output(b"x")  # seq 1 held
+    run.record_model_output(b"x")  # seq 2 held (back-off)
+    clock.now += 5.0
+    index.cost, index.script = 7.0, [None, httpx.ReadTimeout("cut")]
+    run.record_model_output(b"x")  # seq 1 delivered (7 s), seq 2 gets the 3 s left and times out
+    assert run.delivery.error == "seq 2: time budget used up" and run.delivery.pending == 2
+    index.cost = 0.0
+    run.record_model_output(b"x")  # no back-off: the next turn goes on at once
+    assert run.delivery.status == "delivered"
+
+
+@pytest.mark.parametrize("status", [307, 308])
+def test_a_redirect_is_not_followed_even_by_a_client_that_follows_redirects(status: int) -> None:
+    other = RawServer(lambda conn: conn.sendall(
+        b'HTTP/1.1 201 Created\r\nContent-Type: application/json\r\nContent-Length: 64\r\n\r\n'
+        b'{"status":"indexed","runId":"0e0e0e0e-0000-4000-8000-000000000001"}'))
+    received: list = []
+    other.answer = lambda conn, f=other.answer: (received.append(1), f(conn))
+    server = RawServer(lambda conn: conn.sendall(b"HTTP/1.1 %d Moved\r\nLocation: %s/steal\r\nContent-Length: 0\r\n\r\n"
+                                                 % (status, other.url.encode())))
+    http = httpx.Client(base_url=server.url, follow_redirects=True, timeout=5)
+    run = _start(_client(Index()))
+    with http:
+        answer = SigillClient("k", http_client=http)._index_send(run.control_artifact)
+    assert (answer.outcome, answer.error) == ("rejected", f"{status} unexpected_response") and received == []

@@ -301,6 +301,7 @@ class _IndexAnswer(NamedTuple):
     error: Optional[str]    # built from the status, a plain error code, or an exception type name only
     code: Optional[str]
     status: Optional[str]   # indexed | exists, when accepted
+    answered: bool = True   # False: no answer (a transport failure, or the deadline passed)
 
 
 class SigillClient:
@@ -864,7 +865,7 @@ class SigillClient:
 
         Accepted (``ok``) only for 200 or 201 with a JSON body whose ``status`` is ``indexed`` or ``exists`` and whose
         ``runId`` is a UUID. ``pending``: 408, 429, 5xx, a second 409 ``conflict``, no answer in time, or a failure
-        while sending or reading. ``rejected``: any other answer — another 2xx, a 3xx (redirects are not followed), a
+        while sending or reading. ``rejected``: any other answer — another 2xx, a 3xx (redirects are never followed, even by a client that would), a
         4xx. A first 409 ``conflict`` — a concurrent upload won — is retried at once, within the
         same time. The status decides; the body only refines it: 408, 429 and 5xx are pending whatever the body, any
         2xx that is not an acceptance (including a body over 64 KiB or one that does not parse) and any 3xx are
@@ -881,7 +882,7 @@ class SigillClient:
             try:
                 status, raw = self._index_post(body, deadline)
             except Exception as e:  # noqa: BLE001 — a delivery failure never raises
-                return _IndexAnswer("pending", None, type(e).__name__, None, None)
+                return _IndexAnswer("pending", None, type(e).__name__, None, None, answered=False)
             # The status decides; the body (when it was read whole, within 64 KiB) only refines it.
             unexpected = f"{status} unexpected_response"
             try:
@@ -912,12 +913,15 @@ class SigillClient:
 
     def _index_post(self, body: dict, deadline: float) -> tuple[int, Optional[bytes]]:
         """(status, body) of one POST, read as a stream against a monotonic ``deadline``; the body is None when it is
-        over 64 KiB or content-encoded. Raises TimeoutError when the deadline passes, whatever the server trickles."""
+        over 64 KiB or content-encoded. Each wait for the server (connecting, sending, every read) is bounded by the time
+        left, and the body as a whole by the deadline (TimeoutError). Not bounded as a whole: the response headers — a
+        server that keeps sending header bytes with pauses shorter than the time left is not cut at the deadline."""
         left = deadline - time.monotonic()
         if left <= 0:
             raise TimeoutError("deadline")
+        # follow_redirects=False whatever the caller's client says: an envelope never goes to another host.
         with self._http.stream("POST", "/api/agent-evidence/artifacts", json=body, timeout=left,
-                               headers={"Accept-Encoding": "identity"}) as resp:
+                               headers={"Accept-Encoding": "identity"}, follow_redirects=False) as resp:
             if resp.headers.get("content-encoding", "identity").lower() != "identity":
                 return resp.status_code, None
             raw = bytearray()
