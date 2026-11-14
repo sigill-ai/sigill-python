@@ -45,7 +45,9 @@ The guard's behaviour is Control Set v2 §7. This document defines the evidence.
   in a v1–v3 artifact is a schema violation. The v1–v3 schemas are not changed.
 - The v4 schema enforces the `step.eventTime` format the common rules already require (§4
   there): RFC 3339, UTC `Z`, at most three fraction digits.
-- `AgentControlArtifact` and `ControlEvaluation` are unchanged.
+- `AgentControlArtifact` is unchanged. `ControlEvaluation` v1 and v2 are unchanged; a policy
+  evaluation of a run under a v2 control set is a
+  [ControlEvaluation v3](./control-evaluation-v3.md).
 
 ### 3.2 `step.tool.useId`
 
@@ -209,16 +211,20 @@ Each finding lists the seqs involved. A `bad` `enforcement` check makes the run
 Whether a halt was due after a record with `tool` other than `unavailable` (a matching
 `halt` rule, or the denial count) needs the control set, and so does whether a denial was due at all; these are
 an evaluator's job. **A verifier does not evaluate the policy: a guard that skips a due
-denial or halt is not detected by a verifier.** Detecting it is recomputation by an
-evaluator (§6), specified with evaluations of v2 control sets in a later round.
+denial or halt is not detected by a verifier.** Detecting it is the enforcement
+comparison of a policy evaluation (ControlEvaluation v3 §5). That comparison is not
+performed on a run with one of the findings `executed_after_denial`, `misplaced_decision`,
+`unrecorded_halt`, `duplicate_use_id`, `continued_after_halt` or `evidence_version_mismatch`.
 
 ## 6. Recomputing decisions (informative)
 
-With the control-set bytes and the signed events, anyone can rebuild each event's facts-v2
-request (Control Set v2 §8), run the Cedar core named in `enforcer.engine`, apply Control
-Set v2 §7 and compare with the enforcement records in the chain. The `unknown_tool` and
-`tool_changed` checks need only `cedar.entities` and the signed object digests, not the
-definition's content.
+With the Control Artifact, the control-set bytes and the signed events with their signed
+object digests, anyone can rebuild each event's facts-v2 request (Control Set v2 §8), run the
+Cedar core the run's enforcement records name, apply Control Set v2 §7 and compare with the
+enforcement records in the chain. ControlEvaluation v3 §4–§5 define this comparison
+normatively: its findings, the core used when the run names none, and what is reported when
+the named core cannot be run. The `unknown_tool` and `tool_changed` checks need only
+`cedar.entities` and the signed object digests, not the definition's content.
 
 What this cannot show:
 
@@ -230,13 +236,19 @@ What this cannot show:
 - that a human approved: `bound` shows only that the producer recorded an approval linked
   to the call;
 - whether the engine in fact failed when a record says `unavailable`;
-- that a denied tool was not executed outside the recorded run.
+- that a denied tool was not executed outside the recorded run;
+- which tool was in fact run under the name a `tool_call` carries;
+- whether a record was sealed by the guard or by other code of the producer (same signer,
+  §4 rule 3).
 
 ## 7. Test vectors
 
 `test-vectors/14-policy-enforcement/`: v4 runs as sealed by a guard, with per event the
 facts-v2 request, Cedar's diagnostics and the guard's outcome; v4 envelopes the schema
 accepts and rejects; runs with each §5 finding.
+
+`test-vectors/15-policy-enforcement-evaluation/`: the expected enforcement comparison for
+these runs and for runs in which the guard did less, or more, than the control set requires.
 
 ## 8. Decisions and open questions
 
@@ -246,6 +258,6 @@ accepts and rejects; runs with each §5 finding.
   record, so every record sits directly after the event it decides (`misplaced_decision`).
 - **Open:** a way for the policy's issuer to suspend an agent, or to gate the start of a
   run on a current approval, is left to a later round.
-- **Open:** evaluations of a v2 control set are specified in a later round. Until then an
-  evaluator cannot seal a `kind: "policy"` Control Evaluation for one (Control Evaluation
-  v2 fixes `evaluator.factsVersion` to `"1"`).
+- **Evaluations of a v2 control set** are ControlEvaluation v3: facts v2 and the enforcement
+  comparison. ControlEvaluation v2 keeps `evaluator.factsVersion` `"1"` and stays the format
+  for v1 control sets.

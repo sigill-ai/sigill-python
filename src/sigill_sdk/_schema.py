@@ -30,6 +30,7 @@ _RESOURCES = {
     "AgentExecutionEvidence/4": "agent-execution-evidence-v4.schema.json",
     "ControlEvaluation": "control-evaluation-v1.schema.json",
     "ControlEvaluation/2": "control-evaluation-v2.schema.json",
+    "ControlEvaluation/3": "control-evaluation-v3.schema.json",
 }
 
 _SUPPORTED = {

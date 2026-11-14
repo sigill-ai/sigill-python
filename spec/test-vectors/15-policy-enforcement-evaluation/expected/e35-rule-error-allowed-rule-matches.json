@@ -1,0 +1,94 @@
+{
+ "case": "e35-rule-error-allowed-rule-matches",
+ "covers": "onRuleError: allow; the erroring rule is not due, a matching rule is",
+ "controlSet": "13",
+ "approvalScopeDigest": "82bdd966f1e332080ed6d849d2df13922050344bac07f7e48fa2de659ebcebf7",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "c17449ebaf716abeccd4ec9b408f57d6059d1afe5d70a9ed01cbb0a32fe8fc8b",
+ "prefix": {
+  "throughSeq": 4,
+  "finalSeq": 4,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "INDETERMINATE",
+   "where": [
+    "2"
+   ]
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "FAIL",
+   "where": [
+    "2"
+   ]
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 2,
+    "due": "refused",
+    "dueReason": "rule",
+    "dueRules": [
+     "rejected-is-final"
+    ],
+    "recorded": "refused",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "as_required"
+ }
+}

@@ -1,0 +1,117 @@
+{
+ "case": "14-24-deny-and-halt-one-call",
+ "covers": "a deny rule and a halt rule match one call: one record with both ids, then halted",
+ "controlSet": "13",
+ "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "4705fc3ca92526326ecddca3f67969e0a1bf189d22e82f25f00e7bc7ce33ba51",
+ "prefix": {
+  "throughSeq": 7,
+  "finalSeq": 7,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "FAIL",
+   "where": [
+    "5"
+   ]
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "FAIL",
+   "where": [
+    "1",
+    "3",
+    "5"
+   ]
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 1,
+    "due": "refused",
+    "dueReason": "rule",
+    "dueRules": [
+     "restricted-needs-bound-approval"
+    ],
+    "recorded": "refused",
+    "outcome": "as_required"
+   },
+   {
+    "seq": 3,
+    "due": "refused",
+    "dueReason": "rule",
+    "dueRules": [
+     "restricted-needs-bound-approval"
+    ],
+    "recorded": "refused",
+    "outcome": "as_required"
+   },
+   {
+    "seq": 5,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "halt-refund-loop",
+     "restricted-needs-bound-approval"
+    ],
+    "recorded": "halted",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "as_required"
+ }
+}

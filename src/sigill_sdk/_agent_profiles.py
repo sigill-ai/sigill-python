@@ -41,6 +41,7 @@ EXECUTION_EVIDENCE_SCHEMA_V4 = "AgentExecutionEvidence/4"
 """The schema key of ``AgentExecutionEvidence`` ``schemaVersion "4"``: v3 plus policy enforcement
 (``spec/agent-enforcement-v1.md``). Every run under a v2 policy control set uses it."""
 CONTROL_EVALUATION_SCHEMA_V2 = "ControlEvaluation/2"
+CONTROL_EVALUATION_SCHEMA_V3 = "ControlEvaluation/3"
 """The schema key of Control Evaluation v2 (``spec/control-evaluation-v2.md``): state, policy or attested."""
 
 CONTROL_ARTIFACT_CONTENT_TYPE = "application/vnd.sigill.agent-control+json"
@@ -171,8 +172,11 @@ def _execution_schema_for(envelope: Any) -> str:
 
 
 def _evaluation_schema_for(envelope: Any) -> str:
-    """The evaluation schema to validate against: v2 when the envelope says ``schemaVersion "2"``, else v1."""
+    """The evaluation schema to validate against: v3 or v2 when the envelope says ``schemaVersion "3"`` or ``"2"``, else
+    v1."""
     version = envelope.get("schemaVersion") if isinstance(envelope, dict) else None
+    if version == "3":
+        return CONTROL_EVALUATION_SCHEMA_V3
     return CONTROL_EVALUATION_SCHEMA_V2 if version == "2" else CONTROL_EVALUATION_SCHEMA
 
 

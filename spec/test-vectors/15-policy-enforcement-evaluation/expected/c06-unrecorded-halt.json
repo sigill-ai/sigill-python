@@ -1,0 +1,85 @@
+{
+ "case": "c06-unrecorded-halt",
+ "covers": "a halted run_end without a record",
+ "controlSet": "13",
+ "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "b4375a34706562fc2bb1d859cc6f16f8c469757b35dd7e930f8b3691ecb7a520",
+ "prefix": {
+  "throughSeq": 2,
+  "finalSeq": 2,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "FAIL",
+   "where": [
+    "1"
+   ]
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [
+  {
+   "code": "unrecorded_halt",
+   "seqs": [
+    2
+   ]
+  }
+ ],
+ "enforcement": {
+  "comparison": "not_performed",
+  "notPerformed": "chain_inconsistent"
+ }
+}

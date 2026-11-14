@@ -1,0 +1,13 @@
+{
+ "name": "x03-result-not-from-decisions",
+ "run": "14-02-denied-by-rule",
+ "needsEngine": false,
+ "because": "`result` does not follow from `decisions`",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/result",
+   "value": "let_through"
+  }
+ ]
+}

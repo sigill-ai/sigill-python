@@ -1,0 +1,26 @@
+{
+ "name": "x05-engine-unavailable-with-the-same-core",
+ "run": "14-02-denied-by-rule",
+ "needsEngine": false,
+ "because": "`engine_unavailable` with recordedEngine equal to evaluator.engine",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/comparison",
+   "value": "not_performed"
+  },
+  {
+   "op": "add",
+   "path": "/policy/enforcement/notPerformed",
+   "value": "engine_unavailable"
+  },
+  {
+   "op": "remove",
+   "path": "/policy/enforcement/decisions"
+  },
+  {
+   "op": "remove",
+   "path": "/policy/enforcement/result"
+  }
+ ]
+}

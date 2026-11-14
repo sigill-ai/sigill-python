@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import re
+from types import MappingProxyType
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timedelta
 from typing import Any, Callable, Mapping, Optional, Sequence
@@ -270,9 +271,9 @@ class AgentEvaluationVerdict:
     controls: list[ControlResult] = field(default_factory=list)
     findings: list[str] = field(default_factory=list)
     schema_version: Optional[str] = None
-    """"1" or "2"."""
+    """"1", "2" or "3"."""
     kind: Optional[str] = None
-    """v2: state | policy | attested (``spec/control-evaluation-v2.md``); None for v1."""
+    """v2 and v3: state | policy | attested (``spec/control-evaluation-v2.md``); None for v1."""
     policy_status: Optional[str] = None
     """policy: approved_before_run | approved_after_start | unapproved, as the evaluator states it."""
     policy_state: Optional[str] = None
@@ -286,8 +287,12 @@ class AgentEvaluationVerdict:
     """policy: the per-rule results were recomputed with the Cedar engine given to :func:`verify_agent_run` and
     equal the evaluation's (§4.6). False without an engine; for a non-conforming envelope or controls that are not
     exactly the rule ids; for another engine version, an engine failure or a used-up :data:`RECOMPUTE_BUDGET` (a
-    note says so); and for a v2 control set: the facts are checked, the results are then the evaluator's. A request
+    note says so). A request
     the named engine refuses makes the evaluation invalid."""
+    enforcement_recomputed: bool = False
+    """ControlEvaluation v3: ``policy.enforcement`` (the enforcement comparison) was recomputed from the run with the
+    Cedar engine given to :func:`verify_agent_run` and equals the evaluation's (``spec/control-evaluation-v3.md`` §7).
+    Its core-free rules are checked either way; without the named engine a note says it was not recomputed."""
     sealed_for: Optional[str] = None
     """The role in the seal's ``srAts.claimed`` "sealed for" attribute (§8), e.g.
     ``urn:sigill:role:policy-evaluator``. Meaningful only together with the signer: a shared service
@@ -612,6 +617,7 @@ class _EvaluationV2Check:
     policy_status: Optional[str] = None
     state: Optional[str] = None
     results_recomputed: bool = False
+    enforcement_recomputed: bool = False
     notes: list[str] = field(default_factory=list)
 
 
@@ -626,7 +632,8 @@ def _ids_of(arr: Any) -> list[str]:
 
 def _check_evaluation_v2(sa: _Signed, c: _ArtifactCheck, payloads: Mapping[str, bytes], ctl: Optional[_Signed],
                          events: list[_Signed], label: str, engine: Optional[PolicyEngine] = None,
-                         budget: Optional[list[int]] = None) -> _EvaluationV2Check:
+                         budget: Optional[list[int]] = None, signed: Optional[Mapping[Any, dict]] = None) \
+        -> _EvaluationV2Check:
     """The kind-specific rules of ``spec/control-evaluation-v2.md`` §2–§5. Schema conformance is checked elsewhere."""
     r = _EvaluationV2Check()
 
@@ -689,7 +696,7 @@ def _check_evaluation_v2(sa: _Signed, c: _ArtifactCheck, payloads: Mapping[str, 
         facts_bytes = signed_bytes("evaluation-facts")
         approval_bytes = signed_bytes("policy-approval")
         _check_policy(env, cs_bytes, cs, facts_bytes, approval_bytes, sa, ctl, events, r, bad, same_ids, engine,
-                      lambda m: r.notes.append(f"{label}: {m}."), budget)
+                      lambda m: r.notes.append(f"{label}: {m}."), budget, signed or {})
     return r
 
 
@@ -706,7 +713,10 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
                   approval_bytes: Optional[bytes], sa: _Signed, ctl: Optional[_Signed], events: list[_Signed],
                   r: _EvaluationV2Check, bad: Callable[[str], None],
                   same_ids: Callable[[list[str], str], None], engine: Optional[PolicyEngine] = None,
-                  note: Callable[[str], None] = lambda m: None, budget: Optional[list[int]] = None) -> None:
+                  note: Callable[[str], None] = lambda m: None, budget: Optional[list[int]] = None,
+                  signed: Mapping[Any, dict] = MappingProxyType({})) -> None:
+    """``signed``: the object digests each signature confirms, by event seq and ``"control"`` for the Control
+    Artifact — what facts v2 and the enforcement comparison read."""
     policy = _obj(env.get("policy")) or {}
     r.policy_status = _str(policy.get("policyStatus"))
     r.state = _str(policy.get("state"))
@@ -717,12 +727,15 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
     if (cs_object.content_type if cs_object else None) != POLICY_CONTROL_SET_CONTENT_TYPE:
         bad("its control set is not a policy control set")
     cedar = cs.get("cedar")
-    if AgentPolicy.validate(cs_bytes) or not isinstance(cedar, dict):
+    v3 = _str(env.get("schemaVersion")) == "3"
+    if AgentPolicy.validate(cs_bytes) or (not isinstance(cedar, dict) and "schemaVersion" not in cs):
         bad("its control set is not a valid policy control set with Cedar rules")
         return
-    if "schemaVersion" in cs:
-        bad("policy evaluations of a v2 control set are not specified yet (Control Evaluation v2 fixes factsVersion 1)")
+    if ("schemaVersion" in cs) != v3:
+        bad("a policy evaluation of a v2 control set is a ControlEvaluation v3, of a v1 control set a ControlEvaluation "
+            "v2")
         return
+    cedar = cedar if isinstance(cedar, dict) else {}  # v3 §2: a v2 control set may have no cedar member
 
     digests = AgentPolicy.compute_digests(cs_bytes)
     r.digests_match = (digests.approval_scope_digest == _str(policy.get("approvalScopeDigest"))
@@ -766,7 +779,9 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
     elif agent_id is None or sa.correlation_id is None:
         bad("the agent id or correlationId the facts depend on is missing")
     elif missing_ok:
-        rebuilt = _build_facts(agent_id, sa.correlation_id, [e.env for e in prefix_events], missing)
+        rebuilt = _build_facts(agent_id, sa.correlation_id, [e.env for e in prefix_events], missing,
+                               ({e.seq: signed.get(e.seq, {}) for e in prefix_events}, cedar.get("entities") or [])
+                               if v3 else None)
         r.facts_match = rebuilt.data == facts_bytes
         if r.facts_match is False:
             bad("its facts are not the facts of this run's signed events")
@@ -787,6 +802,8 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
                 rule_ids = list(_obj((_obj(cedar.get("policies")) or {}).get("staticPolicies")) or {})
                 cost = len(cs_bytes) * (len(requests) if isinstance(requests, list) else 0)
                 _recompute(env, cs_bytes, facts_bytes, rule_ids, cost, engine, budget, r, bad, note)
+    if v3 and ctl is not None and contiguous:
+        _check_enforcement(policy, cs_bytes, ctl, prefix_events, signed, engine, budget, r, bad, note)
 
     # Approval (§4.4) and required qualified time (§4.7).
     timestamps = _obj(policy.get("timestamps"))
@@ -827,6 +844,52 @@ def _check_policy(env: dict, cs_bytes: Optional[bytes], cs: Optional[dict], fact
         bad("the approval record approves another approval scope")
     if _str(approval.get("agentId")) != agent_id:
         bad("the approval record is for another agent")
+
+
+def _check_enforcement(policy: dict, cs_bytes: bytes, ctl: _Signed, prefix_events: list[_Signed],
+                       signed: Mapping[Any, dict], engine: Optional[PolicyEngine], budget: Optional[list[int]],
+                       r: _EvaluationV2Check, bad: Callable[[str], None], note: Callable[[str], None]) -> None:
+    """ControlEvaluation v3 §7: ``policy.enforcement`` against the run — its core-free rules always, the whole member
+    recomputed when the verifier has the core the evaluation names."""
+    from sigill_sdk._agent_compare import compare, member_problems
+    member = policy.get("enforcement")
+    named = _str((_obj(policy.get("evaluator")) or {}).get("engine"))
+    events = [(e.env, signed.get(e.seq, {})) for e in prefix_events]
+    control = AgentRunArtifact(ctl.env, {}, dict(signed.get("control", {})))
+    problems = member_problems(member, control, events, named)
+    for m in problems:
+        bad(m)
+    if problems:
+        return
+    if engine is None:
+        note("its enforcement comparison was not recomputed: no engine was given")
+        return
+    try:
+        mine = f"cedar-policy@{engine.version}"
+        if named != mine:
+            note(f"its enforcement comparison was not recomputed: it names the engine {_n(named)}, the verifier has "
+                 f"{mine}")
+            return
+        if _obj(member).get("comparison") == "performed":  # a not_performed member is fully checked above
+            cost = len(cs_bytes) * len(prefix_events)
+            if budget is not None:
+                if cost > budget[0]:
+                    note("its enforcement comparison was not recomputed: the recomputation budget of this verification "
+                         "is used up")
+                    return
+                budget[0] -= cost
+            again = compare(control, [AgentRunArtifact(env, {}, dict(d)) for env, d in events], cs_bytes, engine)
+            if not _json_equal(again, member):
+                bad(f"its enforcement comparison does not recompute with {mine}")
+                return
+    except Exception as e:  # noqa: BLE001 — the verifier never raises because of an engine
+        message = str(e).rstrip(".")
+        if isinstance(e, PolicyEngineError) and e.refused:
+            bad(f"its enforcement comparison cannot be recomputed: {message}")
+        else:
+            note(f"its enforcement comparison was not recomputed: {message}")
+        return
+    r.enforcement_recomputed = True
 
 
 RECOMPUTE_BUDGET = 536_870_912
@@ -1120,6 +1183,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
     coverage = _TimestampCoverage(policy)
     timeline: list[tuple[int, Optional[datetime], Optional[datetime]]] = []
     sealed_objects: list[tuple[str, _ArtifactCheck]] = []
+    signed: dict = {}  # the object digests each signature confirms: event seq → {uri: hex}, and "control"
     stamped: list[tuple[str, _ArtifactCheck]] = []  # events, in seq order
 
     for art, index, sa, error in arts:
@@ -1172,6 +1236,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             ts_required += 1
 
         c = _check_artifact(sa, art, bundle.payloads, verifier, label)
+        signed[seq] = {o.uri: c.signed_digest(o.uri) for o in sa.objects if c.signed_digest(o.uri) is not None}
         findings.extend(c.findings)
         if not c.all_retained:
             obj_warn = True
@@ -1257,6 +1322,8 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             sig_ok = False
             findings.append(f"{label}: {cty_problem}.")
         ctl_check = _check_artifact(ctl, bundle.control_artifact, bundle.payloads, verifier, label)
+        signed["control"] = {o.uri: ctl_check.signed_digest(o.uri) for o in ctl.objects
+                             if ctl_check.signed_digest(o.uri) is not None}
         findings.extend(ctl_check.findings)
         if not ctl_check.all_retained:
             obj_warn = True
@@ -1464,7 +1531,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             ef.append(f"{label}: a timestamp is required and it is {'invalid' if c.timestamp_present else 'missing'}.")
 
         subject = _obj(sa.env.get("subject")) or {}
-        is_v2 = _str(sa.env.get("schemaVersion")) == "2"
+        is_v2 = _str(sa.env.get("schemaVersion")) in ("2", "3")  # v3 is v2 plus the enforcement comparison
         kind = _str(sa.env.get("kind")) if is_v2 else None
         if kind == "policy":
             subject_bound = (_policy_subject_bound(sa.env, subject, good, ctl_sig, run_end_sig)
@@ -1502,7 +1569,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             ef.append(f"{label}: its baseline is not the one sealed in the Control Artifact.")
         # Only a conforming envelope is recomputed.
         v2 = _check_evaluation_v2(sa, c, bundle.payloads, ctl, good, label, None if sa.conformance else engine,
-                                  budget) if is_v2 else None
+                                  budget, signed) if is_v2 else None
         if v2 is not None:
             ef.extend(v2.findings)
             eval_notes.extend(v2.notes)
@@ -1524,6 +1591,7 @@ def verify_agent_run(bundle: AgentRunBundle, verifier: BlindObjectsVerifier, *,
             policy_status=v2.policy_status if v2 else None, policy_state=v2.state if v2 else None,
             facts_match=v2.facts_match if v2 else None, policy_digests_match=v2.digests_match if v2 else None,
             results_recomputed=v2.results_recomputed if v2 else False,
+            enforcement_recomputed=v2.enforcement_recomputed if v2 else False,
             sealed_for=_sealed_for_of(sa.jws),
             qualified_timestamps_required=v2.qualified_required if v2 else False,
             qualified_timestamps_met=v2.qualified_met if v2 else None,

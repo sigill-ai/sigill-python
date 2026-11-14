@@ -1,0 +1,1841 @@
+{
+ "description": "Source of vector 15. Each case lists the events after run_start, in order, as they are sealed — records (`authorization` with `reason`) and halts included, because these runs are not what a correct guard seals. `controlSet` names vector 13's document (default, `enforcement` merged as in vector 14) or a variant (`b`, `c`, `d`). `configuration` overrides the Control Artifact's object bytes; `drop` removes events from what the evaluator receives; `child` makes the run a child run; `schemaVersion` seals its events under another Execution Evidence version. `args`, `definition` and `covers` are vector 14's. _generate.mjs computes every expectation; nothing here is an expected value.",
+ "cases": [
+  {
+   "name": "e01-refusal-missing",
+   "covers": "a due refusal is missing: the forbidden call ran",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "tool_result",
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e02-unknown-tool-allowed",
+   "covers": "a call of an unknown tool ran under unknownTools: deny",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "fs.delete",
+     "useId": "call-1",
+     "args": "P",
+     "consequential": true
+    },
+    {
+     "type": "tool_result",
+     "tool": "fs.delete",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e03-tool-changed-allowed",
+   "covers": "a call of a bound tool with another definition ran",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.update_address",
+     "useId": "call-1",
+     "args": "D",
+     "consequential": true,
+     "definition": "crm.update_address definition, edited"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.update_address",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e04-rule-error-allowed",
+   "covers": "a call whose deny rule errors ran under onRuleError: deny",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "ledger.export",
+     "useId": "call-1",
+     "args": "L"
+    },
+    {
+     "type": "tool_result",
+     "tool": "ledger.export",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e05-configuration-not-enforced",
+   "covers": "the locked tool manifest differs and the run was not refused",
+   "configuration": {
+    "tool-manifest": "tool-manifest v2"
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e06-halt-missing-halt-rule",
+   "covers": "a halt rule matched the third refund; the call was refused but the run went on",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-1",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-2",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-3",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-refund-loop",
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-3"
+    },
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-4",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-4"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e07-halt-missing-denial-count",
+   "covers": "haltAfterDenials: 2; the second and the third denial do not halt",
+   "enforcement": {
+    "haltAfterDenials": 2
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-2",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-3",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-3"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e08-halt-missing-non-tool",
+   "covers": "a halt rule matched a retrieval and the run went on",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "retrieval"
+    },
+    {
+     "type": "model_output"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e09-unknown-tool-and-halt-missing",
+   "covers": "an unknown tool that a halt rule matches ran",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "fs.wipe",
+     "useId": "call-1",
+     "args": "P",
+     "consequential": true
+    },
+    {
+     "type": "tool_result",
+     "tool": "fs.wipe",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e10-halt-missing-delegation",
+   "covers": "a halt rule on delegation matched and the run went on",
+   "events": [
+    {
+     "type": "delegation",
+     "childAgentId": "urn:example:agent:reviewer"
+    },
+    {
+     "type": "delegation_result"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e44-halt-due-record-then-end",
+   "covers": "the call is refused (unknown_tool) but the due halt is missing",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "fs.wipe",
+     "useId": "call-1",
+     "args": "P",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "unknown_tool",
+     "tool": "fs.wipe",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e11-unfounded-record",
+   "covers": "a record where nothing was due",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "read-loop-limit"
+     ],
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e12-unfounded-record-non-tool",
+   "covers": "a record and a halt after a model output where nothing was due",
+   "events": [
+    {
+     "type": "model_output"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-delegation"
+     ]
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e13-unfounded-halt",
+   "covers": "a refusal was due; the run was also halted",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e14-reason-mismatch",
+   "covers": "the record gives reason rule where unknown_tool was due",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "fs.wipe",
+     "useId": "call-1",
+     "args": "P",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-fs-wipe"
+     ],
+     "tool": "fs.wipe",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e15-rules-mismatch-extra",
+   "covers": "the record names a rule that did not match",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search",
+      "read-loop-limit"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e16-rules-mismatch-fewer",
+   "covers": "the record of the halting refund names one of its two rules",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-1",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-2",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-3",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-refund-loop"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-3"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e17-two-classes-one-event",
+   "covers": "the halt is missing and the record names fewer rules",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-1",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-2",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-3",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-3"
+    },
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-4",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-4"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e18-observe-mode-record",
+   "covers": "a record in observe mode, where nothing is due",
+   "enforcement": {
+    "mode": "observe"
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e43-configuration-locked-unavailable-record",
+   "covers": "configuration_locked was due; the record says unavailable",
+   "configuration": {
+    "tool-manifest": "tool-manifest v2"
+   },
+   "events": [
+    {
+     "type": "authorization",
+     "reason": "unavailable"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e33-default-effect-halt",
+   "covers": "defaultEffect: halt makes a rule without an effect annotation halt",
+   "enforcement": {
+    "defaultEffect": "halt"
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-1",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e34-tool-changed-over-rule",
+   "covers": "tool_changed wins over a matching rule; dueRules absent",
+   "events": [
+    {
+     "type": "human_approval",
+     "decision": "rejected",
+     "covers": {
+      "tool": "crm.update_address",
+      "args": "D"
+     }
+    },
+    {
+     "type": "tool_call",
+     "tool": "crm.update_address",
+     "useId": "call-1",
+     "args": "D",
+     "consequential": true,
+     "definition": "crm.update_address definition, edited"
+    },
+    {
+     "type": "authorization",
+     "reason": "tool_changed",
+     "tool": "crm.update_address",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e35-rule-error-allowed-rule-matches",
+   "covers": "onRuleError: allow; the erroring rule is not due, a matching rule is",
+   "enforcement": {
+    "onRuleError": "allow"
+   },
+   "events": [
+    {
+     "type": "human_approval",
+     "decision": "rejected",
+     "covers": {
+      "tool": "ledger.export",
+      "args": "L"
+     }
+    },
+    {
+     "type": "tool_call",
+     "tool": "ledger.export",
+     "useId": "call-1",
+     "args": "L"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "rejected-is-final"
+     ],
+     "tool": "ledger.export",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e36-erroring-halt-rule-call",
+   "covers": "an erroring halt rule on a call: rule_error, no halt",
+   "controlSet": "b",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "ledger.preview",
+     "useId": "call-1",
+     "args": "L"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule_error",
+     "rules": [
+      "halt-weight-call"
+     ],
+     "tool": "ledger.preview",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e37-erroring-halt-rule-non-tool",
+   "covers": "an erroring halt rule on a retrieval has no effect",
+   "controlSet": "b",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "retrieval"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e38-unknown-tools-allow-halt-rule",
+   "covers": "unknownTools: allow; a halt rule still halts",
+   "enforcement": {
+    "unknownTools": "allow"
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "fs.wipe",
+     "useId": "call-1",
+     "args": "P",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-fs-wipe"
+     ],
+     "tool": "fs.wipe",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e39-no-rules-refused",
+   "covers": "a control set without cedar: every tool is unknown, the call refused",
+   "controlSet": "c",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "authorization",
+     "reason": "unknown_tool",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e40-no-rules-let-through",
+   "covers": "a control set without cedar: an unknown tool ran",
+   "controlSet": "c",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e41-no-enforcement-member",
+   "covers": "a control set without enforcement: nothing is due",
+   "controlSet": "d",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "tool_result",
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e42-locked-role-absent",
+   "covers": "a locked role the Control Artifact has no object for refuses the start",
+   "enforcement": {
+    "lockedConfiguration": {
+     "model-config": "b1a3d9f2a27fe7c0b5d63b9c2f93c40cb0c7e0d1b0f1f4a3a3c6d2f0b4f7e9a1"
+    }
+   },
+   "events": [
+    {
+     "type": "authorization",
+     "reason": "configuration_locked"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e49-rules-in-another-order",
+   "covers": "the record's rules in another order are the same rules",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-1",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-2",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-3",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval",
+      "halt-refund-loop"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-3"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e50-rules-empty-against-absent",
+   "covers": "rules: [] on an unknown_tool record equals absent rules",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "fs.delete",
+     "useId": "call-1",
+     "args": "P",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "unknown_tool",
+     "rules": [],
+     "tool": "fs.delete",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e19-missing-record-delays-halt",
+   "covers": "haltAfterDenials: 2; a missing record delays the halt by one denial",
+   "enforcement": {
+    "haltAfterDenials": 2
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "tool_result",
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-2",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-3",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-3"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e20-unfounded-record-advances-halt",
+   "covers": "haltAfterDenials: 2; a record that was not due brings the halt one denial earlier",
+   "enforcement": {
+    "haltAfterDenials": 2
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "read-loop-limit"
+     ],
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-2",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-2"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e32-count-stepped-over",
+   "covers": "haltAfterDenials: 2; the count has stepped over the number: every later denial is due to halt",
+   "enforcement": {
+    "haltAfterDenials": 2
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "read-loop-limit"
+     ],
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-2",
+     "args": "C"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "read-loop-limit"
+     ],
+     "tool": "crm.read_customer",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-3",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-3"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e21-refused-call-consumes-approval",
+   "covers": "a refused call consumes the approval that binds it",
+   "events": [
+    {
+     "type": "human_approval",
+     "decision": "approved",
+     "covers": {
+      "tool": "payments.refund",
+      "args": "A"
+     }
+    },
+    {
+     "type": "human_approval",
+     "decision": "approved",
+     "covers": {
+      "tool": "payments.refund",
+      "args": "A"
+     }
+    },
+    {
+     "type": "human_approval",
+     "decision": "approved",
+     "covers": {
+      "tool": "payments.refund",
+      "args": "A"
+     }
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-1",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "tool_result",
+     "tool": "payments.refund",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-2",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "tool_result",
+     "tool": "payments.refund",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-3",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-refund-loop"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-3"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-4",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-refund-loop",
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-4"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e22-unavailable-where-refusal-due",
+   "covers": "a record unavailable where a refusal was due: not checkable",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "unavailable",
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "e23-engine-not-available",
+   "covers": "the record names a core the evaluator does not have",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1",
+     "engine": "cedar-policy@99.0.0"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e24-engine-inconsistent",
+   "covers": "the records name two cores",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-2",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-2",
+     "engine": "cedar-policy@99.0.0"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e25-open-refusal-pending",
+   "covers": "the prefix ends on a call that is due a refusal",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    }
+   ]
+  },
+  {
+   "name": "e26-open-halt-pending",
+   "covers": "the prefix ends on the record of a call that is due a halt",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-1",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-2",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-2"
+    },
+    {
+     "type": "tool_call",
+     "tool": "payments.refund",
+     "useId": "call-3",
+     "args": "A",
+     "consequential": true
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-refund-loop",
+      "restricted-needs-bound-approval"
+     ],
+     "tool": "payments.refund",
+     "useId": "call-3"
+    }
+   ]
+  },
+  {
+   "name": "e27-open-nothing-due",
+   "covers": "the prefix ends on a call with nothing due",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    }
+   ]
+  },
+  {
+   "name": "e45-open-on-unfounded-record",
+   "covers": "the prefix ends on a record that was not due",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "read-loop-limit"
+     ],
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    }
+   ]
+  },
+  {
+   "name": "e46-open-on-unavailable-record",
+   "covers": "the prefix ends on an unavailable record",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "unavailable",
+     "tool": "search.web",
+     "useId": "call-1"
+    }
+   ]
+  },
+  {
+   "name": "e47-open-on-record-without-tool",
+   "covers": "the prefix ends on a halting record without tool",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "retrieval"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-retrieval-after-denial"
+     ]
+    }
+   ]
+  },
+  {
+   "name": "e28-gap",
+   "covers": "a gap: nothing is asserted after the prefix",
+   "drop": [
+    3
+   ],
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "model_output"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-2",
+     "args": "Q"
+    },
+    {
+     "type": "tool_result",
+     "tool": "search.web",
+     "useId": "call-2"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e48-gap-after-record",
+   "covers": "a gap after a record: whether a halt followed is unknown",
+   "drop": [
+    3
+   ],
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "model_output"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e29-ended-run-last-call",
+   "covers": "the same call as e25, decidable because the run ended",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e30-child-run",
+   "covers": "a child run is compared under its own control set",
+   "child": {
+    "parentCorrelationId": "urn:uuid:00000000-0000-4000-8000-15e000000001",
+    "parentDelegationSignatureSha256": "5d7c1f0e3b9a6d4c2e8f1a7b3c9d5e0f2a4b6c8d0e1f3a5b7c9d1e3f5a7b9c1d"
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "e31-child-after-delegation-halt",
+   "covers": "a child whose parent's guard halted at the delegation (set 14 case 30)",
+   "child": {
+    "parent": "30-delegation-halt"
+   },
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c01-executed-after-denial",
+   "covers": "a refused call has a result",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_result",
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c02-late-record",
+   "covers": "the record does not follow the call it names",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "model_output"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c09-record-without-tool-after-call",
+   "covers": "a record without tool directly after a call",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ]
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "c03-continued-after-halt",
+   "covers": "the run went on after an unavailable record",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "authorization",
+     "reason": "unavailable",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "model_output"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c04-record-after-record",
+   "covers": "a record directly after a record",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "halt-refund-loop"
+     ]
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c05-record-names-another-call",
+   "covers": "the record after a call names another call",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-2",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_result",
+     "tool": "search.web",
+     "useId": "call-2"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c06-unrecorded-halt",
+   "covers": "a halted run_end without a record",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "run_end",
+     "runDisposition": "halted"
+    }
+   ]
+  },
+  {
+   "name": "c07-duplicate-use-id",
+   "covers": "two calls share a use id",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "authorization",
+     "reason": "rule",
+     "rules": [
+      "no-web-search"
+     ],
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c08-configuration-locked-record-no-halt",
+   "covers": "a configuration_locked record and the run goes on",
+   "configuration": {
+    "tool-manifest": "tool-manifest v2"
+   },
+   "events": [
+    {
+     "type": "authorization",
+     "reason": "configuration_locked"
+    },
+    {
+     "type": "tool_call",
+     "tool": "crm.read_customer",
+     "useId": "call-1",
+     "args": "C"
+    },
+    {
+     "type": "tool_result",
+     "tool": "crm.read_customer",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  },
+  {
+   "name": "c10-evidence-version-mismatch",
+   "covers": "a run under a v2 control set sealed as Execution Evidence v3: it can hold no record, so it is not compared",
+   "schemaVersion": "3",
+   "events": [
+    {
+     "type": "tool_call",
+     "tool": "search.web",
+     "useId": "call-1",
+     "args": "Q"
+    },
+    {
+     "type": "tool_result",
+     "tool": "search.web",
+     "useId": "call-1"
+    },
+    {
+     "type": "run_end"
+    }
+   ]
+  }
+ ]
+}

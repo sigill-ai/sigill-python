@@ -1,0 +1,15 @@
+{
+ "name": "x08-no-finding-of-the-outcomes-class",
+ "run": "e06-halt-missing-halt-rule",
+ "needsEngine": false,
+ "because": "`let_through` without a let-through finding",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/decisions/2/findings",
+   "value": [
+    "rules_mismatch"
+   ]
+  }
+ ]
+}

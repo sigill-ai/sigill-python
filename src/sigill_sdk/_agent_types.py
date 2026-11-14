@@ -346,7 +346,8 @@ class EvaluationReference:
 
 @dataclass(frozen=True)
 class PolicyEvaluationRequest:
-    """A policy evaluation of a run (``spec/control-evaluation-v2.md`` §4): the results of the control set's
+    """A policy evaluation of a run (``spec/control-evaluation-v2.md`` §4; ``-v3.md`` for a v2 control set): the
+    results of the control set's
     Cedar rules over the run's facts, computed by the caller with the official Cedar core. The SDK builds the
     facts from :attr:`events`, derives ``overall``, the prefix and the state, and refuses anything that would
     not verify. See :meth:`ControlEvaluation.prepare_policy`."""
@@ -380,6 +381,9 @@ class PolicyEvaluationRequest:
     supersedes: Optional[EvaluationReference] = None
     evaluated_at: Optional[datetime] = None
     qualified: bool = False
+    enforcement: Optional[Mapping[str, Any]] = None
+    """For a v2 control set (a ControlEvaluation v3, ``spec/control-evaluation-v3.md``): the enforcement comparison,
+    as :meth:`AgentPolicy.compare_enforcement` returned it — required then, absent for a v1 control set."""
 
 
 @dataclass(frozen=True)

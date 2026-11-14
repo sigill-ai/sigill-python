@@ -1,0 +1,116 @@
+{
+ "case": "e19-missing-record-delays-halt",
+ "covers": "haltAfterDenials: 2; a missing record delays the halt by one denial",
+ "controlSet": "13",
+ "approvalScopeDigest": "d2a35f16e40e28b06c174714216691c831346d7c38c234680da71ca75bf6e668",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "4a6cf655a546016293cc6e67b8ae7d3688e569d87ecfd04dd6ea2ebb19ac3c65",
+ "prefix": {
+  "throughSeq": 7,
+  "finalSeq": 7,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "FAIL",
+   "where": [
+    "1",
+    "3",
+    "5"
+   ]
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 1,
+    "due": "refused",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "none",
+    "outcome": "let_through",
+    "findings": [
+     "refusal_missing"
+    ]
+   },
+   {
+    "seq": 3,
+    "due": "refused",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "refused",
+    "outcome": "as_required"
+   },
+   {
+    "seq": 5,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "halted",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "let_through"
+ }
+}

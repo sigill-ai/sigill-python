@@ -1,0 +1,87 @@
+{
+ "case": "e37-erroring-halt-rule-non-tool",
+ "covers": "an erroring halt rule on a retrieval has no effect",
+ "controlSet": "b",
+ "approvalScopeDigest": "b5c1d4d8e667d02345947ac86c910f969f06fdc94cfcec175e5d9dd8999e2fba",
+ "cedarDigest": "66edd45d23eb952c1d93a05984887a2841171103e25b0f426125782473ad4d1a",
+ "factsSha256": "d6d21b0eb80fef5a956053cc0b954ee5a7061e0fd762c90c7e1cf093f9ba9b71",
+ "prefix": {
+  "throughSeq": 4,
+  "finalSeq": 4,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-weight-call",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-weight-retrieval",
+   "result": "INDETERMINATE",
+   "where": [
+    "3"
+   ]
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "PASS"
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "INDETERMINATE",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "decisions": [],
+  "result": "as_required"
+ }
+}

@@ -1,0 +1,104 @@
+{
+ "case": "14-11-halt-on-retrieval",
+ "covers": "a halt rule fires on a non-tool event: one record without tool, then halted; later actions never happen",
+ "controlSet": "13",
+ "approvalScopeDigest": "682e204c8918ab71385ed68709c566bd6ce8bd9cc96860912bd130ff97c0d35f",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "8792b72664c024f0c6f8462ce789adf1ac6b9a1f6cc659694d28cc0fcf3e31bd",
+ "prefix": {
+  "throughSeq": 5,
+  "finalSeq": 5,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "FAIL",
+   "where": [
+    "3"
+   ]
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "FAIL",
+   "where": [
+    "1"
+   ]
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 1,
+    "due": "refused",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "refused",
+    "outcome": "as_required"
+   },
+   {
+    "seq": 3,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "halt-retrieval-after-denial"
+    ],
+    "recorded": "halted",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "as_required"
+ }
+}

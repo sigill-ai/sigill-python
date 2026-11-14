@@ -119,6 +119,44 @@ class _Outcome:
 _VERSION = re.compile(r"[0-9]+\.[0-9]+\.[0-9]+")
 
 
+def _configuration_locked(settings: Any, control: AgentRunArtifact) -> bool:
+    """Control Set v2 §7.4 rule 1: an entry of ``lockedConfiguration`` whose role the Control Artifact lacks, or whose
+    signed digest differs."""
+    objects = control.envelope.get("objects") if isinstance(control.envelope.get("objects"), list) else []
+    digests = {o.get("role"): control.object_digests.get(o.get("uri")) for o in objects if isinstance(o, dict)}
+    return any(digests.get(role) != hex_ for role, hex_ in settings.locked_configuration.items())
+
+
+def _due(type_: str, tool_name: Optional[str], definition: Optional[str], reason: tuple[str, ...],
+         errors: tuple[str, ...], settings: Any, tools: dict, denials: int, *,
+         at_least: bool) -> Optional[tuple[str, tuple[str, ...], bool]]:
+    """What Control Set v2 §7.2–§7.3 require after an event of an enforced run, from Cedar's diagnostics (sorted) for
+    its facts request: (reason, rules, halt) or None. ``definition``: the signed digest of a call's one
+    ``tool-definition`` object; ``denials``: its ``denialsSoFar``. The guard halts on the denial count when it equals
+    ``haltAfterDenials``; an evaluator when it is at least that (Control Set v2 §8.2) — ``at_least``. The one rule the
+    guard and the evaluator share."""
+    effect = settings.rule_effects.get
+    halting = tuple(r for r in reason if effect(r) == "halt")
+    if type_ != "tool_call":  # §7.3
+        return ("rule", halting, True) if halting else None
+    blocking_errors = tuple(r for r in errors if effect(r) in ("deny", "halt"))
+    blocking = tuple(r for r in reason if effect(r) in ("deny", "halt"))
+    attrs = tools.get(tool_name) if tool_name is not None else None
+    if attrs is None and settings.unknown_tools == "deny":
+        denial: tuple = ("unknown_tool", ())
+    elif attrs is not None and "definitionSha256" in attrs and definition != attrs["definitionSha256"]:
+        denial = ("tool_changed", ())
+    elif blocking_errors and settings.on_rule_error == "deny":
+        denial = ("rule_error", blocking_errors)
+    elif blocking:
+        denial = ("rule", blocking)
+    else:
+        return None
+    # §7.2: a matching halt rule always halts, whatever reason won the record; so does the denial count.
+    limit, count = settings.halt_after_denials, denials + 1
+    return denial[0], denial[1], bool(halting) or (limit > 0 and (count >= limit if at_least else count == limit))
+
+
 def _guard_for(control_set: AgentControlSet, enforcement: Optional[Enforcement], agent_id: str,
                is_child_run: bool) -> Optional["_Guard"]:
     """Before anything is sealed: the run's guard, or None. Raises ValueError for an enforcing control set without
@@ -192,33 +230,13 @@ class _Guard:
         if diagnostics is None:  # §7.5
             return _Outcome("unavailable", (), True, call)
         reason, errors = diagnostics
-        effect = self.settings.rule_effects.get
-        halting = tuple(r for r in reason if effect(r) == "halt")
         observed = _Outcome(None, reason, False, None) if reason else None
-        if call is None:  # §7.3
-            return _Outcome("rule", halting, True, None) if halting else observed
-        blocking_errors = tuple(r for r in errors if effect(r) in ("deny", "halt"))
-        blocking = tuple(r for r in reason if effect(r) in ("deny", "halt"))
-        attrs = self.tools.get(call["name"])
-        if attrs is None and self.settings.unknown_tools == "deny":
-            denial: Optional[tuple] = ("unknown_tool", ())
-        elif attrs is not None and "definitionSha256" in attrs \
-                and self._definition(artifact) != attrs["definitionSha256"]:
-            denial = ("tool_changed", ())
-        elif blocking_errors and self.settings.on_rule_error == "deny":
-            denial = ("rule_error", blocking_errors)
-        elif blocking:
-            denial = ("rule", blocking)
-        else:
-            return observed
-        # §7.2: a matching halt rule always halts, whatever reason won the record; so does the denial count.
-        limit = self.settings.halt_after_denials
-        halt = bool(halting) or (limit > 0 and self.facts.denials + 1 == limit)
-        return _Outcome(denial[0], denial[1], halt, call)
+        due = _due(type_, call["name"] if call else None, self._definition(artifact) if call else None, reason, errors,
+                   self.settings, self.tools, self.facts.denials, at_least=False)
+        return observed if due is None else _Outcome(due[0], due[1], due[2], call)
 
     def _gate(self, control: AgentRunArtifact) -> Optional[str]:
-        digests = {o.get("role"): control.object_digests.get(o.get("uri")) for o in control.envelope["objects"]}
-        if any(digests.get(role) != hex_ for role, hex_ in self.settings.locked_configuration.items()):
+        if _configuration_locked(self.settings, control):
             return "configuration_locked"
         if self.engine_failed:
             return "unavailable"

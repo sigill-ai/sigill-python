@@ -209,7 +209,8 @@ def _bundle_from_vector(name: str) -> AgentRunBundle:
                                   "agent-execution-evidence-v2.schema.json", "agent-execution-evidence-v3.schema.json",
                                   "agent-execution-evidence-v4.schema.json", "agent-policy-cedar-schema-v1.json",
                                   "agent-policy-cedar-schema-v2.json",
-                                  "control-evaluation-v1.schema.json", "control-evaluation-v2.schema.json"])
+                                  "control-evaluation-v1.schema.json", "control-evaluation-v2.schema.json",
+                                  "control-evaluation-v3.schema.json"])
 def test_bundled_schema_is_a_byte_exact_copy_of_the_spec(name: str) -> None:
     bundled = REPO / "src" / "sigill_sdk" / "_schemas" / name
     assert bundled.read_bytes() == (REPO / "spec" / name).read_bytes()

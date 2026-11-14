@@ -1,0 +1,45 @@
+{
+ "name": "x06-decisions-not-ascending",
+ "run": "14-24-deny-and-halt-one-call",
+ "needsEngine": false,
+ "because": "decisions do not ascend by seq",
+ "patch": [
+  {
+   "op": "replace",
+   "path": "/policy/enforcement/decisions",
+   "value": [
+    {
+     "seq": 5,
+     "due": "halted",
+     "dueReason": "rule",
+     "dueRules": [
+      "halt-refund-loop",
+      "restricted-needs-bound-approval"
+     ],
+     "recorded": "halted",
+     "outcome": "as_required"
+    },
+    {
+     "seq": 1,
+     "due": "refused",
+     "dueReason": "rule",
+     "dueRules": [
+      "restricted-needs-bound-approval"
+     ],
+     "recorded": "refused",
+     "outcome": "as_required"
+    },
+    {
+     "seq": 3,
+     "due": "refused",
+     "dueReason": "rule",
+     "dueRules": [
+      "restricted-needs-bound-approval"
+     ],
+     "recorded": "refused",
+     "outcome": "as_required"
+    }
+   ]
+  }
+ ]
+}

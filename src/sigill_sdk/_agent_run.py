@@ -29,10 +29,10 @@ from sigill_sdk._agent_profiles import (
     CONTROL_ARTIFACT_SCHEMA,
     CONTROL_EVALUATION_CONTENT_TYPE,
     CONTROL_EVALUATION_SCHEMA,
-    CONTROL_EVALUATION_SCHEMA_V2,
     EXECUTION_EVIDENCE_CONTENT_TYPE,
     EXECUTION_EVIDENCE_SCHEMA,
     MAX_ARTIFACTS,
+    _evaluation_schema_for,
     _execution_schema_for,
     _format_time,
     _int,
@@ -1387,7 +1387,9 @@ class ControlEvaluation:
     @staticmethod
     def prepare_policy(request: PolicyEvaluationRequest, *,
                        _clock: Optional[Callable[[], datetime]] = None) -> PreparedEvaluation:
-        """Builds a policy evaluation (``spec/control-evaluation-v2.md`` §4) ready to sign. Nothing is sent.
+        """Builds a policy evaluation ready to sign: ControlEvaluation v2 (``spec/control-evaluation-v2.md`` §4) for a
+        v1 control set, v3 (``spec/control-evaluation-v3.md``: facts v2 and the enforcement comparison) for a v2 one.
+        Nothing is sent.
 
         :raises ValueError: the evaluation would not verify."""
         if request is None:
@@ -1402,12 +1404,13 @@ class ControlEvaluation:
         if problems:
             raise ValueError("Invalid policy control set: " + "; ".join(problems))
         policy_doc = json.loads(doc)
-        if "schemaVersion" in policy_doc:
-            raise ValueError("Policy evaluations of a v2 control set are not specified yet (Control Evaluation v2 "
-                             "fixes factsVersion 1).")
-        cedar = policy_doc.get("cedar")
-        if not isinstance(cedar, dict):
+        v3 = "schemaVersion" in policy_doc  # a v2 control set is evaluated as ControlEvaluation v3
+        cedar = policy_doc.get("cedar") if isinstance(policy_doc.get("cedar"), dict) else None
+        if cedar is None and not v3:
             raise ValueError("The control set carries no Cedar rules.")
+        if v3 != (request.enforcement is not None):
+            raise ValueError("enforcement (AgentPolicy.compare_enforcement) is required exactly when the control set is "
+                             "a v2 one.")
         cs_uri, cs_node = _control_set_object(control, doc)
         if _str(cs_node.get("contentType")) != POLICY_CONTROL_SET_CONTENT_TYPE:
             raise ValueError("The Control Artifact's control set is not a policy control set.")
@@ -1429,7 +1432,9 @@ class ControlEvaluation:
         events = sorted(request.events or [], key=lambda e: (e.seq is not None, e.seq or 0))
         if not events:
             raise ValueError("events must hold the evaluated prefix, starting at seq 0.")
-        facts = _build_facts(agent_id, correlation_id, [e.envelope for e in events], list(request.missing_seqs or []))
+        entities = (cedar or {}).get("entities") or []
+        facts = _build_facts(agent_id, correlation_id, [e.envelope for e in events], list(request.missing_seqs or []),
+                             ({e.seq: e.object_digests for e in events}, entities) if v3 else None)
         if facts.missing_seqs and facts.missing_seqs[0] != facts.through_seq + 1:
             raise ValueError("missing_seqs must start right after the evaluated prefix.")
         last = events[-1]
@@ -1437,7 +1442,7 @@ class ControlEvaluation:
         finalized = run_end is not None and not facts.missing_seqs
 
         rules = list(request.rules or [])
-        rule_ids = list(cedar["policies"]["staticPolicies"])
+        rule_ids = list(cedar["policies"]["staticPolicies"]) if cedar is not None else []
         if set(rule_ids) != {r.id for r in rules} or len(rules) != len(rule_ids):
             raise ValueError("rules must hold exactly one result per Cedar rule of the control set.")
         for r in rules:
@@ -1477,8 +1482,8 @@ class ControlEvaluation:
             "approvalScopeDigest": policy_digests.approval_scope_digest,
             "cedarDigest": policy_digests.cedar_digest,
             "policyStatus": request.policy_status,
-            "evaluator": {"engine": request.engine, "factsVersion": FACTS_VERSION,
-                          "schemaSha256": _str(cedar.get("schemaSha256"))},
+            "evaluator": {"engine": request.engine, "factsVersion": "2" if v3 else FACTS_VERSION,
+                          "schemaSha256": _str((cedar or {}).get("schemaSha256"))},
             "prefix": {
                 "throughSeq": facts.through_seq,
                 "finalSeq": None if run_end is None else _int((_obj(run_end.envelope.get("step")) or {}).get("finalSeq")),
@@ -1486,6 +1491,15 @@ class ControlEvaluation:
             },
             "state": "finalized" if finalized else "partial",
         }
+        if cedar is None:  # v3 §2: both only with a cedar member
+            del policy["cedarDigest"], policy["evaluator"]["schemaSha256"]
+        if v3:
+            from sigill_sdk._agent_compare import member_problems
+            problems = member_problems(request.enforcement, control, [(e.envelope, e.object_digests) for e in events],
+                                       request.engine)
+            if problems:
+                raise ValueError("enforcement does not fit this run: " + "; ".join(problems))
+            policy["enforcement"] = json.loads(json.dumps(dict(request.enforcement)))
         if request.private_controls_reported is not None:
             policy["privateControlsReported"] = request.private_controls_reported
         # §4.7: present exactly when the approval record requires qualified time.
@@ -1514,7 +1528,7 @@ class ControlEvaluation:
             controls.append(j)
         envelope = _evaluation_envelope("policy", "verifier", request.evaluator_id, request.evaluator_version, control,
                                         subject, now, request.evaluated_at, controls, [r.result for r in rules],
-                                        objects, request.supersedes)
+                                        objects, request.supersedes, "3" if v3 else "2")
         envelope["policy"] = policy
         return replace(_prepared(envelope, seal, [cs_uri], digests, payloads),
                        requires_qualified_timestamp=requires_qualified)
@@ -1597,10 +1611,10 @@ def _control_set_object(control: AgentRunArtifact, doc: bytes) -> tuple[str, dic
 def _evaluation_envelope(kind: str, actor_type: str, actor_id: str, actor_version: str, control: AgentRunArtifact,
                          subject: dict, now: datetime, evaluated_at: Optional[datetime], controls: list[dict],
                          results: Sequence[str], objects: list[dict],
-                         supersedes: Optional[EvaluationReference]) -> dict:
+                         supersedes: Optional[EvaluationReference], schema_version: str = "2") -> dict:
     envelope = {
         "schemaName": CONTROL_EVALUATION_SCHEMA,
-        "schemaVersion": "2",
+        "schemaVersion": schema_version,
         "kind": kind,
         "evidenceId": str(uuid.uuid4()),
         "createdAt": _format_time(now),
@@ -1620,7 +1634,7 @@ def _evaluation_envelope(kind: str, actor_type: str, actor_id: str, actor_versio
 
 def _prepared(envelope: dict, seal: list[SignedObjectDigest], reused: Sequence[str], digests: dict[str, str],
               payloads: dict[str, bytes]) -> PreparedEvaluation:
-    _prevalidate(envelope, CONTROL_EVALUATION_SCHEMA_V2)
+    _prevalidate(envelope, _evaluation_schema_for(envelope))
     return PreparedEvaluation(envelope, hash_bytes(canonicalize(envelope)), seal, frozenset(reused), digests, payloads)
 
 

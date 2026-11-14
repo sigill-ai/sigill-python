@@ -1,0 +1,13 @@
+{
+ "name": "x11-cedar-digest-without-cedar",
+ "run": "e39-no-rules-refused",
+ "needsEngine": false,
+ "because": "`cedarDigest` without a `cedar` member (§2)",
+ "patch": [
+  {
+   "op": "add",
+   "path": "/policy/cedarDigest",
+   "value": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52"
+  }
+ ]
+}

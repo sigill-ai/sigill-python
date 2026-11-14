@@ -1,0 +1,119 @@
+{
+ "case": "e07-halt-missing-denial-count",
+ "covers": "haltAfterDenials: 2; the second and the third denial do not halt",
+ "controlSet": "13",
+ "approvalScopeDigest": "d2a35f16e40e28b06c174714216691c831346d7c38c234680da71ca75bf6e668",
+ "cedarDigest": "75efa931f5b0df686ca0a678ef5ba6a460dbaa1eb2fa479fa97d63b8328b3b52",
+ "factsSha256": "f14fa6e004163242fed07c3719dd382970df90d325537bb2095488bd3190beb8",
+ "prefix": {
+  "throughSeq": 7,
+  "finalSeq": 7,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [
+  {
+   "id": "export-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-consequential-export",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-fs-wipe",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-refund-loop",
+   "result": "PASS"
+  },
+  {
+   "id": "halt-retrieval-after-denial",
+   "result": "PASS"
+  },
+  {
+   "id": "no-delegation",
+   "result": "PASS"
+  },
+  {
+   "id": "no-unpaired-consequential",
+   "result": "PASS"
+  },
+  {
+   "id": "no-web-search",
+   "result": "FAIL",
+   "where": [
+    "1",
+    "3",
+    "5"
+   ]
+  },
+  {
+   "id": "preview-weight",
+   "result": "PASS"
+  },
+  {
+   "id": "read-loop-limit",
+   "result": "PASS"
+  },
+  {
+   "id": "rejected-is-final",
+   "result": "PASS"
+  },
+  {
+   "id": "restricted-needs-bound-approval",
+   "result": "PASS"
+  },
+  {
+   "id": "shadow-repeat-read",
+   "result": "PASS"
+  }
+ ],
+ "overall": "FAIL",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 1,
+    "due": "refused",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "refused",
+    "outcome": "as_required"
+   },
+   {
+    "seq": 3,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "refused",
+    "outcome": "let_through",
+    "findings": [
+     "halt_missing"
+    ]
+   },
+   {
+    "seq": 5,
+    "due": "halted",
+    "dueReason": "rule",
+    "dueRules": [
+     "no-web-search"
+    ],
+    "recorded": "refused",
+    "outcome": "let_through",
+    "findings": [
+     "halt_missing"
+    ]
+   }
+  ],
+  "result": "let_through"
+ }
+}

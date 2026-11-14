@@ -1,0 +1,31 @@
+{
+ "case": "e39-no-rules-refused",
+ "covers": "a control set without cedar: every tool is unknown, the call refused",
+ "controlSet": "c",
+ "approvalScopeDigest": "1f8413e1866d8d6fd5001aee87e28d1f6ef3f99d1cdff2eaf330c7a9464de1a0",
+ "factsSha256": "3482ee6a026ebaf12e74c32af4119747d9ecd07569a6db400f253705cfe62432",
+ "prefix": {
+  "throughSeq": 3,
+  "finalSeq": 3,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [],
+ "overall": "PASS",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "recordedEngine": "cedar-policy@4.14.0",
+  "decisions": [
+   {
+    "seq": 1,
+    "due": "refused",
+    "dueReason": "unknown_tool",
+    "recorded": "refused",
+    "outcome": "as_required"
+   }
+  ],
+  "result": "as_required"
+ }
+}

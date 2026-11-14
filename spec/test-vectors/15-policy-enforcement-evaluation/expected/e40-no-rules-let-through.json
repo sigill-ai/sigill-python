@@ -1,0 +1,33 @@
+{
+ "case": "e40-no-rules-let-through",
+ "covers": "a control set without cedar: an unknown tool ran",
+ "controlSet": "c",
+ "approvalScopeDigest": "1f8413e1866d8d6fd5001aee87e28d1f6ef3f99d1cdff2eaf330c7a9464de1a0",
+ "factsSha256": "92eef638e4817c39f4b0a52fe9f99be520b58b057f1198e1c4a226e3eff09740",
+ "prefix": {
+  "throughSeq": 3,
+  "finalSeq": 3,
+  "missingSeqs": []
+ },
+ "state": "finalized",
+ "evaluatorEngine": "cedar-policy@4.14.0",
+ "controls": [],
+ "overall": "PASS",
+ "enforcementFindings": [],
+ "enforcement": {
+  "comparison": "performed",
+  "decisions": [
+   {
+    "seq": 1,
+    "due": "refused",
+    "dueReason": "unknown_tool",
+    "recorded": "none",
+    "outcome": "let_through",
+    "findings": [
+     "unknown_tool_allowed"
+    ]
+   }
+  ],
+  "result": "let_through"
+ }
+}

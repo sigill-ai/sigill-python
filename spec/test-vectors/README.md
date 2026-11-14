@@ -3,7 +3,7 @@
 Three reference scenarios for the envelope (the agent-profile vectors live in
 [`agent-run/`](agent-run/README.md), [`agent-run-tree/`](agent-run-tree/README.md) and
 [`10-agent-controlled-run/`](10-agent-controlled-run/README.md); the draft policy-enforcement vectors in
-[`13-policy-control-set-v2/`](13-policy-control-set-v2/README.md) and [`14-policy-enforcement/`](14-policy-enforcement/README.md)). Each SDK consumes them and asserts byte-equality of the canonical
+[`13-policy-control-set-v2/`](13-policy-control-set-v2/README.md), [`14-policy-enforcement/`](14-policy-enforcement/README.md) and [`15-policy-enforcement-evaluation/`](15-policy-enforcement-evaluation/README.md)). Each SDK consumes them and asserts byte-equality of the canonical
 output and hex-equality of the envelope hash. This is what makes the spec cross-language
 deterministic in practice rather than just on paper.
 
