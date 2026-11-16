@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sigill-sdk"
-version = "0.16.0"
-description = "AI evidence envelopes (AiEvidenceEnvelopeV1) — canonicalize, seal with RFC 3161 timestamps via Sigill, and verify."
+version = "0.16.1"
+description = "Seal and verify AI evidence and agent runs with Sigill: RFC 3161 timestamps, signed run records, policy enforcement and its independent evaluation."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "Apache-2.0" }
@@ -25,7 +25,7 @@ keywords = [
     "compliance",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
