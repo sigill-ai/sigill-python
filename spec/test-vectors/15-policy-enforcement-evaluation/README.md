@@ -1,4 +1,4 @@
-# Vector 15 — policy enforcement evaluation (draft)
+# Vector 15 — policy enforcement evaluation
 
 The enforcement comparison of ControlEvaluation v3 (`control-evaluation-v3.md` §4–§6) — for each event of a run
 under a v2 control set, what the control set required the guard to do against what the chain records — over vector

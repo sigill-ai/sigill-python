@@ -1,12 +1,12 @@
-# ControlEvaluation v2 — Specification (draft)
+# ControlEvaluation v2 — Specification
 
-**Status:** draft.
+**Status:** v2, released with the 0.11.0 SDKs. Changes are additive; a breaking change is a new version.
 **Content type:** `application/vnd.sigill.control-evaluation+json` (unchanged from v1)
 **Schema:** [`control-evaluation-v2.schema.json`](./control-evaluation-v2.schema.json)
 **Common rules:** [`agent-profiles-common-v1.md`](./agent-profiles-common-v1.md)
 **Builds on:** [ControlEvaluation v1](./control-evaluation-v1.md), [Agent Policy Control Set v1](./agent-policy-control-set-v1.md)
 
-> **Version 3 (draft):** [ControlEvaluation v3](./control-evaluation-v3.md) evaluates runs
+> **Version 3:** [ControlEvaluation v3](./control-evaluation-v3.md) evaluates runs
 > under a v2 policy control set (facts v2) and adds the enforcement comparison. v2 stays the
 > format for v1 control sets.
 

@@ -1,4 +1,4 @@
-# Vector 13 — policy control set v2 (draft)
+# Vector 13 — policy control set v2
 
 A v2 policy control set (`agent-policy-control-set-v2.md`) with `enforcement` in `enforce` mode
 and `cedar.entities` (an agent in an agent group, six tools, nested tool groups), built from

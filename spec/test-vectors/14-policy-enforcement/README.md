@@ -1,4 +1,4 @@
-# Vector 14 — policy enforcement (draft)
+# Vector 14 — policy enforcement
 
 Runs of the guard (`agent-policy-control-set-v2.md` §7) over vector 13's control set, sealed as
 Execution Evidence v4 (`agent-enforcement-v1.md`). Expected Cedar results come from the

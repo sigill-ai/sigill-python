@@ -1,11 +1,11 @@
-# Agent Policy Control Set v1 (draft)
+# Agent Policy Control Set v1
 
-Status: **draft**. Defines a declared agent policy carried in the Control Artifact's
+Status: **v1**, released with the 0.10.0 SDKs. Changes are additive; a breaking change is a new version. Defines a declared agent policy carried in the Control Artifact's
 `control-set` object, how the policy is identified, and the facts a run is evaluated on.
 Nothing here changes the Control Artifact, Execution Evidence or Control Evaluation
 schemas.
 
-> **Version 2 (draft):** [Agent Policy Control Set v2](./agent-policy-control-set-v2.md) adds enforcement (deny and halt before the action) and facts v2.
+> **Version 2:** [Agent Policy Control Set v2](./agent-policy-control-set-v2.md) adds enforcement (deny and halt before the action) and facts v2.
 
 ## 1. Recognition
 

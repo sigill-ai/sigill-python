@@ -366,8 +366,8 @@ cover one controlled run:
 | Before | [Control Artifact](spec/agent-control-artifact-v1.md) | configuration, control set, baseline, timestamp policy |
 | During | [Execution Evidence](spec/agent-execution-evidence-v1.md) | one artifact per event, chained by signature |
 | During | [Model Calls](spec/agent-model-calls-v1.md) (execution `schemaVersion "3"`) | per model call: the model that served it and the provider's own ids for the call, so the provider can confirm it against its logs; prompts and responses as digests only |
-| During | [Enforcement (draft)](spec/agent-enforcement-v1.md) (execution `schemaVersion "4"`) | the guard's denials and halts before the action, recomputable from the [policy control set v2](spec/agent-policy-control-set-v2.md) |
-| After | [Control Evaluation](spec/control-evaluation-v1.md), [v2 (draft)](spec/control-evaluation-v2.md) | what an independent verifier observed, and each control's result; v2 adds policy evaluations (reproducible from the run's facts) and the producer's own attested results |
+| During | [Enforcement](spec/agent-enforcement-v1.md) (execution `schemaVersion "4"`) | the guard's denials and halts before the action, recomputable from the [policy control set v2](spec/agent-policy-control-set-v2.md) |
+| After | [Control Evaluation](spec/control-evaluation-v1.md), [v2](spec/control-evaluation-v2.md) | what an independent verifier observed, and each control's result; v2 adds policy evaluations (reproducible from the run's facts) and the producer's own attested results |
 
 To record model calls, start the run with `records_model_calls=True` and give any
 provider client built on httpx a `ModelCallTransport` (Anthropic, OpenAI, Azure
@@ -553,7 +553,7 @@ print(run.delivery)   # AgentRunDelivery(status="delivered", delivered=…, pend
 - `deliver_run` needs a `SigillClient`; any other client is refused before anything is
   sealed.
 
-### Tool calls and bound approvals (Execution Evidence v4, draft)
+### Tool calls and bound approvals (Execution Evidence v4)
 
 A run whose control set is a [policy control set v2](spec/agent-policy-control-set-v2.md)
 (`"schemaVersion": "2"`, loaded with `AgentPolicy.control_set_from_document`) is
