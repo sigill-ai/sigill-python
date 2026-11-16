@@ -1,6 +1,6 @@
-# ControlEvaluation v3 — Specification (draft)
+# ControlEvaluation v3 — Specification
 
-**Status:** draft.
+**Status:** v3, released with the 0.16.0 SDKs. Changes are additive; a breaking change is a new version.
 **Content type:** `application/vnd.sigill.control-evaluation+json` (unchanged)
 **Schema:** [`control-evaluation-v3.schema.json`](./control-evaluation-v3.schema.json)
 **Common rules:** [`agent-profiles-common-v1.md`](./agent-profiles-common-v1.md)

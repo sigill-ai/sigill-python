@@ -1,6 +1,6 @@
-# Agent Policy Control Set v2 (draft)
+# Agent Policy Control Set v2
 
-Status: **draft**. Extends [Agent Policy Control Set v1](./agent-policy-control-set-v1.md)
+Status: **v2**, released with the 0.14.0 SDKs. Changes are additive; a breaking change is a new version. Extends [Agent Policy Control Set v1](./agent-policy-control-set-v1.md)
 with local enforcement: a guard in the producer may deny a tool call or halt a run before
 the action, and records the decision as sealed evidence (Execution Evidence v4,
 [Agent Enforcement v1](./agent-enforcement-v1.md)). The facts are extended so that anyone

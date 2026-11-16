@@ -1,6 +1,6 @@
-# Agent Enforcement v1 — Specification (draft)
+# Agent Enforcement v1 — Specification
 
-**Status:** draft.
+**Status:** v1, released with the 0.14.0 SDKs. Changes are additive; a breaking change is a new version.
 **Extends:** [AgentExecutionEvidence](./agent-execution-evidence-v1.md) (`schemaVersion "4"`)
 **Schema:** [`agent-execution-evidence-v4.schema.json`](./agent-execution-evidence-v4.schema.json)
 **Common rules:** [`agent-profiles-common-v1.md`](./agent-profiles-common-v1.md)

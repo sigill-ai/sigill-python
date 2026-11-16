@@ -1,6 +1,6 @@
-# Agent Delegation v1 — Sub-agent runs (draft)
+# Agent Delegation v1 — Sub-agent runs
 
-**Status:** r4, 2026-10-11. Normative once merged together with its test vectors
+**Status:** r4, 2026-10-11. Normative; released with the 0.8.1 SDKs together with its test vectors
 (`test-vectors/agent-run-tree/`). Extends [Agent Evidence Profiles v1](./agent-profiles-common-v1.md);
 everything there applies unless stated otherwise.
 

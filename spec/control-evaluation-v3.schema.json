@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.sigill.ai/control-evaluation/v3.json",
   "title": "ControlEvaluation",
-  "description": "ControlEvaluation v3 (draft): a state, policy or attested evaluation of one run, bound to its Control Artifact. See control-evaluation-v3.md.",
+  "description": "ControlEvaluation v3: a state, policy or attested evaluation of one run, bound to its Control Artifact. See control-evaluation-v3.md.",
   "type": "object",
   "additionalProperties": false,
   "required": [
